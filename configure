@@ -8,6 +8,46 @@
 CLICOLOR_FORCE= GREP_OPTIONS=
 unset CLICOLOR_FORCE GREP_OPTIONS
 
+src=`dirname "$0"`
+config_defines=$src/config_defines.h
+config_vars=""
+config_vars_printed=""
+echo > $config_defines
+
+has_not_been_printed()
+{
+for var in $config_vars_printed; do
+    if [ "$1" == "$var" ]; then
+      return 1
+    fi
+
+  return 0
+done
+}
+
+
+put_in_define() {
+
+config_vars="$1 $config_vars"
+
+for var in $config_vars; do
+  if [ $1 = $var ]; then
+    if has_not_been_printed $1; then
+      echo "" >> $config_defines
+      echo "#ifndef $1" >> $config_defines
+      echo "#define $1" >> $config_defines
+      echo "#endif // $1" >> $config_defines
+      config_vars="$1 $config_vars_printed"
+    fi
+
+  fi
+done
+}
+
+
+
+
+
 # Don't allow CCACHE, if present, to use cached results of compile tests!
 export CCACHE_RECACHE=yes
 
@@ -325,6 +365,16 @@ supported_cpu="no"
 supported_os="no"
 bogus_os="no"
 
+#**************************
+#PARSA START
+#**************************
+
+# gnu pth support
+pth="no"
+
+#**************************
+#PARSA END
+#**************************
 # parse CC options first
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -850,6 +900,19 @@ for opt do
   ;;
   --without-pixman) pixman="none"
   ;;
+
+#**************************
+#PARSA START
+#**************************
+
+  --disable-pth) pth="no"
+  ;;
+  --enable-pth) pth="yes"
+  ;;
+
+#**************************
+#PARSA END
+#**************************
   --disable-sdl) sdl="no"
   ;;
   --enable-sdl) sdl="yes"
@@ -1416,6 +1479,15 @@ disabled with --disable-FEATURE, default is enabled if available:
   qom-cast-debug  cast debugging support
   tools           build qemu-io, qemu-nbd and qemu-image tools
 
+  #**************************
+  #PARSA START
+  #**************************
+
+  GNU Pth         support for GNU Pth - The GNU Portable Threads
+
+  #**************************
+  #PARSA END
+  #**************************
 NOTE: The object files are built at the place where configure is launched
 EOF
 exit 0
@@ -5000,7 +5072,17 @@ EOF
     fi
   fi
 fi
+#**************************
+#PARSA START
+#**************************
 
+if test "$pth" = "yes" ; then
+  QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
+fi
+
+#**************************
+#PARSA END
+#**************************
 echo_version() {
     if test "$1" = "yes" ; then
         echo "($2)"
@@ -5149,7 +5231,15 @@ echo "tcmalloc support  $tcmalloc"
 echo "jemalloc support  $jemalloc"
 echo "avx2 optimization $avx2_opt"
 echo "replication support $replication"
+echo "#**************************"
+echo "#PARSA START"
+echo "#**************************"
 
+echo "GNU Pth           $pth"
+
+echo "#**************************"
+echo "#PARSA END"
+echo "#**************************"
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
 fi
@@ -5896,6 +5986,9 @@ if test "$linux" = "yes" ; then
 fi
 
 for target in $target_list; do
+echo > $config_defines
+echo "#ifndef CONFIG_DEFINES_H" >> $config_defines
+echo "#define CONFIG_DEFINES_H" >> $config_defines
 target_dir="$target"
 config_target_mak=$target_dir/config-target.mak
 target_name=$(echo $target | cut -d '-' -f 1)
@@ -6133,6 +6226,19 @@ if test "$target_softmmu" = "yes" ; then
     echo "TARGET_SUPPORTS_MTTCG=y" >> $config_target_mak
   fi
 fi
+#**************************
+#PARSA START
+#**************************
+
+if test "$pth" = "yes" ; then
+  echo "CONFIG_PTH=y" >> $config_target_mak
+  put_in_define "CONFIG_PTH"
+fi
+
+#**************************
+#PARSA END
+#**************************
+
 if test "$target_user_only" = "yes" ; then
   echo "CONFIG_USER_ONLY=y" >> $config_target_mak
   echo "CONFIG_QEMU_INTERP_PREFIX=\"$interp_prefix1\"" >> $config_target_mak
@@ -6363,3 +6469,6 @@ echo ' "$@"' >>config.status
 chmod +x config.status
 
 rm -r "$TMPDIR1"
+
+echo "" >> $config_defines
+echo "#endif // CONFIG_DEFINES_H" >> $config_defines

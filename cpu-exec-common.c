@@ -35,7 +35,12 @@ void cpu_loop_exit_noexc(CPUState *cpu)
 #if defined(CONFIG_SOFTMMU)
 void cpu_reloading_memory_map(void)
 {
+#ifndef CONFIG_PTH
     if (qemu_in_vcpu_thread() && current_cpu->running) {
+#else
+    pth_wrapper* w = getWrapper();
+      if (qemu_in_vcpu_thread() && w->current_cpu->running) {
+#endif
         /* The guest can in theory prolong the RCU critical section as long
          * as it feels like. The major problem with this is that because it
          * can do multiple reconfigurations of the memory map within the

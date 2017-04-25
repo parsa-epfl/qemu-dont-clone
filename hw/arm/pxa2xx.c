@@ -302,7 +302,12 @@ static void pxa2xx_pwrmode_write(CPUARMState *env, const ARMCPRegInfo *ri,
 #endif
 
         /* Suspend */
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    cpu_interrupt(w->current_cpu, CPU_INTERRUPT_HALT);
+#else
         cpu_interrupt(current_cpu, CPU_INTERRUPT_HALT);
+#endif
 
         goto message;
 
@@ -311,6 +316,7 @@ static void pxa2xx_pwrmode_write(CPUARMState *env, const ARMCPRegInfo *ri,
         printf("%s: machine entered %s mode\n", __func__,
                pwrmode[value & 7]);
     }
+
 }
 
 static uint64_t pxa2xx_cppmnc_read(CPUARMState *env, const ARMCPRegInfo *ri)

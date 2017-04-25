@@ -61,7 +61,9 @@ static inline int rcu_gp_ongoing(unsigned long *ctr)
 /* Written to only by each individual reader. Read by both the reader and the
  * writers.
  */
+#ifndef CONFIG_PTH
 __thread struct rcu_reader_data rcu_reader;
+#endif
 
 /* Protected by rcu_registry_lock.  */
 typedef QLIST_HEAD(, rcu_reader_data) ThreadList;
@@ -286,17 +288,36 @@ void call_rcu1(struct rcu_head *node, void (*func)(struct rcu_head *node))
 
 void rcu_register_thread(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    if (!w->rcu_reader)
+             w->rcu_reader = calloc(1, sizeof(struct rcu_reader_data));
+
+    assert(w->rcu_reader->ctr == 0);
+    qemu_mutex_lock(&rcu_registry_lock);
+    QLIST_INSERT_HEAD(&registry, &(*w->rcu_reader), node);
+    qemu_mutex_unlock(&rcu_registry_lock);
+#else
     assert(rcu_reader.ctr == 0);
     qemu_mutex_lock(&rcu_registry_lock);
     QLIST_INSERT_HEAD(&registry, &rcu_reader, node);
     qemu_mutex_unlock(&rcu_registry_lock);
+#endif
 }
 
 void rcu_unregister_thread(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    qemu_mutex_lock(&rcu_registry_lock);
+    QLIST_REMOVE(&(*w->rcu_reader), node);
+    qemu_mutex_unlock(&rcu_registry_lock);
+#else
     qemu_mutex_lock(&rcu_registry_lock);
     QLIST_REMOVE(&rcu_reader, node);
     qemu_mutex_unlock(&rcu_registry_lock);
+#endif
 }
 
 static void rcu_init_complete(void)
@@ -318,7 +339,7 @@ static void rcu_init_complete(void)
     rcu_register_thread();
 }
 
-#ifdef CONFIG_POSIX
+#if defined (CONFIG_POSIX)  || defined (CONFIG_PTH)
 static void rcu_init_lock(void)
 {
     qemu_mutex_lock(&rcu_sync_lock);
@@ -340,8 +361,18 @@ void rcu_after_fork(void)
 
 static void __attribute__((__constructor__)) rcu_init(void)
 {
+#ifdef CONFIG_PTH
+    initThreadList();
+    pth_wrapper* w = getWrapper();
+    if (w->rcu_reader == NULL){
+        w->rcu_reader = calloc(1, sizeof(struct rcu_reader_data));
+    }
+
+    pthpthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_unlock);
+#else
 #ifdef CONFIG_POSIX
     pthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_unlock);
+#endif
 #endif
     rcu_init_complete();
 }

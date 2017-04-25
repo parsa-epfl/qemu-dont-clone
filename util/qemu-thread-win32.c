@@ -264,9 +264,9 @@ struct QemuThreadData {
 
 static bool atexit_registered;
 static NotifierList main_thread_exit;
-
+#ifndef CONFIG_PTH
 static __thread QemuThreadData *qemu_thread_data;
-
+#endif
 static void run_main_thread_exit(void)
 {
     notifier_list_notify(&main_thread_exit, NULL);

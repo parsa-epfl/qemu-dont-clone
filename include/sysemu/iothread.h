@@ -19,7 +19,7 @@
 
 #define TYPE_IOTHREAD "iothread"
 
-typedef struct {
+typedef struct IOThread {
     Object parent_obj;
 
     QemuThread thread;

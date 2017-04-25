@@ -33,10 +33,10 @@ typedef struct
     LPVOID fiber;
     CoroutineAction action;
 } CoroutineWin32;
-
+#ifndef CONFIG_PTH
 static __thread CoroutineWin32 leader;
 static __thread Coroutine *current;
-
+#endif
 /* This function is marked noinline to prevent GCC from inlining it
  * into coroutine_trampoline(). If we allow it to do that then it
  * hoists the code to get the address of the TLS variable "current"

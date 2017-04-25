@@ -14,9 +14,22 @@ typedef struct QemuThread QemuThread;
 #ifdef _WIN32
 #include "qemu/thread-win32.h"
 #else
-#include "qemu/thread-posix.h"
-#endif
+        #ifndef CONFIG_PTH
+            #include "qemu/thread-posix.h"
+        #else
+            #include "qemu/thread-pth.h"
+            #include <pth.h>
+            #include "qemu/thread-pth-internal.h"
 
+            /* general success return value */
+                #ifdef OK
+                    #undef OK
+                #endif
+            #define OK 0
+            #define pth_error(a,b) (-1)
+        #endif
+
+#endif
 #define QEMU_THREAD_JOINABLE 0
 #define QEMU_THREAD_DETACHED 1
 

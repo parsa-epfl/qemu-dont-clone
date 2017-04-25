@@ -76,7 +76,13 @@
  * mmap_lock.
  */
 #ifdef CONFIG_SOFTMMU
-#define assert_memory_lock() tcg_debug_assert(have_tb_lock)
+    #ifdef CONFIG_PTH
+        #define assert_memory_lock()   pth_wrapper* w1 = getWrapper(); \
+                                                    tcg_debug_assert(w1->have_tb_lock)
+
+    #else
+        #define assert_memory_lock() tcg_debug_assert(have_tb_lock)
+    #endif
 #else
 #define assert_memory_lock() tcg_debug_assert(have_mmap_lock())
 #endif
@@ -136,7 +142,9 @@ TCGContext tcg_ctx;
 bool parallel_cpus;
 
 /* translation block context */
+#ifndef CONFIG_PTH
 __thread int have_tb_lock;
+#endif
 
 static void page_table_config_init(void)
 {
@@ -157,29 +165,53 @@ static void page_table_config_init(void)
     assert(v_l1_shift % V_L2_BITS == 0);
     assert(v_l2_levels >= 0);
 }
-
+#ifndef CONFIG_PTH
 #define assert_tb_locked() tcg_debug_assert(have_tb_lock)
 #define assert_tb_unlocked() tcg_debug_assert(!have_tb_lock)
+#else
+
+#define assert_tb_locked() pth_wrapper* w = getWrapper(); \
+                                            tcg_debug_assert(w->have_tb_lock)
+#define assert_tb_unlocked() pth_wrapper* w = getWrapper(); \
+                                                tcg_debug_assert(!w->have_tb_lock)
+#endif
 
 void tb_lock(void)
 {
     assert_tb_unlocked();
     qemu_mutex_lock(&tcg_ctx.tb_ctx.tb_lock);
+#ifdef CONFIG_PTH
+    w->have_tb_lock++;
+#else
     have_tb_lock++;
+#endif
 }
 
 void tb_unlock(void)
 {
     assert_tb_locked();
+#ifdef CONFIG_PTH
+    w->have_tb_lock--;
+#else
     have_tb_lock--;
+#endif
     qemu_mutex_unlock(&tcg_ctx.tb_ctx.tb_lock);
 }
 
 void tb_lock_reset(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (w->have_tb_lock) {
+#else
     if (have_tb_lock) {
+#endif
         qemu_mutex_unlock(&tcg_ctx.tb_ctx.tb_lock);
+#ifdef CONFIG_PTH
+    w->have_tb_lock = 0;
+#else
         have_tb_lock = 0;
+#endif
     }
 }
 

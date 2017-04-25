@@ -43,11 +43,20 @@
 
 static inline int a9_gtimer_get_current_cpu(A9GTimerState *s)
 {
+#ifdef CONFIG_PTH
+        pth_wrapper *w = getWrapper();
+        if (w->current_cpu->cpu_index >= s->num_cpu) {
+            hw_error("a9gtimer: num-cpu %d but this cpu is %d!\n",
+                     s->num_cpu, w->current_cpu->cpu_index);
+        }
+        return w->current_cpu->cpu_index;
+#else
     if (current_cpu->cpu_index >= s->num_cpu) {
         hw_error("a9gtimer: num-cpu %d but this cpu is %d!\n",
                  s->num_cpu, current_cpu->cpu_index);
     }
     return current_cpu->cpu_index;
+#endif
 }
 
 static inline uint64_t a9_gtimer_get_conv(A9GTimerState *s)

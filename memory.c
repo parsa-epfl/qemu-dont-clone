@@ -390,10 +390,18 @@ static hwaddr memory_region_to_absolute_addr(MemoryRegion *mr, hwaddr offset)
 
 static int get_cpu_index(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (w->current_cpu) {
+        return w->current_cpu->cpu_index;
+    }
+    return -1;
+#else
     if (current_cpu) {
         return current_cpu->cpu_index;
     }
     return -1;
+#endif
 }
 
 static MemTxResult memory_region_oldmmio_read_accessor(MemoryRegion *mr,
@@ -1093,6 +1101,16 @@ static void memory_region_initfn(Object *obj)
 static uint64_t unassigned_mem_read(void *opaque, hwaddr addr,
                                     unsigned size)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+#ifdef DEBUG_UNASSIGNED
+    printf("Unassigned mem read " TARGET_FMT_plx "\n", addr);
+#endif
+    if (w->current_cpu != NULL) {
+        cpu_unassigned_access(w->current_cpu, addr, false, false, 0, size);
+    }
+    return 0;
+#else
 #ifdef DEBUG_UNASSIGNED
     printf("Unassigned mem read " TARGET_FMT_plx "\n", addr);
 #endif
@@ -1100,17 +1118,28 @@ static uint64_t unassigned_mem_read(void *opaque, hwaddr addr,
         cpu_unassigned_access(current_cpu, addr, false, false, 0, size);
     }
     return 0;
+#endif
 }
 
 static void unassigned_mem_write(void *opaque, hwaddr addr,
                                  uint64_t val, unsigned size)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+#ifdef DEBUG_UNASSIGNED
+    printf("Unassigned mem write " TARGET_FMT_plx " = 0x%"PRIx64"\n", addr, val);
+#endif
+    if (w->current_cpu != NULL) {
+        cpu_unassigned_access(w->current_cpu, addr, true, false, 0, size);
+    }
+#else
 #ifdef DEBUG_UNASSIGNED
     printf("Unassigned mem write " TARGET_FMT_plx " = 0x%"PRIx64"\n", addr, val);
 #endif
     if (current_cpu != NULL) {
         cpu_unassigned_access(current_cpu, addr, true, false, 0, size);
     }
+#endif
 }
 
 static bool unassigned_mem_accepts(void *opaque, hwaddr addr,

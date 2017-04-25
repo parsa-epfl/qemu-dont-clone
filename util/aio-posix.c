@@ -444,21 +444,52 @@ void aio_dispatch(AioContext *ctx)
  * any lock, the arrays cannot be stored in AioContext.  Thread-local data
  * has none of the disadvantages of these three options.
  */
+#ifndef CONFIG_PTH
 static __thread GPollFD *pollfds;
 static __thread AioHandler **nodes;
 static __thread unsigned npfd, nalloc;
 static __thread Notifier pollfds_cleanup_notifier;
-
+#endif
 static void pollfds_cleanup(Notifier *n, void *unused)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    g_assert(w->npfd == 0);
+    g_free(w->pollfds);
+    g_free(w->nodes);
+    w->nalloc = 0;
+#else
     g_assert(npfd == 0);
     g_free(pollfds);
     g_free(nodes);
     nalloc = 0;
+#endif
 }
 
 static void add_pollfd(AioHandler *node)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    if (w->npfd == w->nalloc) {
+        if (w->nalloc == 0) {
+            w->pollfds_cleanup_notifier.notify = pollfds_cleanup;
+            qemu_thread_atexit_add(&w->pollfds_cleanup_notifier);
+            w->nalloc = 8;
+        } else {
+            g_assert(w->nalloc <= INT_MAX);
+            w->nalloc *= 2;
+        }
+        w->pollfds = g_renew(GPollFD, w->pollfds, w->nalloc);
+        w->nodes = g_renew(AioHandler *, w->nodes, w->nalloc);
+    }
+    w->nodes[w->npfd] = node;
+    w->pollfds[w->npfd] = (GPollFD) {
+        .fd = node->pfd.fd,
+        .events = node->pfd.events,
+    };
+    w->npfd++;
+#else
     if (npfd == nalloc) {
         if (nalloc == 0) {
             pollfds_cleanup_notifier.notify = pollfds_cleanup;
@@ -477,6 +508,7 @@ static void add_pollfd(AioHandler *node)
         .events = node->pfd.events,
     };
     npfd++;
+#endif
 }
 
 static bool run_poll_handlers_once(AioContext *ctx)
@@ -568,6 +600,10 @@ static bool try_poll_mode(AioContext *ctx, bool blocking)
 
 bool aio_poll(AioContext *ctx, bool blocking)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+#endif
+
     AioHandler *node;
     int i;
     int ret = 0;
@@ -594,8 +630,11 @@ bool aio_poll(AioContext *ctx, bool blocking)
 
     progress = try_poll_mode(ctx, blocking);
     if (!progress) {
+#ifdef CONFIG_PTH
+   assert(w->npfd == 0);
+#else
         assert(npfd == 0);
-
+#endif
         /* fill pollfds */
 
         if (!aio_epoll_enabled(ctx)) {
@@ -610,7 +649,23 @@ bool aio_poll(AioContext *ctx, bool blocking)
         timeout = blocking ? aio_compute_timeout(ctx) : 0;
 
         /* wait until next event */
-        if (aio_epoll_check_poll(ctx, pollfds, npfd, timeout)) {
+#ifdef CONFIG_PTH
+        if (aio_epoll_check_poll(ctx, w->pollfds, w->npfd, timeout)) {
+
+            AioHandler epoll_handler;
+
+            epoll_handler.pfd.fd = ctx->epollfd;
+            epoll_handler.pfd.events = G_IO_IN | G_IO_OUT | G_IO_HUP | G_IO_ERR;
+            w->npfd = 0;
+            add_pollfd(&epoll_handler);
+            ret = aio_epoll(ctx, w->pollfds, w->npfd, timeout);
+        } else  {
+            ret = qemu_poll_ns(w->pollfds, w->npfd, timeout);
+        }
+    }
+#else
+         if (aio_epoll_check_poll(ctx, pollfds, npfd, timeout)) {
+
             AioHandler epoll_handler;
 
             epoll_handler.pfd.fd = ctx->epollfd;
@@ -622,7 +677,7 @@ bool aio_poll(AioContext *ctx, bool blocking)
             ret = qemu_poll_ns(pollfds, npfd, timeout);
         }
     }
-
+#endif
     if (blocking) {
         atomic_sub(&ctx->notify_me, 2);
     }
@@ -672,13 +727,22 @@ bool aio_poll(AioContext *ctx, bool blocking)
 
     /* if we have any readable fds, dispatch event */
     if (ret > 0) {
+#ifdef CONFIG_PTH
+        for (i = 0; i < w->npfd; i++) {
+            w->nodes[i]->pfd.revents = w->pollfds[i].revents;
+        }
+#else
         for (i = 0; i < npfd; i++) {
             nodes[i]->pfd.revents = pollfds[i].revents;
         }
+#endif
     }
 
-    npfd = 0;
-
+#ifdef CONFIG_PTH
+    w->npfd = 0;
+#else
+     npfd = 0;
+#endif
     progress |= aio_bh_poll(ctx);
 
     if (ret > 0) {

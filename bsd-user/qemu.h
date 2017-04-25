@@ -40,7 +40,7 @@ extern enum BSDType bsd_type;
 #include "target_signal.h"
 #include "exec/gdbstub.h"
 
-#if defined(CONFIG_USE_NPTL)
+#if defined(CONFIG_USE_NPTL) && ! defined (CONFIG_PTH)
 #define THREAD __thread
 #else
 #define THREAD

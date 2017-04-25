@@ -23,10 +23,12 @@
 #include "bsd-mman.h"
 
 //#define DEBUG_MMAP
-
+#ifndef CONFIG_PTH
 static pthread_mutex_t mmap_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int __thread mmap_lock_count;
-
+#else
+static pthpthread_mutex_t mmap_mutex = PTHTHREAD_MUTEX_INITIALIZER;
+#endif
 void mmap_lock(void)
 {
     if (mmap_lock_count++ == 0) {

@@ -27,6 +27,7 @@
 #include "qemu-common.h"
 #include "qemu/coroutine_int.h"
 
+#ifndef CONFIG_PTH
 #ifdef CONFIG_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
@@ -42,12 +43,17 @@ typedef struct {
 #endif
 
 } CoroutineUContext;
+#else
+#include "util/coroutine-ucontext-pth.h"
+#endif
 
 /**
  * Per-thread coroutine bookkeeping
  */
+#ifndef CONFIG_PTH
 static __thread CoroutineUContext leader;
 static __thread Coroutine *current;
+#endif
 
 /*
  * va_args to makecontext() must be type 'int', so passing
@@ -166,11 +172,19 @@ CoroutineAction __attribute__((noinline))
 qemu_coroutine_switch(Coroutine *from_, Coroutine *to_,
                       CoroutineAction action)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+#endif
+
     CoroutineUContext *from = DO_UPCAST(CoroutineUContext, base, from_);
     CoroutineUContext *to = DO_UPCAST(CoroutineUContext, base, to_);
     int ret;
 
+#ifdef CONFIG_PTH
+    w->current = to_;
+#else
     current = to_;
+#endif
 
     ret = sigsetjmp(from->env, 0);
     if (ret == 0) {
@@ -181,13 +195,30 @@ qemu_coroutine_switch(Coroutine *from_, Coroutine *to_,
 
 Coroutine *qemu_coroutine_self(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    if(!w->leader)
+        w->leader = calloc(1,sizeof(CoroutineUContext));
+
+    if (!w->current) {
+        w->current = &w->leader->base;
+    }
+    return w->current;
+#else
     if (!current) {
         current = &leader.base;
     }
     return current;
+#endif
 }
 
 bool qemu_in_coroutine(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    return w->current && w->current->caller;
+#else
     return current && current->caller;
+#endif
 }

@@ -147,10 +147,21 @@ void do_run_on_cpu(CPUState *cpu, run_on_cpu_func func, run_on_cpu_data data,
 
     queue_work_on_cpu(cpu, &wi);
     while (!atomic_mb_read(&wi.done)) {
+
+#ifdef CONFIG_PTH
+        pth_wrapper *w = getWrapper();
+        CPUState *self_cpu = w->current_cpu;
+#else
         CPUState *self_cpu = current_cpu;
+#endif
 
         qemu_cond_wait(&qemu_work_cond, mutex);
+
+#ifdef CONFIG_PTH
+        w->current_cpu = self_cpu;
+#else
         current_cpu = self_cpu;
+#endif
     }
 }
 

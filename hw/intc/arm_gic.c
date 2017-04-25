@@ -54,10 +54,18 @@ static const uint8_t gic_id_gicv2[] = {
 
 static inline int gic_get_current_cpu(GICState *s)
 {
+#ifdef CONFIG_PTH
+        pth_wrapper *w = getWrapper();
+        if (s->num_cpu > 1) {
+            return w->current_cpu->cpu_index;
+        }
+        return 0;
+#else
     if (s->num_cpu > 1) {
         return current_cpu->cpu_index;
     }
     return 0;
+#endif
 }
 
 /* Return true if this GIC config has interrupt groups, which is

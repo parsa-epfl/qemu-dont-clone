@@ -51,6 +51,18 @@
 #include "hw/nmi.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_PTH
+#include <pth.h>
+//static bool sync_with_select;
+#endif
+
+#ifdef CONFIG_PTH_DEBUG
+#include "pth_p.h"
+void trigger_interrupt_processing(void);
+void send_interrupt(void);
+static CPUState *interrupt_next_cpu;
+extern void host_alarm_handler(void);
+#endif
 #ifdef CONFIG_LINUX
 
 #include <sys/prctl.h>
@@ -253,7 +265,13 @@ void cpu_update_icount(CPUState *cpu)
 
 int64_t cpu_get_icount_raw(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    CPUState *cpu = w->current_cpu;
+#else
     CPUState *cpu = current_cpu;
+#endif
 
     if (cpu && cpu->running) {
         if (!cpu->can_do_io) {
@@ -268,6 +286,7 @@ int64_t cpu_get_icount_raw(void)
 #else /* FIXME: we need 64bit atomics to do this safely */
     return timers_state.qemu_icount;
 #endif
+
 }
 
 /* Return the virtual CPU time, based on the instruction counter.  */
@@ -980,10 +999,16 @@ static void sigbus_handler(int n, siginfo_t *siginfo, void *ctx)
     if (siginfo->si_code != BUS_MCEERR_AO && siginfo->si_code != BUS_MCEERR_AR) {
         sigbus_reraise();
     }
-
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    if (w->current_cpu) {
+        /* Called asynchronously in VCPU thread.  */
+        if (kvm_on_sigbus_vcpu(w->current_cpu, siginfo->si_code, siginfo->si_addr)) {
+#else
     if (current_cpu) {
         /* Called asynchronously in VCPU thread.  */
         if (kvm_on_sigbus_vcpu(current_cpu, siginfo->si_code, siginfo->si_addr)) {
+#endif
             sigbus_reraise();
         }
     } else {
@@ -1099,8 +1124,13 @@ static void *qemu_kvm_cpu_thread_fn(void *arg)
     qemu_thread_get_self(cpu->thread);
     cpu->thread_id = qemu_get_thread_id();
     cpu->can_do_io = 1;
-    current_cpu = cpu;
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->current_cpu = cpu;
 
+#else
+    current_cpu = cpu;
+#endif
     r = kvm_init_vcpu(cpu);
     if (r < 0) {
         fprintf(stderr, "kvm_init_vcpu failed: %s\n", strerror(-r));
@@ -1146,8 +1176,12 @@ static void *qemu_dummy_cpu_thread_fn(void *arg)
     qemu_thread_get_self(cpu->thread);
     cpu->thread_id = qemu_get_thread_id();
     cpu->can_do_io = 1;
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->current_cpu = cpu;
+#else
     current_cpu = cpu;
-
+#endif
     sigemptyset(&waitset);
     sigaddset(&waitset, SIG_IPI);
 
@@ -1314,7 +1348,12 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
         /* process any pending work */
         CPU_FOREACH(cpu) {
-            current_cpu = cpu;
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->current_cpu = cpu;
+#else
+    current_cpu = cpu;
+#endif
             qemu_wait_io_event_common(cpu);
         }
     }
@@ -1342,8 +1381,12 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         while (cpu && !cpu->queued_work_first && !cpu->exit_request) {
 
             atomic_mb_set(&tcg_current_rr_cpu, cpu);
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+            w->current_cpu = cpu;
+#else
             current_cpu = cpu;
-
+#endif
             qemu_clock_enable(QEMU_CLOCK_VIRTUAL,
                               (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
 
@@ -1371,6 +1414,9 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 }
                 break;
             }
+#ifdef CONFIG_PTH
+            pth_yield(NULL);
+#endif
 
             cpu = CPU_NEXT(cpu);
         } /* while (cpu && !cpu->exit_request).. */
@@ -1400,8 +1446,12 @@ static void *qemu_hax_cpu_thread_fn(void *arg)
     cpu->thread_id = qemu_get_thread_id();
     cpu->created = true;
     cpu->halted = 0;
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->current_cpu = cpu;
+#else
     current_cpu = cpu;
-
+#endif
     hax_init_vcpu(cpu);
     qemu_cond_signal(&qemu_cpu_cond);
 
@@ -1451,7 +1501,12 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
     cpu->thread_id = qemu_get_thread_id();
     cpu->created = true;
     cpu->can_do_io = 1;
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->current_cpu = cpu;
+#else
     current_cpu = cpu;
+#endif
     qemu_cond_signal(&qemu_cpu_cond);
 
     /* process any pending work */
@@ -1501,7 +1556,11 @@ static void qemu_cpu_kick_thread(CPUState *cpu)
         return;
     }
     cpu->thread_kicked = true;
+#ifndef CONFIG_PTH
     err = pthread_kill(cpu->thread->thread, SIG_IPI);
+#else
+    err = pth_raise(cpu->thread->thread.pth_thread, SIG_IPI);
+#endif
     if (err) {
         fprintf(stderr, "qemu:%s: %s", __func__, strerror(err));
         exit(1);
@@ -1538,8 +1597,14 @@ void qemu_cpu_kick(CPUState *cpu)
 
 void qemu_cpu_kick_self(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    assert(w->current_cpu);
+    qemu_cpu_kick_thread(w->current_cpu);
+#else
     assert(current_cpu);
     qemu_cpu_kick_thread(current_cpu);
+#endif
 }
 
 bool qemu_cpu_is_self(CPUState *cpu)
@@ -1549,27 +1614,47 @@ bool qemu_cpu_is_self(CPUState *cpu)
 
 bool qemu_in_vcpu_thread(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    return w->current_cpu && qemu_cpu_is_self(w->current_cpu);
+#else
     return current_cpu && qemu_cpu_is_self(current_cpu);
+#endif
 }
-
+#ifndef CONFIG_PTH
 static __thread bool iothread_locked = false;
-
+#endif
 bool qemu_mutex_iothread_locked(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    return w->iothread_locked;
+#else
     return iothread_locked;
+#endif
 }
 
 void qemu_mutex_lock_iothread(void)
 {
     g_assert(!qemu_mutex_iothread_locked());
     qemu_mutex_lock(&qemu_global_mutex);
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->iothread_locked = true;
+#else
     iothread_locked = true;
+#endif
 }
 
 void qemu_mutex_unlock_iothread(void)
 {
     g_assert(qemu_mutex_iothread_locked());
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    w->iothread_locked = false;
+#else
     iothread_locked = false;
+#endif
     qemu_mutex_unlock(&qemu_global_mutex);
 }
 
@@ -1767,12 +1852,22 @@ void qemu_init_vcpu(CPUState *cpu)
 
 void cpu_stop_current(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper *w = getWrapper();
+    if (w->current_cpu) {
+        w->current_cpu->stop = false;
+        w->current_cpu->stopped = true;
+        cpu_exit(w->current_cpu);
+        qemu_cond_broadcast(&qemu_pause_cond);
+    }
+#else
     if (current_cpu) {
         current_cpu->stop = false;
         current_cpu->stopped = true;
         cpu_exit(current_cpu);
         qemu_cond_broadcast(&qemu_pause_cond);
     }
+#endif
 }
 
 int vm_stop(RunState state)

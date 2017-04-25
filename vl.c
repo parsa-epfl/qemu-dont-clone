@@ -1708,9 +1708,17 @@ void qemu_system_guest_panicked(GuestPanicInformation *info)
 {
     qemu_log_mask(LOG_GUEST_ERROR, "Guest crashed\n");
 
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    if (w->current_cpu) {
+        w->current_cpu->crash_occurred = true;
+    }
+#else
     if (current_cpu) {
         current_cpu->crash_occurred = true;
     }
+#endif
     qapi_event_send_guest_panicked(GUEST_PANIC_ACTION_PAUSE,
                                    !!info, info, &error_abort);
     vm_stop(RUN_STATE_GUEST_PANICKED);

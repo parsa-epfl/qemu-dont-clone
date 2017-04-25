@@ -25,7 +25,9 @@
 //#define DEBUG_MMAP
 
 static pthread_mutex_t mmap_mutex = PTHREAD_MUTEX_INITIALIZER;
+#ifndef CONFIG_PTH
 static __thread int mmap_lock_count;
+#endif
 
 void mmap_lock(void)
 {
