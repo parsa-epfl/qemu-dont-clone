@@ -1339,6 +1339,21 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         cpu->thread_id = qemu_get_thread_id();
         cpu->created = true;
         cpu->can_do_io = 1;
+#ifdef CONFIG_QUANTUM
+        cpu->nr_instr = 0;
+        cpu->hasReachedInstrLimit = false;
+        cpu->nr_total_instr = 0;
+        cpu->nr_quantumHits = 0;
+        cpu->nr_cycle = 0;
+        cpu->TB_tries = 0;
+        cpu->nr_exp[0] = 0;
+        cpu->nr_exp[1] = 0;
+        cpu->nr_exp[2] = 0;
+        cpu->nr_exp[3] = 0;
+        cpu->nr_exp[4] = 0;
+        cpu->nr_exp[5] = 0;
+#endif
+
     }
     qemu_cond_signal(&qemu_cpu_cond);
 
@@ -1399,6 +1414,24 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
                 process_icount_data(cpu);
 
+#ifdef CONFIG_QUANTUM_DEBUG
+                printf("CPU %i: setting instruction count to zero - %i\n", cpu->cpu_index, cpu->nr_instr);
+#endif
+#ifdef CONFIG_QUANTUM
+                cpu->nr_instr = 0;
+                if(cpu->hasReachedInstrLimit){
+                    cpu->hasReachedInstrLimit = false;
+                }
+#endif
+
+#ifdef CONFIG_QUANTUM
+                // for debugging purposes
+                if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG|| r == EXCP_HALTED || r == EXCP_YIELD || r ==EXCP_ATOMIC)
+                {
+                    cpu->nr_exp[r-EXCP_INTERRUPT]++;
+
+                }
+#endif
                 if (r == EXCP_DEBUG) {
                     cpu_handle_guest_debug(cpu);
                     break;
@@ -1409,7 +1442,13 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                     break;
                 }
             } else if (cpu->stop) {
+#ifdef CONFIG_QUANTUM_DEBUG
+                printf("CPU %i: executed %i instructions - cpu->stop\n", cpu->cpu_index, cpu->nr_total_instr);
+#endif
                 if (cpu->unplug) {
+#ifdef CONFIG_QUANTUM_DEBUG
+                printf("CPU %i: executed %i instructions - cpu->unplug\n", cpu->cpu_index, cpu->nr_total_instr);
+#endif
                     cpu = CPU_NEXT(cpu);
                 }
                 break;
@@ -2115,3 +2154,161 @@ void dump_drift_info(FILE *f, fprintf_function cpu_fprintf)
         cpu_fprintf(f, "Max guest advance   NA\n");
     }
 }
+
+#ifdef CONFIG_QUANTUM
+extern sig_atomic_t quantum_value;
+
+void cpu_get_quantum(const char* val)
+{
+    val = malloc (128);
+    sprintf((char*)val, "%d", quantum_value);
+}
+
+void cpu_set_quantum(const char* val)
+{
+   quantum_value = atoi((char*)val);
+}
+
+void cpu_get_ic(const char *str)
+{
+    CPUState *cpu;
+    int length = 0;
+    str = malloc (1024);
+    CPU_FOREACH(cpu)
+    {
+        length += sprintf((char*)str+ length, "CPU %d has executed %d instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
+    }
+
+    length += sprintf((char*)str+ length, "\nDetails:\nCPU\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n");
+
+    CPU_FOREACH(cpu)
+    {
+
+        length += sprintf((char*)str+ length, "%d\t%d\t\t%d\t%d\t\t%d\t%d\t%d\t%d\n",
+                                                                     cpu->cpu_index,
+                                                                     cpu->nr_quantumHits,
+                                                                     cpu->nr_exp[0],
+                                                                     cpu->nr_exp[1],
+                                                                     cpu->nr_exp[2],
+                                                                     cpu->nr_exp[3],
+                                                                     cpu->nr_exp[4],
+                                                                     cpu->nr_exp[5]);
+
+    }
+
+}
+
+
+void cpu_zero_all(void)
+{
+    CPUState *cpu;
+    CPU_FOREACH(cpu)
+    {
+        cpu->nr_quantumHits = 0;
+        cpu->nr_total_instr = 0;
+        cpu->nr_exp[0] = 0;
+        cpu->nr_exp[1] = 0;
+        cpu->nr_exp[2] = 0;
+        cpu->nr_exp[3] = 0;
+        cpu->nr_exp[4] = 0;
+        cpu->nr_exp[5] = 0;
+
+    }
+
+}
+#endif
+
+#if defined (CONFIG_PTH) && defined (CONFIG_QUANTUM_DEBUG)
+
+// multicore
+void send_interrupt(void)
+{
+  if (!sync_with_select)
+  {
+        sync_with_select = true;
+        //host_alarm_handler();
+        qemu_notify_event();
+        pth_yield(NULL);
+  }
+
+    pth_wrapper* w = getWrapper();
+
+    if (w->current_cpu)
+    {
+        cpu_exit(w->current_cpu);
+    }
+    exit_request = 1;
+}
+
+int do_trigger_interrupt = 0;
+
+void exit_tb_for_interrupt_processing(void)
+{
+    pth_wrapper* w = getWrapper();
+
+    do_trigger_interrupt = 1;
+    if (w->current_cpu)
+    {
+    cpu_exit(w->current_cpu);
+    }
+    exit_request = 1;
+}
+static CPUState *next_cpu;
+
+void trigger_interrupt_processing(void)
+{
+  CPUState *next_cpu_actual = next_cpu;
+  if(interrupt_next_cpu == NULL){
+    interrupt_next_cpu = first_cpu;
+  }
+  pth_wrapper* w = getWrapper();
+  w->current_cpu = interrupt_next_cpu;
+  next_cpu = w->current_cpu;
+
+
+  send_interrupt();
+  next_cpu = next_cpu_actual;
+  //update variable to send interrupt to different cpu next
+  interrupt_next_cpu = CPU_NEXT(interrupt_next_cpu);
+
+  pth_yield(NULL);
+}
+#endif
+
+#if defined (CONFIG_FLEXUS)
+//NOOSHIN: test begin
+int get_info(void *opaque){
+  CPUState* cpu = (CPUState*)opaque;
+
+  int r = 0;
+  printf("QEMU: in get_info\n");
+
+  /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
+    qemu_account_warp_timer();
+
+    qemu_clock_enable(QEMU_CLOCK_VIRTUAL,
+                          (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
+
+    if (cpu_can_run(cpu)) {
+        r = tcg_cpu_exec(cpu);
+        if (r == EXCP_DEBUG) {
+            cpu_handle_guest_debug(cpu);
+           
+        }
+    } 
+    /* Pairs with smp_wmb in qemu_cpu_kick.  */
+    atomic_mb_set(&exit_request, 0);
+
+    if (use_icount) {
+        int64_t deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL);
+
+        if (deadline == 0) {
+            qemu_clock_notify(QEMU_CLOCK_VIRTUAL);
+        }
+    }
+    qemu_tcg_wait_io_event(QTAILQ_FIRST(&cpus));
+
+    return 0;
+}  
+//NOOSHIN: test end
+#endif

@@ -372,6 +372,8 @@ bogus_os="no"
 # gnu pth support
 pth="no"
 
+#quantum support
+quantum="no"
 #**************************
 #PARSA END
 #**************************
@@ -910,6 +912,10 @@ for opt do
   --enable-pth) pth="yes"
   ;;
 
+  --disable-quantum) quantum="no"
+  ;;
+  --enable-quantum) quantum="yes"
+  ;;
 #**************************
 #PARSA END
 #**************************
@@ -1485,6 +1491,8 @@ disabled with --disable-FEATURE, default is enabled if available:
 
   GNU Pth         support for GNU Pth - The GNU Portable Threads
 
+
+  Quantum	      support for quantum value - no MTTCG at the moment
   #**************************
   #PARSA END
   #**************************
@@ -5080,6 +5088,9 @@ if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
 fi
 
+if test "$quantum" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
+fi
 #**************************
 #PARSA END
 #**************************
@@ -5237,6 +5248,7 @@ echo "#**************************"
 
 echo "GNU Pth           $pth"
 
+echo "quantum support   $quantum"
 echo "#**************************"
 echo "#PARSA END"
 echo "#**************************"
@@ -6235,6 +6247,10 @@ if test "$pth" = "yes" ; then
   put_in_define "CONFIG_PTH"
 fi
 
+if test "$quantum" = "yes" ; then
+echo "CONFIG_QUANTUM=y" >> $config_target_mak
+put_in_define "CONFIG_QUANTUM"
+fi
 #**************************
 #PARSA END
 #**************************

@@ -11,6 +11,12 @@ void pause_all_vcpus(void);
 void cpu_stop_current(void);
 void cpu_ticks_init(void);
 
+#ifdef CONFIG_QUANTUM
+void cpu_get_quantum(const char* val);
+void cpu_set_quantum(const char* val);
+void cpu_get_ic(const char *str);
+void cpu_zero_all(void);
+#endif
 void configure_icount(QemuOpts *opts, Error **errp);
 extern int use_icount;
 extern int icount_align_option;

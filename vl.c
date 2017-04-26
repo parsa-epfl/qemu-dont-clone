@@ -35,6 +35,9 @@
 #include <libvdeplug.h>
 #endif
 
+#ifdef CONFIG_QUANTUM
+sig_atomic_t quantum_value;
+#endif
 #ifdef CONFIG_SDL
 #if defined(__APPLE__) || defined(main)
 #include <SDL.h>
@@ -2962,6 +2965,9 @@ int main(int argc, char **argv, char **envp)
     QemuOptsList *olist;
     int optind;
     const char *optarg;
+#ifdef CONFIG_QUANTUM
+    const char *quantum_opt = NULL;
+#endif
     const char *loadvm = NULL;
     MachineClass *machine_class;
     const char *cpu_model;
@@ -3634,6 +3640,11 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_loadvm:
                 loadvm = optarg;
                 break;
+#ifdef CONFIG_QUANTUM
+            case QEMU_OPTION_quantum:
+                quantum_opt = optarg;
+                break;
+#endif
             case QEMU_OPTION_full_screen:
                 full_screen = 1;
                 break;
@@ -4694,6 +4705,16 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
+#ifdef CONFIG_QUANTUM
+    if (quantum_opt) {
+        quantum_value = atoi(quantum_opt);
+        if (quantum_value < 0)
+            quantum_value = 0;
+    }
+    else{
+        quantum_value = 0;
+    }
+#endif
     qdev_prop_check_globals();
     if (vmstate_dump_file) {
         /* dump and exit */

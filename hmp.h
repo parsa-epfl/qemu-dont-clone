@@ -101,6 +101,11 @@ void hmp_chardev_add(Monitor *mon, const QDict *qdict);
 void hmp_chardev_remove(Monitor *mon, const QDict *qdict);
 void hmp_qemu_io(Monitor *mon, const QDict *qdict);
 void hmp_cpu_add(Monitor *mon, const QDict *qdict);
+void hmp_cpu_get_quantum(Monitor *mon, const QDict *qdict);
+void hmp_cpu_set_quantum(Monitor *mon, const QDict *qdict);
+void hmp_cpu_get_ic(Monitor *mon,  const QDict *qdict);
+void hmp_cpu_zero_all(Monitor *mon,  const QDict *qdict);
+
 void hmp_object_add(Monitor *mon, const QDict *qdict);
 void hmp_object_del(Monitor *mon, const QDict *qdict);
 void hmp_info_memdev(Monitor *mon, const QDict *qdict);

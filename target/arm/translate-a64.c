@@ -36,6 +36,10 @@
 
 #include "trace-tcg.h"
 
+#ifdef CONFIG_QUANTUM
+extern sig_atomic_t quantum_value;
+#endif
+
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
 
@@ -11266,6 +11270,21 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         tcg_gen_insn_start(dc->pc, 0, 0);
         num_insns++;
 
+#ifdef CONFIG_QUANTUM
+        cs->nr_instr++;
+        cs->nr_total_instr++;
+
+        if(cs->nr_instr >= quantum_value && quantum_value > 0){
+            cs->nr_quantumHits++;
+            cs->hasReachedInstrLimit = true;
+#ifdef CONFIG_QUANTUM_DEBUG
+            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
+#endif
+
+        }
+#endif
+
+
         if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
             CPUBreakpoint *bp;
             QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
@@ -11329,7 +11348,12 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
              !singlestep &&
              !dc->ss_active &&
              dc->pc < next_page_start &&
-             num_insns < max_insns);
+             num_insns < max_insns
+#ifdef CONFIG_QUANTUM
+             //     check the quantum here
+             && ! cs->hasReachedInstrLimit
+#endif
+             );
 
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();

@@ -36,6 +36,43 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_QUANTUM
+extern sig_atomic_t quantum_value;
+int nr_loop_iter = 0;
+bool exit_loop_requested = false;
+#define MAX_LOOP_TRY 1000
+
+#define CHECK_TB_EXIT_COND \
+    nr_loop_iter++; \
+    if (nr_loop_iter >= MAX_LOOP_TRY) { \
+        exit_loop_requested = true; \
+        qemu_cpu_kick(cpu); \
+    }
+#define INIT_TB_EXIT_COND \
+            nr_loop_iter = 0; \
+        if (exit_loop_requested) { \
+            exit_loop_requested = false; \
+                    break; \
+        }
+
+	#ifndef CONFIG_QUANTUM_DEBUG
+	        #define CHECK_QUANTUM(cpu) \
+	            if(cpu->hasReachedInstrLimit){ \
+	                break;\
+	            }
+	#else
+	        #define CHECK_QUANTUM(cpu) \
+	            if(cpu->hasReachedInstrLimit){ \
+	                printf("CPU %i: breaking from loop - %i\n", cpu->cpu_index, cpu->nr_instr); \
+	                break;\
+	            }
+	#endif
+
+	#else
+		#define CHECK_QUANTUM(cpu) 
+		#define INIT_TB_EXIT_COND 
+		#define CHECK_TB_EXIT_COND 
+#endif // CONFIG_QUANTUM
 /* -icount align implementation. */
 
 typedef struct SyncClocks {
@@ -637,7 +674,6 @@ int cpu_exec(CPUState *cpu)
     }
 
     rcu_read_lock();
-
     cc->cpu_exec_enter(cpu);
 
     /* Calculate difference between guest clock and host clock.
@@ -649,6 +685,7 @@ int cpu_exec(CPUState *cpu)
 
     /* prepare setjmp context for exception handling */
     if (sigsetjmp(cpu->jmp_env, 0) != 0) {
+
 #if defined(__clang__) || !QEMU_GNUC_PREREQ(4, 6)
         /* Some compilers wrongly smash all local variables after
          * siglongjmp. There were bug reports for gcc 4.5.0 and clang.
@@ -674,10 +711,18 @@ int cpu_exec(CPUState *cpu)
 
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret)) {
+#ifdef CONFIG_QUANTUM
+            CHECK_QUANTUM(cpu);
+            INIT_TB_EXIT_COND;
+#endif
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
 
         while (!cpu_handle_interrupt(cpu, &last_tb)) {
+#ifdef CONFIG_QUANTUM
+                CHECK_QUANTUM(cpu);
+                CHECK_TB_EXIT_COND;
+#endif
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
             /* Try to align the host and virtual clocks

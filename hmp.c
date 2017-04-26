@@ -2011,7 +2011,59 @@ void hmp_cpu_add(Monitor *mon, const QDict *qdict)
     qmp_cpu_add(cpuid, &err);
     hmp_handle_error(mon, &err);
 }
+#ifdef CONFIG_QUANTUM
+void hmp_cpu_get_quantum(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
 
+    char* q = malloc(256);
+    qmp_cpu_get_quantum(q, &err);
+    monitor_printf(mon, "Current Quantum is set to %s:\n", q);
+
+    hmp_handle_error(mon, &err);
+}
+
+void hmp_cpu_set_quantum(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+
+    int val = qdict_get_int(qdict, "var");
+    char * tmp = malloc(128);
+    sprintf(tmp, "%d", val);
+
+    char * str = tmp;
+
+
+    if (val < 0)
+        monitor_printf(mon, "Cannot assign a negative value to quantum.\n");
+    else if (val ==0) {
+         monitor_printf(mon, "Turning off CPU starvation mode.\n");
+         qmp_cpu_set_quantum(str, &err);
+    }
+    else {
+        qmp_cpu_set_quantum(str, &err);
+        monitor_printf(mon, "New Quantum is set to %d:\n", val);
+    }
+}
+
+void hmp_cpu_get_ic(Monitor *mon,  const QDict *qdict)
+{
+    Error *err = NULL;
+
+    char* res = malloc(1024);
+    qmp_cpu_get_ic(res, &err);
+    monitor_printf(mon, "CPUs:\n%s", res);
+
+}
+
+void hmp_cpu_zero_all(Monitor *mon,  const QDict *qdict)
+{
+    Error *err = NULL;
+    qmp_cpu_zero_all(&err);
+    monitor_printf(mon, "Zeroed out CPU instruction count and debug information.");
+
+}
+#endif
 void hmp_chardev_add(Monitor *mon, const QDict *qdict)
 {
     const char *args = qdict_get_str(qdict, "args");

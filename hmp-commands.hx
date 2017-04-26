@@ -1739,7 +1739,69 @@ STEXI
 Add CPU with id @var{id}
 ETEXI
 
+#ifdef CONFIG_QUANTUM
     {
+        .name       = "cpu-sq",
+        .args_type  = "var:i",
+        .params     = "var",
+        .help       = "cpu set quantum",
+        .cmd  = hmp_cpu_set_quantum,
+    },
+
+STEXI
+@item cpu-sq @var{var}
+@findex cpu set quantum
+Set Quantum value for all CPUs @var{var}
+
+ETEXI
+
+    {
+        .name       = "cpu-gq",
+        .args_type  = "",
+        .params     = "",
+        .help       = "get cpu quantum",
+        .cmd = hmp_cpu_get_quantum,
+    },
+
+STEXI
+@item cpu-gq
+@findex get cpu quantum
+Get current quantum.
+
+ETEXI
+
+    {
+        .name       = "cpu-get-ic",
+        .args_type  = "",
+        .params     = "",
+        .help       = "get total instructions executed",
+        .cmd = hmp_cpu_get_ic,
+    },
+
+STEXI
+@item cpu-get-ic
+@findex get total instructions executed
+Get total number of instructions executed so far by each CPU.
+
+ETEXI
+
+    {
+        .name       = "cpu-zero-all",
+        .args_type  = "",
+        .params     = "",
+        .help       = "Zero total instructions count, Debug information",
+        .cmd = hmp_cpu_zero_all,
+    },
+
+STEXI
+@item cpu-zero-all
+@findex zero total instructions, Debug information
+Zero out total number of instructions, Debug information.
+
+ETEXI
+#endif // CONFIG_QUANTUM
+   
+ 	{
         .name       = "qom-list",
         .args_type  = "path:s?",
         .params     = "path",

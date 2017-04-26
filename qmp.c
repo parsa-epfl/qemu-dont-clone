@@ -37,7 +37,7 @@
 #include "qom/object_interfaces.h"
 #include "hw/mem/pc-dimm.h"
 #include "hw/acpi/acpi_dev_interface.h"
-
+#include "sysemu/cpus.h"
 NameInfo *qmp_query_name(Error **errp)
 {
     NameInfo *info = g_malloc0(sizeof(*info));
@@ -130,6 +130,31 @@ void qmp_cpu_add(int64_t id, Error **errp)
     }
 }
 
+void qmp_cpu_get_quantum(const char *val, Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    cpu_get_quantum(val);
+#endif
+}
+
+void qmp_cpu_set_quantum(const char *val, Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    cpu_set_quantum(val);
+#endif
+}
+void qmp_cpu_get_ic(const char *str, Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    cpu_get_ic(str);
+#endif
+}
+void qmp_cpu_zero_all(Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    cpu_zero_all();
+#endif
+}
 #ifndef CONFIG_VNC
 /* If VNC support is enabled, the "true" query-vnc command is
    defined in the VNC subsystem */

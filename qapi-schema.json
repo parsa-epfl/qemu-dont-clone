@@ -2334,6 +2334,42 @@
 { 'command': 'cpu-add', 'data': {'id': 'int'} }
 
 ##
+# @cpu-get-quantum:
+#
+# query quantum value
+#
+# Since: 2.6 - PARSALAB
+##
+{ 'command': 'cpu-get-quantum', 'data': {'val': 'str'} }
+
+##
+# @cpu-set-quantum:
+#
+# set quantum value
+#
+# Since: 2.6 - PARSALAB
+##
+{ 'command': 'cpu-set-quantum', 'data': {'val': 'str'} }
+
+##
+# @cpu-get-ic:
+#
+# Get number of instructions exececuted by each CPU
+#
+# Since: 2.6 - PARSALAB
+##
+{ 'command': 'cpu-get-ic', 'data': {'str': 'str'} }
+
+##
+# @cpu-zero-all:
+#
+# Zero out number of instructions exececuted, debug information
+#
+# Since: 2.6 - PARSALAB
+##
+{ 'command': 'cpu-zero-all' }
+
+##
 # @memsave:
 #
 # Save a portion of guest memory to a file.

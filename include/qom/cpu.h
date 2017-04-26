@@ -314,6 +314,18 @@ struct CPUState {
     int nr_threads;
     int numa_node;
 
+#ifdef CONFIG_QUANTUM
+    int nr_instr;
+    int nr_total_instr; /*shows how many instructions this CPU has executed so far*/
+    bool hasReachedInstrLimit;
+    bool TB_ExitRequested;
+
+    int TB_tries;
+    int nr_exp[6];
+    int nr_quantumHits;
+    int nr_cycle;
+#endif
+
     struct QemuThread *thread;
 #ifdef _WIN32
     HANDLE hThread;
