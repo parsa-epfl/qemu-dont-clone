@@ -51,6 +51,11 @@
 #include "hw/nmi.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_FLEXUS
+#include "../libqemuflex/flexus_proxy.h"
+extern int timing_mode;
+#endif
+
 #ifdef CONFIG_PTH
 #include <pth.h>
 //static bool sync_with_select;
@@ -1379,6 +1384,13 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
     /* process any pending work */
     cpu->exit_request = 1;
+#ifdef CONFIG_FLEXUS
+   if (timing_mode) {    //if in timing simulation mode, pass control to flexus
+       printf("QEMU: Starting timing simulation. Passing control to Flexus.\n");
+       simulator_start();
+       return NULL;
+   }
+#endif
 
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
@@ -2293,11 +2305,11 @@ int get_info(void *opaque){
         r = tcg_cpu_exec(cpu);
         if (r == EXCP_DEBUG) {
             cpu_handle_guest_debug(cpu);
-           
+
         }
-    } 
+    }
     /* Pairs with smp_wmb in qemu_cpu_kick.  */
-    atomic_mb_set(&exit_request, 0);
+   // atomic_mb_set(&exit_request, 0);
 
     if (use_icount) {
         int64_t deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL);
@@ -2309,6 +2321,6 @@ int get_info(void *opaque){
     qemu_tcg_wait_io_event(QTAILQ_FIRST(&cpus));
 
     return 0;
-}  
+}
 //NOOSHIN: test end
 #endif

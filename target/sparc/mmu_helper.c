@@ -472,7 +472,11 @@ static inline int ultrasparc_tag_match(SparcTLBEntry *tlb,
 
 static int get_physical_address_data(CPUSPARCState *env,
                                      hwaddr *physical, int *prot,
-                                     target_ulong address, int rw, int mmu_idx)
+                                     target_ulong address, int rw, int mmu_idx
+#ifdef CONFIG_FLEXUS
+														, uint8_t* cache_bits
+#endif
+																			)
 {
     CPUState *cs = CPU(sparc_env_get_cpu(env));
     unsigned int i;
@@ -552,6 +556,14 @@ static int get_physical_address_data(CPUSPARCState *env,
                 }
 
                 TTE_SET_USED(env->dtlb[i].tte);
+#ifdef CONFIG_FLEXUS
+		uint8_t cbits = 0;
+		if(TTE_IS_CACHE_PHYSICAL(env->dtlb[i].tte))
+			{cbits += 1;}
+		if(TTE_IS_CACHE_VIRTUAL(env->dtlb[i].tte))
+			{cbits += 2;}
+		*cache_bits = cbits;
+#endif
 
                 return 0;
             }
@@ -590,7 +602,11 @@ static int get_physical_address_data(CPUSPARCState *env,
 
 static int get_physical_address_code(CPUSPARCState *env,
                                      hwaddr *physical, int *prot,
-                                     target_ulong address, int mmu_idx)
+                                     target_ulong address, int mmu_idx
+#ifdef CONFIG_FLEXUS
+										, uint8_t* cache_bits
+#endif
+																		)
 {
     CPUState *cs = CPU(sparc_env_get_cpu(env));
     unsigned int i;
@@ -653,6 +669,14 @@ static int get_physical_address_code(CPUSPARCState *env,
             }
             *prot = PAGE_EXEC;
             TTE_SET_USED(env->itlb[i].tte);
+#ifdef CONFIG_FLEXUS
+	    uint8_t cbits = 0;
+ 	    if(TTE_IS_CACHE_PHYSICAL(env->itlb[i].tte))
+	    	{cbits += 1;}
+	    if(TTE_IS_CACHE_VIRTUAL(env->itlb[i].tte))
+		{cbits += 2;}
+	    *cache_bits = cbits;
+#endif
             return 0;
         }
     }
@@ -668,7 +692,11 @@ static int get_physical_address_code(CPUSPARCState *env,
 static int get_physical_address(CPUSPARCState *env, hwaddr *physical,
                                 int *prot, int *access_index,
                                 target_ulong address, int rw, int mmu_idx,
-                                target_ulong *page_size)
+                                target_ulong *page_size
+#ifdef CONFIG_FLEXUS
+										, uint8_t *cbits
+#endif
+														)
 {
     /* ??? We treat everything as a small page, then explicitly flush
        everything when an entry is evicted.  */
@@ -696,11 +724,21 @@ static int get_physical_address(CPUSPARCState *env, hwaddr *physical,
     }
 
     if (rw == 2) {
+#ifdef CONFIG_FLEXUS
+        return get_physical_address_code(env, physical, prot, address,
+	    mmu_idx, cbits);
+#else
         return get_physical_address_code(env, physical, prot, address,
                                          mmu_idx);
+#endif
     } else {
+#ifdef CONFIG_FLEXUS
+        return get_physical_address_data(env, physical, prot, address, rw,
+	    mmu_idx, cbits);
+#else
         return get_physical_address_data(env, physical, prot, address, rw,
                                          mmu_idx);
+#endif
     }
 }
 
@@ -716,16 +754,25 @@ int sparc_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
     int error_code = 0, prot, access_index;
 
     address &= TARGET_PAGE_MASK;
+#ifdef CONFIG_FLEXUS
+    uint8_t cbits;
+    error_code = get_physical_address(env, &paddr, &prot, &access_index,
+                                      address, rw, mmu_idx, &page_size, &cbits);
+#else
     error_code = get_physical_address(env, &paddr, &prot, &access_index,
                                       address, rw, mmu_idx, &page_size);
+#endif
     if (error_code == 0) {
         vaddr = address;
 
         trace_mmu_helper_mmu_fault(address, paddr, mmu_idx, env->tl,
                                    env->dmmu.mmu_primary_context,
                                    env->dmmu.mmu_secondary_context);
-
+#ifdef CONFIG_FLEXUS
+	tlb_set_page(cs, vaddr, paddr, prot, mmu_idx, page_size, cbits);
+#else
         tlb_set_page(cs, vaddr, paddr, prot, mmu_idx, page_size);
+#endif
         return 0;
     }
     /* XXX */
@@ -825,9 +872,14 @@ static int cpu_sparc_get_phys_page(CPUSPARCState *env, hwaddr *phys,
 {
     target_ulong page_size;
     int prot, access_index;
-
+#if defined(CONFIG_FLEXUS) && defined(TARGET_SPARC64)
+    uint8_t cbits;
+    return get_physical_address(env, phys, &prot, &access_index, addr, rw,
+                                mmu_idx, &page_size, &cbits);
+#else
     return get_physical_address(env, phys, &prot, &access_index, addr, rw,
                                 mmu_idx, &page_size);
+#endif 
 }
 
 #if defined(TARGET_SPARC64)

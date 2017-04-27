@@ -305,6 +305,14 @@ enum {
 #define TTE_W_OK_BIT        (1ULL <<  1)
 #define TTE_GLOBAL_BIT      (1ULL <<  0)
 
+#ifdef CONFIG_FLEXUS
+// Taken from flexus/core/simics/sparcmmu.cpp
+#define TTE_CACHE_VIRTUAL_BIT (1ULL << 4)
+#define TTE_CACHE_PHYSICAL_BIT (1ULL << 5)
+#define TTE_IS_CACHE_PHYSICAL(tte) ((tte) & TTE_CACHE_PHYSICAL_BIT)
+#define TTE_IS_CACHE_VIRTUAL(tte) ((tte) & TTE_CACHE_VIRTUAL_BIT)
+#endif
+
 #define TTE_NFO_BIT_UA2005  (1ULL << 62)
 #define TTE_USED_BIT_UA2005 (1ULL << 47)
 #define TTE_LOCKED_BIT_UA2005 (1ULL <<  61)

@@ -33,7 +33,21 @@
 #include "exec/log.h"
 #include "asi.h"
 
+#ifdef CONFIG_FLEXUS
+#define QEMUFLEX_PROTOTYPES
+#define QEMUFLEX_QEMU_INTERNAL
+#include "../libqemuflex/api.h"
+static target_ulong flexus_ins_pc = -1;
 
+#define FLEXUS_IF_IN_SIMULATION( a ) do {	\
+  if( QEMU_is_in_simulation() != 0 ) {		\
+    (a) ;					\
+  }						\
+} while(0)
+
+#else
+#define FLEXUS_IF_IN_SIMULATION( a )
+#endif /* CONFIG_FLEXUS */
 #define DEBUG_DISAS
 
 #define DYNAMIC_PC  1 /* dynamic pc value */
@@ -991,9 +1005,24 @@ static inline void gen_branch2(DisasContext *dc, target_ulong pc1,
 
     tcg_gen_brcondi_tl(TCG_COND_EQ, r_cond, 0, l1);
 
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				  tcg_const_tl(dc->pc),
+				  tcg_const_tl(pc1),
+				  tcg_const_i32(4),
+				  tcg_const_i32(QEMU_Conditional_Branch),
+							   tcg_const_i32(0) ) );
+
     gen_goto_tb(dc, 0, pc1, pc1 + 4);
 
     gen_set_label(l1);
+
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				  tcg_const_tl(dc->pc),
+				  tcg_const_tl(pc2),
+				  tcg_const_i32(4),
+				  tcg_const_i32(QEMU_Conditional_Branch),
+							   tcg_const_i32(0) ) );
+
     gen_goto_tb(dc, 1, pc2, pc2 + 4);
 }
 
@@ -1003,10 +1032,22 @@ static void gen_branch_a(DisasContext *dc, target_ulong pc1)
     target_ulong npc = dc->npc;
 
     tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_cond, 0, l1);
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				  tcg_const_tl(dc->pc),
+				  tcg_const_tl(npc),
+				  tcg_const_i32(4),
+				  tcg_const_i32(QEMU_Conditional_Branch),
+							   tcg_const_i32(1) ) );
 
     gen_goto_tb(dc, 0, npc, pc1);
 
     gen_set_label(l1);
+   FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				  tcg_const_tl(dc->pc),
+				  tcg_const_tl(npc + 4),
+				  tcg_const_i32(4),
+				  tcg_const_i32(QEMU_Conditional_Branch),
+							   tcg_const_i32(1) ) );
     gen_goto_tb(dc, 1, npc + 4, npc + 8);
 
     dc->is_br = 1;
@@ -1465,9 +1506,21 @@ static void do_branch(DisasContext *dc, int32_t offset, uint32_t insn, int cc)
     if (cond == 0x0) {
         /* unconditional not taken */
         if (a) {
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(dc->npc + 4),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+				          tcg_const_i32(1) ) );
             dc->pc = dc->npc + 4;
             dc->npc = dc->pc + 4;
         } else {
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(dc->npc),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+				          tcg_const_i32(0) ) );
             dc->pc = dc->npc;
             dc->npc = dc->pc + 4;
         }
@@ -1476,7 +1529,19 @@ static void do_branch(DisasContext *dc, int32_t offset, uint32_t insn, int cc)
         if (a) {
             dc->pc = target;
             dc->npc = dc->pc + 4;
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(target),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+								   tcg_const_i32(1) ) );
         } else {
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(target),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+								 tcg_const_i32(0) ) );
             dc->pc = dc->npc;
             dc->npc = target;
             tcg_gen_mov_tl(cpu_pc, cpu_npc);
@@ -1505,6 +1570,12 @@ static void do_fbranch(DisasContext *dc, int32_t offset, uint32_t insn, int cc)
     if (cond == 0x0) {
         /* unconditional not taken */
         if (a) {
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(dc->npc + 4),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+								 tcg_const_i32(1) ) );
             dc->pc = dc->npc + 4;
             dc->npc = dc->pc + 4;
         } else {
@@ -1514,9 +1585,21 @@ static void do_fbranch(DisasContext *dc, int32_t offset, uint32_t insn, int cc)
     } else if (cond == 0x8) {
         /* unconditional taken */
         if (a) {
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(target),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+						       tcg_const_i32(1) ) );
             dc->pc = target;
             dc->npc = dc->pc + 4;
         } else {
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				          tcg_const_tl(dc->pc),
+				          tcg_const_tl(target),
+				          tcg_const_i32(4),
+				          tcg_const_i32(QEMU_Unconditional_Branch),
+						       tcg_const_i32(0) ) );
             dc->pc = dc->npc;
             dc->npc = target;
             tcg_gen_mov_tl(cpu_pc, cpu_npc);
@@ -2297,6 +2380,8 @@ static void gen_ld_asi(DisasContext *dc, TCGv dst, TCGv addr,
             save_state(dc);
 #ifdef TARGET_SPARC64
             gen_helper_ld_asi(dst, cpu_env, addr, r_asi, r_mop);
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                              r_mop, r_asi,tcg_const_i32(0)) );
 #else
             {
                 TCGv_i64 t64 = tcg_temp_new_i64();
@@ -2378,6 +2463,8 @@ static void gen_st_asi(DisasContext *dc, TCGv src, TCGv addr,
             save_state(dc);
 #ifdef TARGET_SPARC64
             gen_helper_st_asi(cpu_env, addr, src, r_asi, r_mop);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                              r_mop, r_asi,tcg_const_i32(0)) );
 #else
             {
                 TCGv_i64 t64 = tcg_temp_new_i64();
@@ -2567,6 +2654,8 @@ static void gen_ldf_asi(DisasContext *dc, TCGv addr,
             case 4:
                 d64 = tcg_temp_new_i64();
                 gen_helper_ld_asi(d64, cpu_env, addr, r_asi, r_mop);
+				FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ldda_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                                            r_asi, r_mop) );
                 d32 = gen_dest_fpr_F(dc);
                 tcg_gen_extrl_i64_i32(d32, d64);
                 tcg_temp_free_i64(d64);
@@ -2574,10 +2663,14 @@ static void gen_ldf_asi(DisasContext *dc, TCGv addr,
                 break;
             case 8:
                 gen_helper_ld_asi(cpu_fpr[rd / 2], cpu_env, addr, r_asi, r_mop);
+                FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ldda_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                            r_asi, r_mop) );
                 break;
             case 16:
                 d64 = tcg_temp_new_i64();
                 gen_helper_ld_asi(d64, cpu_env, addr, r_asi, r_mop);
+				FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ldda_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                                            r_asi, r_mop) );
                 tcg_gen_addi_tl(addr, addr, 8);
                 gen_helper_ld_asi(cpu_fpr[rd/2+1], cpu_env, addr, r_asi, r_mop);
                 tcg_gen_mov_i64(cpu_fpr[rd / 2], d64);
@@ -2724,6 +2817,8 @@ static void gen_ldda_asi(DisasContext *dc, TCGv addr, int insn, int rd)
 
             save_state(dc);
             gen_helper_ld_asi(tmp, cpu_env, addr, r_asi, r_mop);
+				FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ldda_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                                            r_asi, r_mop) );
             tcg_temp_free_i32(r_asi);
             tcg_temp_free_i32(r_mop);
 
@@ -2794,7 +2889,8 @@ static void gen_stda_asi(DisasContext *dc, TCGv hi, TCGv addr,
 
             save_state(dc);
             gen_helper_st_asi(cpu_env, addr, t64, r_asi, r_mop);
-            tcg_temp_free_i32(r_mop);
+            FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_asi(cpu_env,addr,tcg_const_tl(flexus_ins_pc),
+                                          r_mop, r_asi,tcg_const_i32(0)) );            tcg_temp_free_i32(r_mop);
             tcg_temp_free_i32(r_asi);
             tcg_temp_free_i64(t64);
         }
@@ -2908,6 +3004,8 @@ static void gen_stda_asi(DisasContext *dc, TCGv hi, TCGv addr,
 
             save_state(dc);
             gen_helper_st_asi(cpu_env, addr, t64, r_asi, r_mop);
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_stda_asi(cpu_env, addr, tcg_const_tl(flexus_ins_pc),
+						       tcg_const_i32(4), r_asi ) );
             tcg_temp_free_i32(r_mop);
             tcg_temp_free_i32(r_asi);
         }
@@ -3272,6 +3370,12 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
             tcg_gen_movi_tl(o7, dc->pc);
             gen_store_gpr(dc, 15, o7);
             target += dc->pc;
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch( cpu_env,
+				  tcg_const_tl(flexus_ins_pc),
+				  tcg_const_tl(target),
+				  tcg_const_i32(4),
+				  tcg_const_i32(QEMU_Call_Branch),
+								   tcg_const_i32(0) ) );
             gen_mov_pc_npc(dc);
 #ifdef TARGET_SPARC64
             if (unlikely(AM_CHECK(dc))) {
@@ -5327,14 +5431,23 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 case 0x0:       /* ld, V9 lduw, load unsigned word */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld32u(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x1:       /* ldub, load unsigned byte */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld8u(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(1),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x2:       /* lduh, load unsigned halfword */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld16u(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(2),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x3:       /* ldd, load double word */
                     if (rd & 1)
@@ -5345,6 +5458,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                         gen_address_mask(dc, cpu_addr);
                         t64 = tcg_temp_new_i64();
                         tcg_gen_qemu_ld64(t64, cpu_addr, dc->mem_idx);
+
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                         tcg_gen_trunc_i64_tl(cpu_val, t64);
                         tcg_gen_ext32u_tl(cpu_val, cpu_val);
                         gen_store_gpr(dc, rd + 1, cpu_val);
@@ -5357,13 +5473,22 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 case 0x9:       /* ldsb, load signed byte */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld8s(cpu_val, cpu_addr, dc->mem_idx);
+
+
+		    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(1),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0xa:       /* ldsh, load signed halfword */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld16s(cpu_val, cpu_addr, dc->mem_idx);
+
+		    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(2),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0xd:       /* ldstub */
                     gen_ldstub(dc, cpu_val, cpu_addr, dc->mem_idx);
+			FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_rmw(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								       tcg_const_i32(1),tcg_const_i32(dc->mem_idx)) );
                     break;
                 case 0x0f:
                     /* swap, swap register with memory. Also atomically */
@@ -5371,6 +5496,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_src1 = gen_load_gpr(dc, rd);
                     gen_swap(dc, cpu_val, cpu_src1, cpu_addr,
                              dc->mem_idx, MO_TEUL);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_rmw(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								       tcg_const_i32(4),tcg_const_i32(dc->mem_idx)) );
+
                     break;
 #if !defined(CONFIG_USER_ONLY) || defined(TARGET_SPARC64)
                 case 0x10:      /* lda, V9 lduwa, load word alternate */
@@ -5415,10 +5543,16 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 case 0x08: /* V9 ldsw */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld32s(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x0b: /* V9 ldx */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_ld64(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+					 tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x18: /* V9 ldswa */
                     gen_ld_asi(dc, cpu_val, cpu_addr, insn, MO_TESL);
@@ -5427,6 +5561,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     gen_ld_asi(dc, cpu_val, cpu_addr, insn, MO_TEQ);
                     break;
                 case 0x2d: /* V9 prefetch, no effect */
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_prefetch(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+									tcg_const_i32(dc->mem_idx),tcg_const_i32(rd)) ); 
                     goto skip_move;
                 case 0x30: /* V9 ldfa */
                     if (gen_trap_ifnofpu(dc)) {
@@ -5467,6 +5604,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 switch (xop) {
                 case 0x20:      /* ldf, load fpreg */
                     gen_address_mask(dc, cpu_addr);
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     cpu_dst_32 = gen_dest_fpr_F(dc);
                     tcg_gen_qemu_ld_i32(cpu_dst_32, cpu_addr,
                                         dc->mem_idx, MO_TEUL);
@@ -5479,6 +5618,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                         TCGv_i64 t64 = tcg_temp_new_i64();
                         tcg_gen_qemu_ld_i64(t64, cpu_addr,
                                             dc->mem_idx, MO_TEQ);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                         gen_helper_ldxfsr(cpu_fsr, cpu_env, cpu_fsr, t64);
                         tcg_temp_free_i64(t64);
                         break;
@@ -5487,6 +5628,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_dst_32 = get_temp_i32(dc);
                     tcg_gen_qemu_ld_i32(cpu_dst_32, cpu_addr,
                                         dc->mem_idx, MO_TEUL);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
+   
                     gen_helper_ldfsr(cpu_fsr, cpu_env, cpu_fsr, cpu_dst_32);
                     break;
                 case 0x22:      /* ldqf, load quad fpreg */
@@ -5499,6 +5643,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_src2_64 = tcg_temp_new_i64();
                     tcg_gen_qemu_ld_i64(cpu_src2_64, cpu_addr, dc->mem_idx,
                                         MO_TEQ | MO_ALIGN_4);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(16),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     gen_store_fpr_Q(dc, rd, cpu_src1_64, cpu_src2_64);
                     tcg_temp_free_i64(cpu_src1_64);
                     tcg_temp_free_i64(cpu_src2_64);
@@ -5508,6 +5654,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_dst_64 = gen_dest_fpr_D(dc, rd);
                     tcg_gen_qemu_ld_i64(cpu_dst_64, cpu_addr, dc->mem_idx,
                                         MO_TEQ | MO_ALIGN_4);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     gen_store_fpr_D(dc, rd, cpu_dst_64);
                     break;
                 default:
@@ -5521,14 +5669,23 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 case 0x4: /* st, store word */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_st32(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x5: /* stb, store byte */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_st8(cpu_val, cpu_addr, dc->mem_idx);
+
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(1),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x6: /* sth, store halfword */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_st16(cpu_val, cpu_addr, dc->mem_idx);
+
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(2),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x7: /* std, store double word */
                     if (rd & 1)
@@ -5542,6 +5699,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                         t64 = tcg_temp_new_i64();
                         tcg_gen_concat_tl_i64(t64, lo, cpu_val);
                         tcg_gen_qemu_st64(t64, cpu_addr, dc->mem_idx);
+
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                         tcg_temp_free_i64(t64);
                     }
                     break;
@@ -5566,6 +5726,9 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                 case 0x0e: /* V9 stx */
                     gen_address_mask(dc, cpu_addr);
                     tcg_gen_qemu_st64(cpu_val, cpu_addr, dc->mem_idx);
+
+  FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x1e: /* V9 stxa */
                     gen_st_asi(dc, cpu_val, cpu_addr, insn, MO_TEQ);
@@ -5584,6 +5747,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_src1_32 = gen_load_fpr_F(dc, rd);
                     tcg_gen_qemu_st_i32(cpu_src1_32, cpu_addr,
                                         dc->mem_idx, MO_TEUL);
+			FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 case 0x25: /* stfsr, V9 stxfsr */
                     {
@@ -5591,10 +5756,14 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                         gen_address_mask(dc, cpu_addr);
                         if (rd == 1) {
                             tcg_gen_qemu_st64(cpu_fsr, cpu_addr, dc->mem_idx);
+			    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+									  tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                             break;
                         }
 #endif
                         tcg_gen_qemu_st32(cpu_fsr, cpu_addr, dc->mem_idx);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(4),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     }
                     break;
                 case 0x26:
@@ -5610,10 +5779,14 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_src1_64 = gen_load_fpr_Q0(dc, rd);
                     tcg_gen_qemu_st_i64(cpu_src1_64, cpu_addr,
                                         dc->mem_idx, MO_TEQ | MO_ALIGN_16);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(16),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     tcg_gen_addi_tl(cpu_addr, cpu_addr, 8);
                     cpu_src2_64 = gen_load_fpr_Q1(dc, rd);
                     tcg_gen_qemu_st_i64(cpu_src1_64, cpu_addr,
                                         dc->mem_idx, MO_TEQ);
+FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								      tcg_const_i32(16),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
 #else /* !TARGET_SPARC64 */
                     /* stdfq, store floating point queue */
@@ -5633,6 +5806,8 @@ static void disas_sparc_insn(DisasContext * dc, unsigned int insn)
                     cpu_src1_64 = gen_load_fpr_D(dc, rd);
                     tcg_gen_qemu_st_i64(cpu_src1_64, cpu_addr, dc->mem_idx,
                                         MO_TEQ | MO_ALIGN_4);
+ FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st(cpu_env,cpu_addr,tcg_const_tl(dc->pc),
+								  tcg_const_i32(8),tcg_const_i32(dc->mem_idx),tcg_const_i32(0)) );
                     break;
                 default:
                     goto illegal_insn;
@@ -5816,6 +5991,18 @@ void gen_intermediate_code(CPUSPARCState * env, TranslationBlock * tb)
 
         insn = cpu_ldl_code(env, dc->pc);
 
+#ifdef CONFIG_FLEXUS
+	flexus_ins_pc = dc->pc;
+#endif /* CONFIG_FLEXUS */
+
+FLEXUS_IF_IN_SIMULATION( {
+	    gen_helper_flexus_periodic( cpu_env );
+	    gen_helper_flexus_insn_fetch( cpu_env,
+					  tcg_const_tl(flexus_ins_pc),
+					  tcg_const_tl(flexus_ins_pc + 4),
+					  tcg_const_i32(4),
+					  tcg_const_i32(QEMU_Non_Branch),
+					  tcg_const_i32(0) );});
         disas_sparc_insn(dc, insn);
 
         if (dc->is_br)

@@ -1,3 +1,13 @@
+#ifdef CONFIG_FLEXUS
+// specific versions for aarch64
+// env, pc, target address, ins_size, is user, conditional or not, annulation or not (execute delay slot or not)
+DEF_HELPER_7(flexus_insn_fetch_aa64, void, env, tl, i64, int, int, int, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_ld_aa64, void, env, i64, int, int, tl, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_st_aa64, void, env, i64, int, int, tl, int)
+#endif
+
 /*
  *  AArch64 specific helper definitions
  *

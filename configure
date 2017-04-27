@@ -368,7 +368,7 @@ bogus_os="no"
 #**************************
 #PARSA START
 #**************************
-
+flexus="no"
 # gnu pth support
 pth="no"
 
@@ -907,6 +907,10 @@ for opt do
 #PARSA START
 #**************************
 
+   --disable-flexus) flexus="no"
+  ;;
+  --enable-flexus) flexus="yes"
+  ;;
   --disable-pth) pth="no"
   ;;
   --enable-pth) pth="yes"
@@ -1489,6 +1493,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   #PARSA START
   #**************************
 
+  flexus          support for the Flexus simulator
   GNU Pth         support for GNU Pth - The GNU Portable Threads
 
 
@@ -5083,7 +5088,10 @@ fi
 #**************************
 #PARSA START
 #**************************
-
+if test "$flexus" = "yes" ; then
+  QEMU_CFLAGS="-DCONFIG_FLEXUS $QEMU_CFLAGS -ldl"
+  LIBS="-ldl $LIBS" 
+fi
 if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
 fi
@@ -5246,6 +5254,7 @@ echo "#**************************"
 echo "#PARSA START"
 echo "#**************************"
 
+echo "Flexus support    $flexus"
 echo "GNU Pth           $pth"
 
 echo "quantum support   $quantum"
@@ -6241,7 +6250,10 @@ fi
 #**************************
 #PARSA START
 #**************************
-
+if test "$flexus" = "yes" ; then
+  echo "CONFIG_FLEXUS=y" >> $config_target_mak
+  put_in_define "CONFIG_FLEXUS"
+fi
 if test "$pth" = "yes" ; then
   echo "CONFIG_PTH=y" >> $config_target_mak
   put_in_define "CONFIG_PTH"

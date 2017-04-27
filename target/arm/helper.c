@@ -18,6 +18,17 @@
 
 #define ARM_CPU_FREQ 1000000000 /* FIXME: 1 GHz, should be configurable */
 
+#if defined(CONFIG_FLEXUS)
+#define QEMUFLEX_PROTOTYPES
+#define QEMUFLEX_QEMU_INTERNAL
+#include "../libqemuflex/api.h"
+#include "exec/memory.h"
+#include "exec/address-spaces.h"
+#include "exec/cpu_ldst.h"
+
+#include "exec/cputlb.h"
+#endif /* CONFIG_FLEXUS */
+
 #ifndef CONFIG_USER_ONLY
 static bool get_phys_addr(CPUARMState *env, target_ulong address,
                           int access_type, ARMMMUIdx mmu_idx,
@@ -565,6 +576,153 @@ static void tlbimvaa_is_write(CPUARMState *env, const ARMCPRegInfo *ri,
     tlb_flush_page_all_cpus_synced(cs, value & TARGET_PAGE_MASK);
 }
 
+#ifdef CONFIG_FLEXUS
+
+void flexus_cache_op_transaction(CPUARMState *env, target_ulong pc, int is_user,
+				 cache_type_t cache_type, cache_maintenance_op_t op,
+				 int line, int data_is_set_and_way, uint64_t data );
+
+void flexus_cache_op_transaction(CPUARMState *env, target_ulong pc, int is_user,
+				 cache_type_t cache_type, cache_maintenance_op_t op,
+				 int line, int data_is_set_and_way, uint64_t data )
+{
+
+    ARMCPU *cpu = arm_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
+
+    // In Qemu, PhysicalIO address space and PhysicalMemory address
+    // space are combined into one (the cpu address space)
+    // Operations on this address space may lead to I/O and Physical Memory
+    conf_object_t* space = malloc(sizeof(conf_object_t));
+    space->type = QEMU_AddressSpace;
+    space->object = cs->as;
+    memory_transaction_t* mem_trans = malloc(sizeof(memory_transaction_t));
+    mem_trans->s.cpu_state = cs;
+    mem_trans->s.ini_ptr = space;
+    mem_trans->s.pc = pc;
+    mem_trans->s.logical_address = 0;
+    mem_trans->s.physical_address = 0;
+    mem_trans->s.type = QEMU_Trans_Cache;
+    mem_trans->s.size = 0;
+    mem_trans->s.atomic = 0;
+    mem_trans->arm_specific.user = is_user;
+    mem_trans->io = 0;
+    mem_trans->cache = cache_type;
+    mem_trans->cache_op = op;
+    mem_trans->line = line;
+    mem_trans->data_is_set_and_way = data_is_set_and_way;
+
+    if( data_is_set_and_way ) {
+      // FLEXUS TODO: handle it correctly
+      mem_trans->set_and_way.set = 0;
+      mem_trans->set_and_way.way = 0;
+    } else {
+      // FLEXUS TODO: handle it correctly
+      mem_trans->addr_range.start_paddr = data & 0x0F;// last 4 bits are ignored
+      mem_trans->addr_range.end_paddr = data & 0x0F;// last 4  bits are ignored
+    }
+
+    QEMU_callback_args_t * event_data = malloc(sizeof(QEMU_callback_args_t));
+    event_data->ncm = malloc(sizeof(QEMU_ncm));
+    event_data->ncm->space = space;
+    event_data->ncm->trans = mem_trans;
+
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+    if (is_user)
+        QEMU_increment_debug_stat(CACHEOPS_USER_CNT);
+    else
+        QEMU_increment_debug_stat(CACHEOPS_OS_CNT);
+
+    QEMU_increment_debug_stat(CACHEOPS_ALL_CNT);
+    QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
+#endif
+
+    QEMU_execute_callbacks(cpu_proc_num(cs) , QEMU_cpu_mem_trans, event_data);
+
+
+    free(space);
+    free(mem_trans);
+    free(event_data->ncm);
+    free(event_data);
+}
+
+/* FIXME:
+     Prototypes for cache management operation handlers 
+     These are not really implemented, and they seem to be used
+     in a non-negligible manner in some parts of the guest kernel.
+     Therefore we should support them correctly... */
+void flexus_cp15_inv_icache(CPUARMState *env, const ARMCPRegInfo *opaque,
+			    uint64_t value);
+
+void flexus_cp15_inv_icache_line_addr(CPUARMState *env, const ARMCPRegInfo *opaque,
+				      uint64_t value);
+
+void flexus_cp15_inv_icache_line_setway(CPUARMState *env, const ARMCPRegInfo *opaque,
+					uint64_t value);
+
+void flexus_cp15_flush_prefetch_buffer(CPUARMState *env, const ARMCPRegInfo *opaque,
+				       uint64_t value);
+
+void flexus_cp15_inv_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+			    uint64_t value);
+
+void flexus_cp15_clean_entire_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+				     uint64_t value);
+
+void flexus_cp15_clean_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+			      uint64_t value);
+
+/* stub implementations */
+void flexus_cp15_inv_icache(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nInvalidating ICACHE\n\n\n");
+  ARMCPU* cpu = arm_env_get_cpu(env);
+  CPUState* cs = CPU(cpu);
+
+  int is_user = (arm_current_el(env) == 0);
+  flexus_cache_op_transaction(env, cpu_get_program_counter(cs), is_user,
+			      QEMU_Instruction_Cache, QEMU_Invalidate_Cache,
+			      0 /* whole cache */, 0, 0 );
+}
+void flexus_cp15_inv_icache_line_addr(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nInvalidating ICACHE line (addr)\n\n\n");
+}
+void flexus_cp15_inv_icache_line_setway(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nInvalidating ICACHE line (addr)\n\n\n");
+}
+void flexus_cp15_flush_prefetch_buffer(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nFlushing prefetch buffer\n\n\n");
+}
+void flexus_cp15_inv_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nInvalidating DCACHE\n\n\n");
+    ARMCPU* cpu = arm_env_get_cpu(env);
+  CPUState* cs = CPU(cpu);
+
+  int is_user = (arm_current_el(env) == 0);
+  flexus_cache_op_transaction(env, cpu_get_program_counter(cs), is_user,
+			      QEMU_Data_Cache, QEMU_Invalidate_Cache,
+			      0 /* whole cache */, 0, 0 );
+}
+void flexus_cp15_clean_entire_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nCleaning DCACHE\n\n\n");
+  ARMCPU* cpu = arm_env_get_cpu(env);
+  CPUState* cs = CPU(cpu);
+
+  int is_user = (arm_current_el(env) == 0);
+  flexus_cache_op_transaction(env, cpu_get_program_counter(cs), is_user,
+			      QEMU_Data_Cache, QEMU_Clean_Cache,
+			      0 /* whole cache */, 0, 0 );
+}
+void flexus_cp15_clean_dcache(CPUARMState *env, const ARMCPRegInfo *opaque,
+	       uint64_t value) {
+  printf("\n\n\nCleaning DCACHE\n\n\n");
+}
+#endif
 static void tlbiall_nsnh_write(CPUARMState *env, const ARMCPRegInfo *ri,
                                uint64_t value)
 {
@@ -720,6 +878,47 @@ static const ARMCPRegInfo not_v8_cp_reginfo[] = {
     { .name = "CACHEMAINT", .cp = 15, .crn = 7, .crm = CP_ANY,
       .opc1 = 0, .opc2 = CP_ANY, .access = PL1_W,
       .type = ARM_CP_NOP | ARM_CP_OVERRIDE },
+#if defined(CONFIG_FLEXUS) && 0
+    // FLEXUS TODO: Check that it is the right way to use our callbacks
+    // FLEXUS TODO: 
+    /* icache management functions */
+    
+    { .name = "INV_ICACHE(Whole)", .cp = 15, .crn = 7, .crm = 5, .opc1 = 0, .opc2 = 0,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_icache },
+    
+    { .name = "INV_ICACHE(Line Addr)", .cp = 15, .crn = 7, .crm = 5, .opc1 = 0, .opc2 = 1,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_icache_line_addr },
+    { .name = "INV_ICACHE(Line Set-Way)", .cp = 15, .crn = 7, .crm = 5, .opc1 = 0, .opc2 = 2,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_icache_line_setway },
+    
+    { .name = "INV_ICACHE(Invalidate prefetch buffer)", .cp = 15, .crn = 7, .crm = 5, .opc1 = 0, .opc2 = 4,
+      .access = PL0_W, .resetvalue = 0, .writefn = flexus_cp15_flush_prefetch_buffer },
+    /* dcache management functions */
+    /*
+    { .name = "INV_DCACHE", .cp = 15, .crn = 7, .crm = 6, .opc1 = 0, .opc2 = 0,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_dcache },
+    { .name = "INV_DCACHE", .cp = 15, .crn = 7, .crm = 6, .opc1 = 0, .opc2 = 1,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_dcache },
+    { .name = "INV_DCACHE", .cp = 15, .crn = 7, .crm = 6, .opc1 = 0, .opc2 = 2,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_inv_dcache },
+    */
+    { .name = "CLEAN_DCACHE(Entire data cache)", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 0,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_clean_entire_dcache },
+    /*
+    { .name = "CLEAN_DCACHE", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 1,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_clean_dcache },
+    { .name = "CLEAN_DCACHE", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 2,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_clean_dcache },
+    */
+    { .name = "CLEAN_DCACHE(DSB)", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 4,
+      .access = PL0_W, .resetvalue = 0, .writefn = flexus_cp15_clean_dcache },
+    /*
+    { .name = "CLEAN_DCACHE", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 5,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_clean_dcache },
+    { .name = "CLEAN_DCACHE", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 6,
+      .access = PL1_W, .resetvalue = 0, .writefn = flexus_cp15_clean_dcache },
+    */
+#endif /* CONFIG_FLEXUS */
     REGINFO_SENTINEL
 };
 
@@ -853,10 +1052,12 @@ static const ARMCPRegInfo v6_cp_reginfo[] = {
      * correctly and also to take any pending interrupts immediately.
      * So use arm_cp_write_ignore() function instead of ARM_CP_NOP flag.
      */
+#ifndef CONFIG_FLEXUS
     { .name = "ISB", .cp = 15, .crn = 7, .crm = 5, .opc1 = 0, .opc2 = 4,
       .access = PL0_W, .type = ARM_CP_NO_RAW, .writefn = arm_cp_write_ignore },
     { .name = "DSB", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 4,
       .access = PL0_W, .type = ARM_CP_NOP },
+#endif /* CONFIG_FLEXUS */
     { .name = "DMB", .cp = 15, .crn = 7, .crm = 10, .opc1 = 0, .opc2 = 5,
       .access = PL0_W, .type = ARM_CP_NOP },
     { .name = "IFAR", .cp = 15, .crn = 6, .crm = 0, .opc1 = 0, .opc2 = 2,
@@ -9941,3 +10142,467 @@ uint32_t HELPER(crc32c)(uint32_t acc, uint32_t val, uint32_t bytes)
     /* Linux crc32c converts the output to one's complement.  */
     return crc32c(acc, buf, bytes) ^ 0xffffffff;
 }
+#ifdef CONFIG_FLEXUS
+#include <string.h>
+
+/* cached variables */
+conf_object_t space_cached;
+memory_transaction_t mem_trans_cached;
+QEMU_callback_args_t event_data_cached;
+QEMU_ncm ncm_cached;
+
+
+
+/* Generic Flexus helper functions */
+void flexus_insn_fetch_transaction(CPUARMState *env, logical_address_t target_vaddr,
+		 physical_address_t target_phys_address, logical_address_t pc, mem_op_type_t type,
+		 int ins_size, int is_user, int cond, int annul);
+
+void flexus_insn_fetch_transaction(CPUARMState *env, logical_address_t target_vaddr,
+		 physical_address_t paddr, logical_address_t pc, mem_op_type_t type,
+		 int ins_size, int is_user, int cond, int annul) {
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_PROP)
+    test_brif_ins++;
+#endif
+
+#if (defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_FETCH)) || !defined(CONFIG_TEST_TIME)
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_FETCH_TIME)
+  int64_t start_time = clock_get_current_time_us();
+#endif /* CONFIG_TEST_TIME */
+
+    ARMCPU *cpu = arm_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
+
+    // In Qemu, PhysicalIO address space and PhysicalMemory address
+    // space are combined into one (the cpu address space)
+    // Operations on this address space may lead to I/O and Physical Memory
+    conf_object_t* space = &space_cached;
+    space->type = QEMU_AddressSpace;
+    space->object = cs->as;
+    memory_transaction_t* mem_trans = &mem_trans_cached;
+    mem_trans->s.cpu_state = cs;
+    mem_trans->s.ini_ptr = space;
+    mem_trans->s.pc = pc;
+    // the "logical_address" must be the PC for Flexus
+    mem_trans->s.logical_address = pc;
+    // the "physical_address" is the physical target of the branch.
+    mem_trans->s.physical_address = paddr;
+    mem_trans->s.type = type;
+    mem_trans->s.size = ins_size;
+    mem_trans->s.branch_type = cond;
+    mem_trans->s.annul = annul;
+    mem_trans->arm_specific.user = is_user;
+    QEMU_callback_args_t * event_data = &event_data_cached;
+    event_data->ncm = &ncm_cached;
+    event_data->ncm->space = space;
+    event_data->ncm->trans = mem_trans;
+
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+    if (is_user == 1)
+        QEMU_increment_debug_stat(USER_FETCH_CNT);
+    else
+        QEMU_increment_debug_stat(OS_FETCH_CNT);
+
+    QEMU_increment_debug_stat(ALL_FETCH_CNT);
+
+    QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
+#endif
+
+#ifdef CONFIG_QFLEX_LIB
+    sInstructionData* insdata = malloc(sizeof(sInstructionData));
+    insdata->cpu_index = cs->cpu_index;
+    insdata->mem_trans = mem_trans;
+    insdata->type = QEMU_cpu_mem_trans;
+    QFLEX_SendInstruction(insdata);
+    free(insdata);
+            
+#endif
+
+    QEMU_execute_callbacks(cpu_proc_num(cs) , QEMU_cpu_mem_trans, event_data);
+
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_FETCH_TIME)
+    int64_t end_time = clock_get_current_time_us();
+    test_cumulative_brif_time += (end_time - start_time);
+#endif /* CONFIG_TEST_TIME */
+#endif
+}
+
+void flexus_transaction(CPUARMState *env, logical_address_t vaddr, 
+		 physical_address_t paddr, logical_address_t pc, mem_op_type_t type, int size,
+			int is_user, int atomic, int asi, int prefetch_fcn, int io, uint8_t cache_bits);
+
+void flexus_transaction(CPUARMState *env, logical_address_t vaddr, 
+		 physical_address_t paddr, logical_address_t pc, mem_op_type_t type, int size,
+			int is_user, int atomic, int asi, int prefetch_fcn, int io, uint8_t cache_bits)
+{
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_PROP)
+  test_ls_ins++;
+#endif
+
+#if (defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_LS)) || !defined(CONFIG_TEST_TIME)
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_LS_TIME)
+    int64_t start_time = clock_get_current_time_us();
+#endif /* CONFIG_TEST_TIME */
+
+    ARMCPU *cpu = arm_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
+
+    // In Qemu, PhysicalIO address space and PhysicalMemory address
+    // space are combined into one (the cpu address space)
+    // Operations on this address space may lead to I/O and Physical Memory
+    conf_object_t* space = &space_cached;
+    space->type = QEMU_AddressSpace;
+    space->object = cs->as;
+    memory_transaction_t* mem_trans = &mem_trans_cached;
+    mem_trans->s.cpu_state = cs;
+    mem_trans->s.ini_ptr = space;
+    mem_trans->s.pc = pc;
+    mem_trans->s.logical_address = vaddr;
+    mem_trans->s.physical_address = paddr;
+    mem_trans->s.type = type;
+    mem_trans->s.size = size;
+    mem_trans->s.atomic = atomic;
+    // TODO what to do here?
+    /*
+    // Cache_Bits: Cache Physical Bit 0
+    //		   Cache Virtual Bit 1
+    mem_trans->sparc_specific.cache_virtual  = (cache_bits >> 1);
+    mem_trans->sparc_specific.cache_physical = (cache_bits & 1);
+    // Check to see if CPU in privileged mode (PSTATE.PRIV bit)
+    mem_trans->sparc_specific.priv = (env->pstate & PS_PRIV);
+    mem_trans->sparc_specific.address_space = asi;
+    if(type == QEMU_Trans_Prefetch){
+    	mem_trans->sparc_specific.prefetch_fcn = prefetch_fcn;
+    }
+    //to see what is different I am going to print out the mem_trans info
+//    print_mem(mem_trans);
+*/
+    mem_trans->arm_specific.user = is_user;
+    mem_trans->io = io;
+    QEMU_callback_args_t * event_data = &event_data_cached;
+    event_data->ncm = &ncm_cached;
+    event_data->ncm->space = space;
+    event_data->ncm->trans = mem_trans;
+
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+    if (is_user)
+        QEMU_increment_debug_stat(NUM_TRANS_USER);
+    else
+        QEMU_increment_debug_stat(NUM_TRANS_OS);
+
+    QEMU_increment_debug_stat(NUM_TRANS_ALL);
+    QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
+#endif
+
+    QEMU_execute_callbacks(cpu_proc_num(cs) , QEMU_cpu_mem_trans, event_data);
+
+#if defined(CONFIG_TEST_TIME) && defined(CONFIG_TEST_LS_TIME)
+    int64_t end_time = clock_get_current_time_us();
+    test_cumulative_ls_time += (end_time - start_time);
+#endif /* CONFIG_TEST_TIME */
+#endif
+}
+
+void helper_flexus_magic_ins(int v){
+  switch(v) {
+    case 4:
+      printf("Toggling simulation on!\n");
+      QEMU_toggle_simulation(1);
+      break;
+    case 5:
+      printf("Toggling simulation off!\n");
+      QEMU_toggle_simulation(0);
+      break;
+    case 6:
+      QEMU_break_simulation("Magic instruction caused the end of the simulation.");
+      break;
+    default:
+      //printf("Received magic instruction: %d\n", v);
+      break;
+    };
+}
+
+void helper_flexus_periodic(CPUARMState *env, int isUser){
+  ARMCPU *arm_cpu = arm_env_get_cpu(env);
+  CPUState *cpu = CPU(arm_cpu);
+
+  static uint64_t instCnt = 0;
+
+  int64_t simulation_length = QEMU_get_simulation_length();
+  if( simulation_length >= 0 && instCnt >= simulation_length ) {
+
+    static int already_tried_to_exit = 0;
+
+    if( already_tried_to_exit == 0 ) {
+      already_tried_to_exit = 1;
+      QEMU_break_simulation("Reached the end of the simulation");
+    }
+
+    //exit_request = 1;
+    cpu->exit_request = 1;
+    cpu_loop_exit(cpu);
+
+    return ;
+  }
+
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+  if (isUser == 1)
+      QEMU_increment_debug_stat(USER_INSTR_CNT);
+  else
+      QEMU_increment_debug_stat(OS_INSTR_CNT);
+
+  QEMU_increment_debug_stat(ALL_INSTR_CNT);
+
+  QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
+#endif
+
+  QEMU_increment_instruction_count(cpu_proc_num(cpu), isUser);
+
+  instCnt++;
+
+  uint64_t eventDelay = 1000;
+  if((instCnt % eventDelay) == 0 ){
+    QEMU_callback_args_t * event_data = &event_data_cached;
+    event_data->ncm = &ncm_cached;
+
+
+    QEMU_execute_callbacks(QEMUFLEX_GENERIC_CALLBACK, QEMU_periodic_event, event_data);
+  }
+}
+
+/* QFlex generic API functions */
+int cpu_proc_num(void *cs_) {
+  CPUState *cs = (CPUState*)cs_;
+  return cs->cpu_index;
+}
+
+void cpu_pop_indexes(int *indexes) {
+	int i = 0;
+	CPUState *cpu;
+	CPU_FOREACH(cpu) {
+		indexes[i] = cpu->cpu_index;
+		i++;
+	}
+}
+
+uint64_t cpu_get_program_counter(void *cs_) {
+  CPUState *cs = (CPUState*)cs_;
+  CPUARMState *env_ptr = cs->env_ptr;
+  uint64_t pc_addr;
+  if( env_ptr->aarch64 )
+    pc_addr = env_ptr->pc;
+  else
+    pc_addr = env_ptr->regs[15];
+  return pc_addr;
+}
+
+physical_address_t mmu_logical_to_physical(void *cs_, logical_address_t va) {
+  CPUState *cs = (CPUState*)cs_;
+  physical_address_t pa = cpu_get_phys_page_debug(cs, (va & TARGET_PAGE_MASK));
+
+  if( pa != - 1 ) {
+    // assuming phys address and logical address are the right size
+    // this gets the page then we need to do get the place in the page using va
+    // logical_address_t mask = 0x0000000000000FFF; 
+    // The offset  seems to be 12bits for 32bit or 64bit addresses
+    pa = pa + (va & ~TARGET_PAGE_MASK);
+    return pa;
+  } else {
+    return -1;
+  }
+}
+
+void *cpu_get_address_space_flexus(void *cs_) {
+  CPUState *cs = (CPUState*)cs_;
+  return cs->as;
+}
+
+uint64_t readReg(void *cs_, int reg_idx, int reg_type) {
+	assert(false);	//ALEX - this is just a placeholder to enable compilation. Fill function out if required.
+}
+// prototype to suppress warning
+
+void cpu_read_register( void *env_ptr, int reg_index, unsigned *reg_size, void *data_out ) {
+  // TODO Do it!
+  CPUState *cs = (CPUState*)env_ptr;
+  ARMCPU *cpu = ARM_CPU(cs);
+  CPUARMState *env = &cpu->env;
+
+  if( reg_index < 15 ) {
+    int rsize = 4;
+    if( reg_size != NULL )
+      *reg_size = 4;
+
+    memcpy( data_out, &(env->regs[reg_index]), sizeof(char) * rsize);
+  } else
+    printf("WARNING: No register found, doing nothing\n");
+}
+
+/* ARM specific helpers */
+// TODO FLEXUS: check if we must use addr_read or addr_code
+void helper_flexus_insn_fetch( CPUARMState *env,
+			       target_ulong pc,
+			       target_ulong targ_addr,
+			       int ins_size,
+			       int is_user,
+			       int cond,
+			       int annul ) {
+  ARMCPU *arm_cpu = arm_env_get_cpu(env);
+  CPUState *cpu = CPU(arm_cpu);
+  
+
+  int mmu_idx, page_index, pd;
+  MemoryRegion *mr;
+
+  page_index = (targ_addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+  mmu_idx = cpu_mmu_index(env , false );                                                     // Flexus Change made since function definition has changed        
+  if (unlikely(env->tlb_table[mmu_idx][page_index].addr_code !=
+	       (targ_addr & TARGET_PAGE_MASK))) {
+    cpu_ldub_code(env, targ_addr);
+  }
+  pd = env->iotlb[mmu_idx][page_index].addr & ~TARGET_PAGE_MASK;
+  mr = iotlb_to_region(cpu, pd , env->iotlb[mmu_idx][page_index].attrs );                  // Flexus Change made since function definition has changed
+  if (memory_region_is_unassigned(mr)) {
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+
+    if (cc->do_unassigned_access) {
+      cc->do_unassigned_access(cpu, targ_addr, false, true, 0, 4);
+    } else {
+      cpu_abort(cpu, "Trying to execute code outside RAM or ROM at 0x"
+		TARGET_FMT_lx "\n", targ_addr);
+    }
+  }
+  physical_address_t phys_address = (physical_address_t)((uintptr_t)targ_addr + env->tlb_table[mmu_idx][page_index].addend);
+
+  flexus_insn_fetch_transaction(env, targ_addr, phys_address, pc, QEMU_Trans_Instr_Fetch,
+		     ins_size, is_user, cond, annul);
+}
+			       
+void helper_flexus_ld( CPUARMState *env,
+		       target_ulong addr,
+		       int size,
+		       int is_user,
+		       target_ulong pc,
+		       int is_atomic ) {
+  int mmu_idx = cpu_mmu_index(env , false );                                                // Flexus Change made since function definition has changed
+  int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+  target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_read;
+
+
+
+  if ((addr & TARGET_PAGE_MASK)
+        != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
+    // Given that a previous load instruction happened, we are sure that
+    // that the TLB entry is still in the CPU TLB, if not then the previous
+    // instruction caused an error, so we just return with no tlb_fill() call
+    return;
+  }
+
+  int io = 0;
+  if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
+    // I/O space
+    io = 1;
+  }        
+  // Otherwise, RAM/ROM , physical memory space, io = 0
+
+  target_ulong phys_address;
+  // Getting page physical address
+  phys_address = env->tlb_table[mmu_idx][index].paddr;
+  // Resolving physical address by adding offset inside the page
+  phys_address += addr & ~TARGET_PAGE_MASK;
+
+  int asi = 0;
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+  if (is_user)
+      QEMU_increment_debug_stat(LD_USER_CNT);
+  else
+      QEMU_increment_debug_stat(LD_OS_CNT);
+  QEMU_increment_debug_stat(LD_ALL_CNT);
+#endif
+
+  // Here, prefetch_fcn is just a dummy argument since type is not prefetch
+  flexus_transaction(env, addr, phys_address, pc, QEMU_Trans_Load,
+		     size, is_user, is_atomic, asi, 0, io, 0);
+}
+
+void helper_flexus_st(
+		      CPUARMState *env,
+		      target_ulong addr,
+		      int size,
+		      int is_user,
+		      target_ulong pc,
+		      int is_atomic)
+{  
+  int mmu_idx = cpu_mmu_index(env , false );                                                     // Flexus Change made since function definition has changed
+  int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+  target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
+
+  if ((addr & TARGET_PAGE_MASK)
+        != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
+    // Given that a previous load instruction happened, we are sure that
+    // that the TLB entry is still in the CPU TLB, if not then the previous
+    // instruction caused an error, so we just return with no tlb_fill() call
+    return;
+  }
+
+  int io = 0;
+  if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
+    // I/O space
+    io = 1;
+  }        
+  // Otherwise, RAM/ROM , physical memory space, io = 0
+
+  target_ulong phys_address;
+  // Getting page physical address
+  phys_address = env->tlb_table[mmu_idx][index].paddr;
+  // Resolving physical address by adding offset inside the page
+  phys_address += addr & ~TARGET_PAGE_MASK;
+
+  int asi = 0;
+#ifdef CONFIG_DEBUG_LIBQEMUFLEX
+  if (is_user)
+      QEMU_increment_debug_stat(ST_USER_CNT);
+  else
+      QEMU_increment_debug_stat(ST_OS_CNT);
+
+  QEMU_increment_debug_stat(ST_ALL_CNT);
+#endif
+
+
+  // Here, prefetch_fcn is just a dummy argument since type is not prefetch
+  flexus_transaction(env, addr, phys_address, pc, QEMU_Trans_Store,
+		     size, is_user, is_atomic, asi, 0, io, 0);
+}
+
+/* Aarch 32 helpers */
+
+void helper_flexus_insn_fetch_aa32( CPUARMState *env,
+			       target_ulong pc,
+			       uint32_t targ_addr,
+			       int ins_size,
+			       int is_user,
+			       int cond,
+			       int annul ) {
+  helper_flexus_insn_fetch(env, pc, targ_addr, ins_size, is_user, cond, annul);
+}
+
+void helper_flexus_ld_aa32( CPUARMState *env,
+		       uint32_t addr,
+		       int size,
+		       int is_user,
+		       target_ulong pc,
+		       int is_atomic ) {
+  helper_flexus_ld(env, addr, size, is_user, pc, is_atomic);
+}
+
+void helper_flexus_st_aa32(
+		      CPUARMState *env,
+		      uint32_t addr,
+		      int size,
+		      int is_user,
+		      target_ulong pc,
+		      int is_atomic) {
+  helper_flexus_st(env, addr, size, is_user, pc, is_atomic);
+}
+
+#endif /* CONFIG_FLEXUS */

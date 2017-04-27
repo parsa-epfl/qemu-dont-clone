@@ -40,6 +40,28 @@
 extern sig_atomic_t quantum_value;
 #endif
 
+#ifdef CONFIG_FLEXUS
+#define QEMUFLEX_PROTOTYPES
+#define QEMUFLEX_QEMU_INTERNAL
+#include "../libqemuflex/api.h"
+static target_ulong flexus_ins_pc = -1;
+
+#define FLEXUS_IF_IN_SIMULATION( a ) do {	\
+  if( QEMU_is_in_simulation() != 0 ) {		\
+    (a) ;					\
+  }						\
+} while(0)
+
+#else
+#define FLEXUS_IF_IN_SIMULATION( a )
+#endif /* CONFIG_FLEXUS */
+
+#if defined(CONFIG_USER_ONLY)
+#define IS_USER(s) 1
+#else
+#define IS_USER(s) (s->user)
+#endif
+
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
 
@@ -806,6 +828,12 @@ static void do_gpr_st_memidx(DisasContext *s, TCGv_i64 source,
 {
     g_assert(size <= 3);
     tcg_gen_qemu_st_i64(source, tcg_addr, memidx, s->be_data + size);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+			      tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+			      tcg_const_i32(IS_USER(s)),
+						       tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
 
     if (iss_valid) {
         uint32_t syn;
@@ -850,6 +878,12 @@ static void do_gpr_ld_memidx(DisasContext *s,
     }
 
     tcg_gen_qemu_ld_i64(dest, tcg_addr, memidx, memop);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
 
     if (extend && is_signed) {
         g_assert(size < 3);
@@ -892,6 +926,12 @@ static void do_fp_st(DisasContext *s, int srcidx, TCGv_i64 tcg_addr, int size)
     if (size < 4) {
         tcg_gen_qemu_st_i64(tmp, tcg_addr, get_mem_index(s),
                             s->be_data + size);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
     } else {
         bool be = s->be_data == MO_BE;
         TCGv_i64 tcg_hiaddr = tcg_temp_new_i64();
@@ -899,9 +939,21 @@ static void do_fp_st(DisasContext *s, int srcidx, TCGv_i64 tcg_addr, int size)
         tcg_gen_addi_i64(tcg_hiaddr, tcg_addr, 8);
         tcg_gen_qemu_st_i64(tmp, be ? tcg_hiaddr : tcg_addr, get_mem_index(s),
                             s->be_data | MO_Q);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
         tcg_gen_ld_i64(tmp, cpu_env, fp_reg_hi_offset(s, srcidx));
         tcg_gen_qemu_st_i64(tmp, be ? tcg_addr : tcg_hiaddr, get_mem_index(s),
                             s->be_data | MO_Q);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
         tcg_temp_free_i64(tcg_hiaddr);
     }
 
@@ -921,6 +973,12 @@ static void do_fp_ld(DisasContext *s, int destidx, TCGv_i64 tcg_addr, int size)
         TCGMemOp memop = s->be_data + size;
         tmphi = tcg_const_i64(0);
         tcg_gen_qemu_ld_i64(tmplo, tcg_addr, get_mem_index(s), memop);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
     } else {
         bool be = s->be_data == MO_BE;
         TCGv_i64 tcg_hiaddr;
@@ -931,8 +989,20 @@ static void do_fp_ld(DisasContext *s, int destidx, TCGv_i64 tcg_addr, int size)
         tcg_gen_addi_i64(tcg_hiaddr, tcg_addr, 8);
         tcg_gen_qemu_ld_i64(tmplo, be ? tcg_hiaddr : tcg_addr, get_mem_index(s),
                             s->be_data | MO_Q);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
         tcg_gen_qemu_ld_i64(tmphi, be ? tcg_addr : tcg_hiaddr, get_mem_index(s),
                             s->be_data | MO_Q);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
         tcg_temp_free_i64(tcg_hiaddr);
     }
 
@@ -1076,6 +1146,12 @@ static void do_vec_st(DisasContext *s, int srcidx, int element,
 
     read_vec_element(s, tcg_tmp, srcidx, element, size);
     tcg_gen_qemu_st_i64(tcg_tmp, tcg_addr, get_mem_index(s), memop);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+			      tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+			      tcg_const_i32(IS_USER(s)),
+						       tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
 
     tcg_temp_free_i64(tcg_tmp);
 }
@@ -1088,6 +1164,12 @@ static void do_vec_ld(DisasContext *s, int destidx, int element,
     TCGv_i64 tcg_tmp = tcg_temp_new_i64();
 
     tcg_gen_qemu_ld_i64(tcg_tmp, tcg_addr, get_mem_index(s), memop);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
     write_vec_element(s, tcg_tmp, destidx, element, size);
 
     tcg_temp_free_i64(tcg_tmp);
@@ -2000,6 +2082,12 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
         if (!is_store) {
             s->is_ldex = true;
             gen_load_exclusive(s, rt, rt2, tcg_addr, size, is_pair);
+#ifdef CONFIG_FLEXUS
+                        FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                                      tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                                      tcg_const_i32(IS_USER(s)),
+                                           tcg_const_tl(flexus_ins_pc), tcg_const_i32(1)) );
+#endif
             if (is_lasr) {
                 tcg_gen_mb(TCG_MO_ALL | TCG_BAR_LDAQ);
             }
@@ -2007,6 +2095,12 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
             if (is_lasr) {
                 tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);
             }
+#ifdef CONFIG_FLEXUS
+                        FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                                      tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                                      tcg_const_i32(IS_USER(s)),
+                                           tcg_const_tl(flexus_ins_pc), tcg_const_i32(1)) );
+#endif
             gen_store_exclusive(s, rs, rt, rt2, tcg_addr, size, is_pair);
         }
     } else {
@@ -2663,9 +2757,20 @@ static void disas_ldst_multiple_struct(DisasContext *s, uint32_t insn)
             for (xs = 0; xs < selem; xs++) {
                 if (is_store) {
                     do_vec_st(s, tt, e, tcg_addr, size);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
                 } else {
                     do_vec_ld(s, tt, e, tcg_addr, size);
-
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
                     /* For non-quad operations, setting a slice of the low
                      * 64 bits of the register clears the high 64 bits (in
                      * the ARM ARM pseudocode this is implicit in the fact
@@ -2795,6 +2900,13 @@ static void disas_ldst_single_struct(DisasContext *s, uint32_t insn)
 
             tcg_gen_qemu_ld_i64(tcg_tmp, tcg_addr,
                                 get_mem_index(s), s->be_data + scale);
+#ifdef CONFIG_FLEXUS
+            FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+			              tcg_addr, tcg_const_i32( 1 << scale /* size */ ),
+			              tcg_const_i32(IS_USER(s)),
+			              tcg_const_tl(flexus_ins_pc),
+                                   tcg_const_i32(0)) );
+#endif
             switch (scale) {
             case 0:
                 mulconst = 0x0101010101010101ULL;
@@ -2825,8 +2937,20 @@ static void disas_ldst_single_struct(DisasContext *s, uint32_t insn)
             /* Load/store one element per register */
             if (is_load) {
                 do_vec_ld(s, rt, index, tcg_addr, scale);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
             } else {
                 do_vec_st(s, rt, index, tcg_addr, scale);
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+                  tcg_addr, tcg_const_i32( 1 << size /* size */ ),
+                  tcg_const_i32(IS_USER(s)),
+                               tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
+#endif
             }
         }
         tcg_gen_addi_i64(tcg_addr, tcg_addr, ebytes);
@@ -11330,6 +11454,20 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
             dc->is_jmp = DISAS_EXC;
             break;
         }
+#ifdef CONFIG_FLEXUS
+	flexus_ins_pc = dc->pc;
+#endif /* CONFIG_FLEXUS */
+
+#ifdef CONFIG_FLEXUS
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)) ));
+	FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch_aa64( cpu_env,
+				      tcg_const_tl(flexus_ins_pc),
+				      tcg_const_i64(dc->thumb ? flexus_ins_pc + 2 : flexus_ins_pc + 4),
+                      tcg_const_i32( dc->thumb ? 2 : 4 ),
+				      tcg_const_i32(IS_USER(dc)),
+				      tcg_const_i32(QEMU_Non_Branch),
+								    tcg_const_i32(0) ) );
+#endif /* CONFIG_FLEXUS */
 
         disas_a64_insn(env, dc);
 

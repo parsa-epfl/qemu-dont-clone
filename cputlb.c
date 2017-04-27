@@ -599,9 +599,15 @@ static void tlb_add_large_page(CPUArchState *env, target_ulong vaddr,
  * Called from TCG-generated code, which is under an RCU read-side
  * critical section.
  */
+#if defined(CONFIG_FLEXUS) && defined(TARGET_SPARC64)
+void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
+                 hwaddr paddr, MemTxAttrs attrs, int prot,
+                  int mmu_idx, target_ulong size, uint8_t cbits)
+#else
 void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
                              hwaddr paddr, MemTxAttrs attrs, int prot,
                              int mmu_idx, target_ulong size)
+#endif
 {
     CPUArchState *env = cpu->env_ptr;
     MemoryRegionSection *section;
@@ -650,6 +656,13 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     /* addr_write can race with tlb_reset_dirty_range */
     copy_tlb_helper(tv, te, true);
 
+#ifdef CONFIG_FLEXUS
+   /* Saving physical address along with the virtual address of a memory operation */
+    te->paddr = paddr;
+	    #ifdef TARGET_SPARC64
+		te->dummy[0] = cbits;
+	    #endif
+#endif
     env->iotlb_v[mmu_idx][vidx] = env->iotlb[mmu_idx][index];
 
     /* refill the tlb */
@@ -689,7 +702,15 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     copy_tlb_helper(te, &tn, true);
     /* atomic_mb_set(&te->addr_write, write_address); */
 }
-
+#if defined(CONFIG_FLEXUS) && defined(TARGET_SPARC64)
+void tlb_set_page(CPUState *cpu, target_ulong vaddr,
+          hwaddr paddr, int prot,
+                  int mmu_idx, target_ulong size, uint8_t cbits)
+{
+    tlb_set_page_with_attrs(cpu, vaddr, paddr, MEMTXATTRS_UNSPECIFIED,
+                            prot, mmu_idx, size, cbits);
+}
+#else
 /* Add a new TLB entry, but without specifying the memory
  * transaction attributes to be used.
  */
@@ -700,6 +721,7 @@ void tlb_set_page(CPUState *cpu, target_ulong vaddr,
     tlb_set_page_with_attrs(cpu, vaddr, paddr, MEMTXATTRS_UNSPECIFIED,
                             prot, mmu_idx, size);
 }
+#endif
 
 static void report_bad_exec(CPUState *cpu, target_ulong addr)
 {

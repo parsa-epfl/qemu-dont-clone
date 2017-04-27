@@ -429,6 +429,35 @@ uint64_t HELPER(crc32c_64)(uint64_t acc, uint64_t val, uint32_t bytes)
     return crc32c(acc, buf, bytes) ^ 0xffffffff;
 }
 
+#ifdef CONFIG_FLEXUS
+/* Aarch 64 helpers */
+void helper_flexus_insn_fetch_aa64( CPUARMState *env,
+			       target_ulong pc,
+			       uint64_t targ_addr,
+			       int ins_size,
+			       int is_user,
+			       int cond,
+			       int annul ) {
+  helper_flexus_insn_fetch(env, pc, targ_addr, ins_size, is_user, cond, annul);
+}
+void helper_flexus_ld_aa64( CPUARMState *env,
+		       uint64_t addr,
+		       int size,
+		       int is_user,
+		       target_ulong pc,
+		       int is_atomic ) {
+  helper_flexus_ld(env, addr, size, is_user, pc, is_atomic);
+}
+void helper_flexus_st_aa64(
+		      CPUARMState *env,
+		      uint64_t addr,
+		      int size,
+		      int is_user,
+		      target_ulong pc,
+		      int is_atomic) {
+  helper_flexus_st(env, addr, size, is_user, pc, is_atomic);
+}
+#endif
 /* Returns 0 on success; 1 otherwise.  */
 uint64_t HELPER(paired_cmpxchg64_le)(CPUARMState *env, uint64_t addr,
                                      uint64_t new_lo, uint64_t new_hi)

@@ -1,3 +1,33 @@
+#ifdef CONFIG_FLEXUS
+// maginc instruction operand
+DEF_HELPER_1(flexus_magic_ins, void, int)
+// env, addr, pc, size, mmu_idx, is_atomic
+DEF_HELPER_6(flexus_ld, void, env, tl, tl, int, int, int)
+// env, addr, pc, size, asi, is_atomic
+DEF_HELPER_6(flexus_ld_asi, void, env, tl, tl, int, int, int)
+// env, addr, pc, size, asi, rd
+DEF_HELPER_6(flexus_ldf_asi, void, env, tl, tl, int, int, int)
+// env, addr, pc, asi, rd
+DEF_HELPER_5(flexus_ldda_asi, void, env, tl, tl, int, int)
+// env, addr, pc, size, mmu_idx, is_atomic
+DEF_HELPER_6(flexus_st, void, env, tl, tl, int, int, int)
+// env, addr, pc, size, asi, is_atomic
+DEF_HELPER_6(flexus_st_asi, void, env, tl, tl, int, int, int)
+// env, addr, pc, size, asi, rd
+DEF_HELPER_6(flexus_stf_asi, void, env, tl, tl, int, int, int)
+// env, addr, pc, size, mmu_idx
+DEF_HELPER_5(flexus_rmw, void, env, tl, tl, int, int)
+// env, addr, pc, size, asi
+DEF_HELPER_5(flexus_rmw_asi, void, env, tl, tl, int, int)
+// env, addr, pc, size, asi
+DEF_HELPER_5(flexus_cas_asi, void, env, tl, tl, int, int)
+// env, add, pc, mmu_idx, prefetch_fcn
+DEF_HELPER_5(flexus_prefetch, void, env, tl, tl, int, int)
+DEF_HELPER_1(flexus_periodic, void, env)
+// env, pc, target address, ins_size, conditional or not, annulation or not (execute delay slot or not)
+DEF_HELPER_6(flexus_insn_fetch, void, env, tl, tl, int, int, int)
+#endif
+
 #ifndef TARGET_SPARC64
 DEF_HELPER_1(rett, void, env)
 DEF_HELPER_2(wrpsr, void, env, tl)

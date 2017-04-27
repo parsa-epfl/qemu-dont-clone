@@ -1,3 +1,22 @@
+#ifdef CONFIG_FLEXUS
+// maginc instruction operand
+DEF_HELPER_1(flexus_magic_ins, void, int)
+// No operands
+DEF_HELPER_2(flexus_periodic, void, env, int)
+// env, pc, target address, ins_size, is user, conditional or not, annulation or not (execute delay slot or not)
+DEF_HELPER_7(flexus_insn_fetch, void, env, tl, tl, int, int, int, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_ld, void, env, tl, int, int, tl, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_st, void, env, tl, int, int, tl, int)
+// specific versions for aarch32
+// env, pc, target address, ins_size, is user, conditional or not, annulation or not (execute delay slot or not)
+DEF_HELPER_7(flexus_insn_fetch_aa32, void, env, tl, i32, int, int, int, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_ld_aa32, void, env, i32, int, int, tl, int)
+// env, addr, size, is user, pc, is atomic
+DEF_HELPER_6(flexus_st_aa32, void, env, i32, int, int, tl, int)
+#endif
 DEF_HELPER_FLAGS_1(sxtb16, TCG_CALL_NO_RWG_SE, i32, i32)
 DEF_HELPER_FLAGS_1(uxtb16, TCG_CALL_NO_RWG_SE, i32, i32)
 

@@ -149,6 +149,15 @@ obj-y += dump.o
 obj-y += migration/ram.o migration/savevm.o
 LIBS := $(libs_softmmu) $(LIBS)
 
+ifdef CONFIG_FLEXUS
+obj-y += ../libqemuflex/api.o
+obj-y += ../libqemuflex/flexus_proxy.o
+#libqemuflex-$(TARGET_NAME).a: ../libqemuflex/api.o
+
+#obj-y += libqemuflex-$(TARGET_NAME).a
+
+endif #CONFIG_FLEXUS
+
 # xen support
 obj-$(CONFIG_XEN) += xen-common.o
 obj-$(CONFIG_XEN_I386) += xen-hvm.o xen-mapcache.o
