@@ -51,6 +51,17 @@
 #include "hw/nmi.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_SIAVASH
+#include "qemu/thread.h"
+#include "semaphore.h"
+
+static pthread_t qemu_side_thread;
+static pthread_t flexus_side_thread;
+static sigset_t waitset_qemu;
+static sigset_t waitset_flexus;
+#include "../libqemuflex/api.h" //NOOSHIN
+#endif CONFIG_SIAVASH
+
 #ifdef CONFIG_FLEXUS
 #include "../libqemuflex/flexus_proxy.h"
 extern int timing_mode;
@@ -1211,6 +1222,37 @@ static void *qemu_dummy_cpu_thread_fn(void *arg)
     return NULL;
 #endif
 }
+#ifdef CONFIG_SIAVASH
+//SIA
+#ifdef CONFIG_FLEXUS
+static sem_t sem_qemu, sem_flexus;
+void simulator_fn(){
+	//make_sig(SIGUSR2, &waitset_flexus);
+	//pause_flexus_side();
+	simulator_start();
+	//ss_start();
+	return;
+}
+
+void ss_start(){
+	int counter = 0;
+	while(1){
+		//resume_qemu_side();
+		//pause_flexus_side();
+		int i = 0;
+		for(; i< 10; i++){
+			printf("%d",i);
+		}
+		printf("\n");
+	//	usleep(500);
+		advance_qemu();
+		printf("Counter:%d\n",counter++);
+	}
+
+}
+#endif
+//End SIA
+#endif
 
 static int64_t tcg_get_icount_limit(void)
 {
@@ -1386,13 +1428,37 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     cpu->exit_request = 1;
 #ifdef CONFIG_FLEXUS
    if (timing_mode) {    //if in timing simulation mode, pass control to flexus
+#ifndef CONFIG_SIAVASH
        printf("QEMU: Starting timing simulation. Passing control to Flexus.\n");
        simulator_start();
        return NULL;
+#else
+//SIA
+	//simulator_start();
+	//qemu_side_thread = pthread_self();
+	//sem_init(&sem_qemu, 0, 1);
+	//sem_init(&sem_flexus, 0, 0);
+	
+	//qemu_thread_create(&flexus_side_thread, "Flexus", simulator_fn, NULL, QEMU_THREAD_DETACHED);
+	//pause_flexus_side();
+	printf("QEMU: Starting timing simulation. Passing control to Flexus.\n");
+	//make_sig(SIGUSR2, &waitset_qemu);
+	//pause_qemu_side();
+	simulator_fn();
+	assert(0);
+//End SIA 
+#endif  
    }
+#endif
+#ifdef CONFIG_SIAVASH
+	int callTcg = 0;
 #endif
 
     while (1) {
+#ifdef CONFIG_SIAVASH
+	//resume_flexus_side();
+	//pause_qemu_side();
+#endif
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
         qemu_account_warp_timer();
 
@@ -1994,7 +2060,11 @@ int vm_stop_force_state(RunState state)
         return bdrv_flush_all();
     }
 }
-
+#ifdef CONFIG_SIAVASH
+void advance_qemu(){
+    tcg_cpu_exec(NULL);
+}
+#endif
 void list_cpus(FILE *f, fprintf_function cpu_fprintf, const char *optarg)
 {
     /* XXX: implement xxx_cpu_list for targets that still miss it */
@@ -2166,6 +2236,81 @@ void dump_drift_info(FILE *f, fprintf_function cpu_fprintf)
         cpu_fprintf(f, "Max guest advance   NA\n");
     }
 }
+#ifdef CONFIG_SIAVASH
+//SIA
+void pause_qemu_side(void){
+	int sig;
+	printf("======== > Qemu is Pausing ..\n");
+	sem_wait(&sem_qemu);
+#if 0
+        int result = sigwait( &waitset_qemu, &sig);
+        if( result == 0 )
+                printf( "Qemu : sigwait() returned for signal %d\n", sig);
+        else {
+                printf( "Qemu : sigwait() returned error number %d\n", errno );
+                perror( "sigwait() function failed\n" );
+        }
+#endif
+}
+void resume_qemu_side(void){
+	static int inst_number = 0;
+        sem_post(&sem_qemu);
+	printf("======== > Qemu is Resuming .. Instruction #%d\n", ++inst_number );
+#if 0
+	int error;
+	if ((error = pthread_kill(qemu_side_thread, SIGUSR2)) != 0)
+		printf("Qemu : pthread_kill error: %s\n", strerror(error));
+#endif
+}
+void pause_flexus_side(void){
+	int sig;
+	printf("======== > Flexus is Pausing ..\n");
+        sem_wait(&sem_flexus);
+#if 0
+	int result = sigwait( &waitset_flexus, &sig );
+        if( result == 0 )
+                printf( "Flexus : sigwait() returned for signal %d\n", sig);
+        else {
+                printf( "Flexus : sigwait() returned error number %d\n", errno );
+                perror( "sigwait() function failed\n" );
+        }
+#endif
+}
+void resume_flexus_side(void){
+	sem_post(&sem_flexus);
+	printf("======== > Flexus is Resuming ..\n");
+#if 0
+	int error;
+        if ((error = pthread_kill(flexus_side_thread, SIGUSR2)) != 0)
+                printf("Flexus: pthread_kill error: %s\n", strerror(error));
+#endif
+}
+void make_sig(int signal_n, sigset_t *waitset){
+#if 0
+    struct sigaction sigact;
+    sigemptyset(&sigact.sa_mask);
+    sigact.sa_flags = 0;
+    sigaction(signal_n, &sigact, NULL);
+
+    sigemptyset(waitset);
+    sigaddset(waitset, signal_n);
+
+    sigprocmask(SIG_BLOCK, waitset, NULL);
+#endif
+}
+void switch_thread(int t){
+	if(t){
+		sem_post(&sem_flexus);
+		printf("======== > Qemu is Pausing ..\n");
+		sem_wait(&sem_qemu);
+	}else{
+	        sem_post(&sem_qemu);
+		printf("======== > Flexus is Pausing ..\n");
+                sem_wait(&sem_flexus);
+	}
+}
+//End SIA
+#endif
 
 #ifdef CONFIG_QUANTUM
 extern sig_atomic_t quantum_value;

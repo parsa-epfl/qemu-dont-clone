@@ -34,6 +34,13 @@
 
 #include "exec/cputlb.h"
 #endif
+#ifdef CONFIG_SIAVASH
+//SIA
+void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint64_t value ) {
+	assert(0);
+}
+//End SIA
+#endif
 void cpu_raise_exception_ra(CPUSPARCState *env, int tt, uintptr_t ra)
 {
     CPUState *cs = CPU(sparc_env_get_cpu(env));
@@ -350,12 +357,84 @@ uint64_t readReg(void *cs_, int reg_idx, int reg_type) {
 
 // prototype to suppress warning
 uint64_t cpu_read_register_impl(void *cs_, int reg_index);
-
+#ifdef CONFIG_SAIVASH
+//PSTATE
+//11 10  9  8  7  6  5  4  3  2  1  0 
+//IG MG                            AG
+#define AG_BIT 1 << 0
+#define MG_BIT 1 << 10
+#define IG_BIT 1 << 11
+#endif // CONFIG_SAIVASH
 uint64_t cpu_read_register_impl(void *cs_, int reg_index) {
 	CPUState *cs = (CPUState*)cs_;
 	CPUSPARCState *env_ptr = cs->env_ptr;
 
-	if(reg_index<8){//general registers
+#ifdef CONFIG_SAIVASH
+	switch(reg_index){
+	case 0 ... 7://Global registers
+		if (env_ptr->pstate & AG_BIT) //If AG is enable we should read from alternater global registers
+			return env_ptr->agregs[reg_index];
+		if (env_ptr->pstate & IG_BIT)//If IG is enable we should read from interrup global registers
+			return env_ptr->igregs[reg_index];
+		if (env_ptr->pstate & MG_BIT)//If MG is enable we should read from mmu global registers. TODO Check whether we should read from mgreg or mmureg
+			return env_ptr->mgregs[reg_index];
+		return env_ptr->gregs[reg_index];
+	case 8 ... 31://Windowed registers
+		return env_ptr->regwptr[reg_index - 8];//TODO Check whether we should read from regbase or regwptr	
+	case 34:// Y
+		return (env_ptr->y);
+	case 35://CCR
+		return cpu_get_ccr(env_ptr);
+	case 36://FPRS
+		return env_ptr->fprs;
+	case 37://FSR
+		return env_ptr->fsr;
+	case 38://ASI
+		return env_ptr->asi;
+	case 39://TICK
+		return env_ptr->tick;
+	case 40://GSR
+		return env_ptr->gsr;
+	case 43://STICK
+		return env_ptr->stick;
+	case 45://PSTATE
+		return env_ptr->pstate;
+	case 46://TL
+		return env_ptr->tl;
+	case 47://PIL
+		return env_ptr->psrpil;
+	case 48 ... 57://TCP
+		return env_ptr->ts[reg_index - 48].tpc;
+	case 58 ... 67://TNPC
+		return env_ptr->ts[reg_index - 58].tnpc;
+	case 68 ... 77://TSTATE
+		return env_ptr->ts[reg_index - 68].tstate;
+	case 78 ... 87://TT
+		return env_ptr->ts[reg_index - 78].tt;
+	case 88://TBA -> TBR
+		return env_ptr->tbr;
+	case 89://VER
+		return env_ptr->version;
+	case 90://CWP
+		return cpu_get_cwp64(env_ptr);
+	case 91://CANSAVE
+		return env_ptr->cansave;
+	case 92://CANRESTORE
+		return env_ptr->canrestore;
+	case 93://OTHERWIN
+		return env_ptr->otherwin;
+	case 94://WSTATE
+		return env_ptr->wstate;
+	case 95://CLEANWIN
+		return env_ptr->cleanwin;
+	case 102://NPC -> FIXME
+		return env_ptr->npc;		
+	default:
+		printf("Invalid Register :{%d}\n", reg_index);
+		assert(0);
+    	}
+#endif // CONFIG_SAIVASH
+if(reg_index<8){//general registers
         return env_ptr->gregs[reg_index];
     }else if(reg_index<32){//register window regs
         return env_ptr->regwptr[reg_index-8];//Register window registers(i,o,l regs)
@@ -457,6 +536,11 @@ uint64_t cpu_read_register_impl(void *cs_, int reg_index) {
         case 125://Sync --not sure what this means
             //return (env_ptr->asi);
             break;
+#ifdef CONFIG_SAIVASH
+        case 126://NOOSHIN: PSTATE
+            return (env_ptr->pstate);
+            break;
+#endif
         } 
     }
 	printf("WARNING: No register found, returning dummy register value\n");
@@ -472,7 +556,144 @@ void cpu_read_register( void *env_ptr, int reg_index, unsigned *reg_size, void *
     memcpy( data_out, &reg_content, sizeof(__uint64_t) );
   }
 }
+#ifdef CONFIG_SAIVASH
 
+
+//SIA
+void cpu_write_register_impl(void *cs_, int reg_index, uint64_t value);
+
+void cpu_write_register_impl(void *cs_, int reg_index, uint64_t value){
+       CPUState *cs = (CPUState*)cs_;
+        CPUSPARCState *env_ptr = cs->env_ptr;
+
+        if(reg_index<8){//general registers
+        	env_ptr->gregs[reg_index] = value;
+    }else if(reg_index<32){//register window regs
+        env_ptr->regwptr[reg_index-8] = value;//Register window registers(i,o,l regs)
+    }else if(reg_index<96){//floating point regs
+        //since there are only 32 FP regs in qemu and they are each defined as a double, union two 32bit ints
+        //I think that it might be that fp reg 0 will be reg 32 and reg 33
+        //fpr
+        if(reg_index % 2){//the register is odd
+            //Possibly should make a new variable for clarity.
+            //reg_index/2 because each register number is being counted twice(fp 0 is reg_index 0_lower(or upper?) and reg_index 1 is fp 0 upper(or lower)
+            //- 16 is because 32/2 = 16 and we need to subtract -32 since we are starting the fp regs at reg_index 32 instead of 0.
+            (env_ptr->fpr[reg_index/2-16]).l.lower = value;//lower based on monitor.c:~4000(search for "fpr[0].l.upper
+        }else{
+            (env_ptr->fpr[reg_index/2-16]).l.upper = value;//upper?
+        }
+
+    }else{//all specific cases now
+        switch(reg_index){
+        case 96://FCC0
+            if(value)
+            	env_ptr->fsr |= FSR_FCC0; //not sure what it is in qemusparc
+            break;
+        case 97://FCC1
+	    
+            if(value)
+            env_ptr->fsr |=  FSR_FCC1; //not sure what it is in qemusparc
+
+            //This is what they are for FCC0 and 1
+            //define FSR_FCC1_SHIFT 11
+            //define FSR_FCC1  (1ULL << FSR_FCC1_SHIFT)
+            //define FSR_FCC0_SHIFT 10
+            //define FSR_FCC0  (1ULL << FSR_FCC0_SHIFT)
+
+            //so FCC2 would be
+            //define FSR_FCC2_SHIFT 100
+            //define FSR_FCC2 (1ULL << FSR_FCC_2_SHIFT)
+            //and FCC3
+            //define FSR_FCC3_SHIFT 101
+            //define FSR_FCC3 (1ULL << FSR_FCC_3_SHIFT)
+            break;
+        case 98://FCC2
+            if(value)
+            env_ptr->fsr |=  FSR_FCC2;
+            break;
+        case 99://FCC3
+            if(value)
+            env_ptr->fsr |=  FSR_FCC3;//FIXME no idea if these work or how to test
+            break;
+        case 100://CC
+            //return env_ptr-> //might be harder to do since qemu does lazy cc codes.
+            cpu_put_ccr(env_ptr, value);//not sure if this is right(ccr might not be cc);
+            break;
+        case 101://PC
+            env_ptr->pc = value;
+            break;
+        case 102://NPC
+            //printf("QEMU: getting NPC from QEMU: %x",env_ptr->npc);//NOOSHIN
+            env_ptr->npc = value;
+            break;
+        case 103://AEXC --part of fsr
+            if(value)
+            env_ptr->fsr |= FSR_AEXC_MASK;
+            break;
+        case 104://CEXC --part of fsr
+            if(value)
+            env_ptr->fsr |= FSR_CEXC_MASK;
+            break;
+        case 105://FTT --part of fsr
+            if(value)
+            env_ptr->fsr |= FSR_FTT_MASK; //isn't defined for some reason, will have to look more at target-sparc/cpu.h:183
+            break;
+        case 106://DUDL --part of fprs
+            //return (env_ptr->fsr & FSR_FTT_MASK);//haven't even found anything about the DUDL reg with googling.
+            break;
+        case 107://FEF --part of fprs
+            if(value)
+            env_ptr->fsr |= FPRS_FEF;
+            break;
+        case 108://Y
+            (env_ptr->y) = value;
+            break;
+        case 109://GSR
+            (env_ptr->gsr) = value;
+            break;
+        case 110://CANSAVE
+            (env_ptr->cansave) = value;
+            break;
+        case 111://CANRESTORE
+            (env_ptr->canrestore) = value;
+            break;
+        case 112://OTHERWIN
+            (env_ptr->otherwin) = value;
+            break;
+        case 113://CLEANWIN
+            (env_ptr->cleanwin) = value;
+            break;
+        case 114://CWP
+            //sounds specific to sparc64, do we care about 32bit sparc?
+            cpu_put_cwp64(env_ptr, value);//seems to actually work
+            //there is no cpu_get_cwp(env). But I don't think it matters.
+            break;
+        case 115://ASI
+            (env_ptr->asi) = value;
+            break;
+        //116-123 arent in the simics thing so they probably aren't used?
+        //THESE MIGHT BE SIMICS SPECIFIC?
+        case 124://Not_Used --not sure what this means
+            //return (env_ptr->asi);
+            break;
+        case 125://Sync --not sure what this means
+            //return (env_ptr->asi);
+            break;
+       case 126://NOOSHIN: PSTATE
+            (env_ptr->pstate) = value;
+            break;
+        }
+    }
+}
+
+void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint64_t value ) {
+  if( reg_size != NULL )
+    *reg_size = 8;
+  cpu_write_register_impl(env_ptr, reg_index, value);
+  
+}
+//End SIA
+#endif
 /* cached variables */
 conf_object_t space_cached;
 memory_transaction_t mem_trans_cached;

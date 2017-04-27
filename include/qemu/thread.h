@@ -222,5 +222,26 @@ void qemu_lockcnt_inc_and_unlock(QemuLockCnt *lockcnt);
  * is non-zero.
  */
 unsigned qemu_lockcnt_count(QemuLockCnt *lockcnt);
+#ifdef CONFIG_SIAVASH
+//SIA
+//Set of functions for controlling qemu threads
 
+int add_new_thread(void *aThread);
+void remove_thread(void *aThread);
+void set_main_thread(void *aThread);
+void suspend_aThread(void *aThread);
+void resume_aThread(void *aThread);
+void suspend_threads(int first_time);
+void resume_threads(void);
+void wait_for_flexus(void);
+
+void pause_qemu_side(void);
+void resume_qemu_side(void);
+void pause_flexus_side(void);
+void resume_flexus_side(void);
+void make_sig(int signal_n, sigset_t *waitset);
+void switch_thread(int t);
+
+//End SIA
+#endif
 #endif

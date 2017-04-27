@@ -480,6 +480,12 @@ void qemu_thread_create(QemuThread *thread, const char *name,
     pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 
     pthread_attr_destroy(&attr);
+#ifdef CONFIG_SIAVASH
+    //SIA
+#ifdef CONFIG_FLEXUS
+    add_new_thread(thread);
+#endif
+#endif
 }
 
 void qemu_thread_get_self(QemuThread *thread)
@@ -495,6 +501,12 @@ bool qemu_thread_is_self(QemuThread *thread)
 void qemu_thread_exit(void *retval)
 {
     pthread_exit(retval);
+#ifdef CONFIG_SIAVASH
+#ifdef CONFIG_FLEXUS
+	pthread_t t = pthread_self();
+        remove_thread(&t);
+#endif
+#endif
 }
 
 void *qemu_thread_join(QemuThread *thread)
@@ -506,6 +518,94 @@ void *qemu_thread_join(QemuThread *thread)
     if (err) {
         error_exit(err, __func__);
     }
+#ifdef CONFIG_SIAVASH
+#ifdef CONFIG_FLEXUS
+    remove_thread(thread);
+#endif
+#endif
     return ret;
 }
+#ifdef CONFIG_SIAVASH
+//SIA
+//
+//
+#define MAX_ACTIVE_THREADS 10
+
+static pthread_t active_threads_table[MAX_ACTIVE_THREADS];
+static pthread_t main_thread;
+static int paused = 0;
+int add_new_thread(void *aThread){
+	int i;
+	for(i = 0; i < MAX_ACTIVE_THREADS; i++){
+                if(pthread_equal(active_threads_table[i], *((pthread_t *)aThread)))
+			return i;
+		if(active_threads_table[i] == 0){
+			active_threads_table[i] = *((pthread_t *)aThread);
+			return i;
+		}
+	}
+	return -1;
+}
+void remove_thread(void *aThread){
+	int i;
+	for(i = 0; i < MAX_ACTIVE_THREADS; i++){
+		if(pthread_equal(active_threads_table[i], *((pthread_t*)aThread))){
+			active_threads_table[i] = 0;
+			return;
+		}
+	}
+}
+void set_main_thread(void *aThread){
+	main_thread = *((pthread_t *)aThread);
+}
+void suspend_aThread(void *aThread){
+	pthread_kill(*((pthread_t*)aThread), SIGSTOP);
+}
+void resume_aThread(void *aThread){
+	pthread_kill(*((pthread_t*)aThread), SIGCONT);
+}
+void suspend_threads(int first_time){
+	first_time = 0;	
+	if(first_time){
+		int i;
+		for(i = 0; i < MAX_ACTIVE_THREADS; i++){
+			if(!active_threads_table[i])
+				continue;
+			if(!pthread_equal(active_threads_table[i], pthread_self())){
+				suspend_aThread(&active_threads_table[2]);
+			}
+		
+		}
+	}
+	else{
+        	paused = 1;
+
+	}
+	
+}
+void resume_threads(void){
+	int i;
+	paused = 0;
+	for(i = 0; i < MAX_ACTIVE_THREADS ; i++){
+                if(!active_threads_table[i] ||
+			pthread_equal(active_threads_table[i], pthread_self()))
+			continue;
+		resume_aThread(&active_threads_table[2]);
+	}
+}
+
+void wait_for_flexus(void){
+	if(paused)
+		pause();
+
+}
+
+
+
+
+
+//End SIA
+#endif
+
+
 #endif //  CONFIG_PTH

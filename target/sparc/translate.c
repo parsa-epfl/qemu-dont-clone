@@ -48,6 +48,13 @@ static target_ulong flexus_ins_pc = -1;
 #else
 #define FLEXUS_IF_IN_SIMULATION( a )
 #endif /* CONFIG_FLEXUS */
+#ifdef CONFIG_SIAVASH
+//SIA
+#ifdef CONFIG_FLEXUS
+#define start_point 0 // This should be an argument for translate 
+#endif
+//End SIA
+#endif
 #define DEBUG_DISAS
 
 #define DYNAMIC_PC  1 /* dynamic pc value */
@@ -5931,6 +5938,10 @@ void gen_intermediate_code(CPUSPARCState * env, TranslationBlock * tb)
     int num_insns;
     int max_insns;
     unsigned int insn;
+#ifdef CONFIG_SIAVASH
+//SIA
+    static int total_num_insns = 0;
+#endif
 
     memset(dc, 0, sizeof(DisasContext));
     dc->tb = tb;
@@ -6047,11 +6058,17 @@ FLEXUS_IF_IN_SIMULATION( {
 
 #ifdef DEBUG_DISAS
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)
+#ifdef CONFIG_SIAVASH
+	total_num_insns += num_insns;
+#endif
         && qemu_log_in_addr_range(pc_start)) {
         qemu_log_lock();
         qemu_log("--------------\n");
         qemu_log("IN: %s\n", lookup_symbol(pc_start));
         log_target_disas(cs, pc_start, last_pc + 4 - pc_start, 0);
+#ifdef CONFIG_SIAVASH
+        qemu_log("%d\n",total_num_insns);
+#endif
         qemu_log("\n");
         qemu_log_unlock();
     }

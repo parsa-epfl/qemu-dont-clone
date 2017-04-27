@@ -48,6 +48,14 @@ static bool get_phys_addr_lpae(CPUARMState *env, target_ulong address,
 #define PMCRE   0x1
 #endif
 
+#ifdef CONFIG_SIAVASH
+//SIA
+void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint64_t value ) {
+    assert(0);
+}
+//End SIA
+#endif
+
 static int vfp_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
 {
     int nregs;
