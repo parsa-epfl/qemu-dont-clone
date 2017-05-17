@@ -5094,6 +5094,7 @@ if test "$flexus" = "yes" ; then
 fi
 if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
+  LIBS="-lpth $LIBS"
 fi
 
 if test "$quantum" = "yes" ; then

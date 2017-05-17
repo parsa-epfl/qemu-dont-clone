@@ -80,9 +80,11 @@ typedef struct SyncClocks {
     int64_t last_cpu_icount;
     int64_t realtime_clock;
 } SyncClocks;
+
 #ifdef CONFIG_SIAVASH
 static int total_num_insns = 0;
 #endif
+
 #if !defined(CONFIG_USER_ONLY)
 /* Allow the guest to have a max 3ms advance.
  * The difference between the 2 clocks could therefore

@@ -60,7 +60,7 @@ static pthread_t flexus_side_thread;
 static sigset_t waitset_qemu;
 static sigset_t waitset_flexus;
 #include "../libqemuflex/api.h" //NOOSHIN
-#endif CONFIG_SIAVASH
+#endif
 
 #ifdef CONFIG_FLEXUS
 #include "../libqemuflex/flexus_proxy.h"
@@ -1225,8 +1225,13 @@ static void *qemu_dummy_cpu_thread_fn(void *arg)
 #ifdef CONFIG_SIAVASH
 //SIA
 #ifdef CONFIG_FLEXUS
+
+void simulator_fn(void);
+void ss_start(void);
+void advance_qemu(void);
+
 static sem_t sem_qemu, sem_flexus;
-void simulator_fn(){
+void simulator_fn(void){
 	//make_sig(SIGUSR2, &waitset_flexus);
 	//pause_flexus_side();
 	simulator_start();
@@ -1234,7 +1239,7 @@ void simulator_fn(){
 	return;
 }
 
-void ss_start(){
+void ss_start(void){
 	int counter = 0;
 	while(1){
 		//resume_qemu_side();
@@ -1451,7 +1456,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
    }
 #endif
 #ifdef CONFIG_SIAVASH
-	int callTcg = 0;
+    //int callTcg = 0;
 #endif
 
     while (1) {
@@ -2061,7 +2066,7 @@ int vm_stop_force_state(RunState state)
     }
 }
 #ifdef CONFIG_SIAVASH
-void advance_qemu(){
+void advance_qemu(void){
     tcg_cpu_exec(NULL);
 }
 #endif

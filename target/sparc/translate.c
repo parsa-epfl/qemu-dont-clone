@@ -6058,10 +6058,10 @@ FLEXUS_IF_IN_SIMULATION( {
 
 #ifdef DEBUG_DISAS
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)
-#ifdef CONFIG_SIAVASH
-	total_num_insns += num_insns;
-#endif
         && qemu_log_in_addr_range(pc_start)) {
+#ifdef CONFIG_SIAVASH
+    total_num_insns += num_insns;
+#endif
         qemu_log_lock();
         qemu_log("--------------\n");
         qemu_log("IN: %s\n", lookup_symbol(pc_start));
