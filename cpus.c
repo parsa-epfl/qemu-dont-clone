@@ -2067,7 +2067,7 @@ int vm_stop_force_state(RunState state)
 }
 #ifdef CONFIG_SIAVASH
 void advance_qemu(void){
-    tcg_cpu_exec(NULL);
+    tcg_cpu_exec(current_cpu);
 }
 #endif
 void list_cpus(FILE *f, fprintf_function cpu_fprintf, const char *optarg)
