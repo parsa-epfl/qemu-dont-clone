@@ -5095,6 +5095,8 @@ fi
 if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
   LIBS="-lpth $LIBS"
+  libs_qga="$libs_qga -lpth"
+
 fi
 
 if test "$quantum" = "yes" ; then
