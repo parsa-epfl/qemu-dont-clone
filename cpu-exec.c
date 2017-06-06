@@ -687,6 +687,8 @@ int cpu_exec(CPUState *cpu)
      */
     init_delay_params(&sc, cpu);
 
+    int a = 0;
+
     /* prepare setjmp context for exception handling */
     if (sigsetjmp(cpu->jmp_env, 0) != 0) {
 
@@ -713,8 +715,10 @@ int cpu_exec(CPUState *cpu)
         }
     }
 
+    printf ("before first\n");
+    bool firstloop_once = true;
     /* if an exception is pending, we execute it here */
-    while (!cpu_handle_exception(cpu, &ret)) {
+    while (!cpu_handle_exception(cpu, &ret) && firstloop_once) {
 #ifdef CONFIG_QUANTUM
             CHECK_QUANTUM(cpu);
             INIT_TB_EXIT_COND;
@@ -722,17 +726,26 @@ int cpu_exec(CPUState *cpu)
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
 
-        while (!cpu_handle_interrupt(cpu, &last_tb)) {
+        bool secondloop_once = true;
+        printf ("first\n");
+        while (!cpu_handle_interrupt(cpu, &last_tb) && secondloop_once) {
 #ifdef CONFIG_QUANTUM
                 CHECK_QUANTUM(cpu);
                 CHECK_TB_EXIT_COND;
 #endif
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
+
+
+            printf ("second\n");
             /* Try to align the host and virtual clocks
                if the guest is in advance */
             align_clocks(&sc, cpu);
+
+            secondloop_once =false;
+            //qemu_cpu_kick(cpu);
         }
+        firstloop_once = false;
     }
 
     cc->cpu_exec_exit(cpu);

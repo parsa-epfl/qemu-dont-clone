@@ -36,9 +36,9 @@
 #endif
 #ifdef CONFIG_SIAVASH
 //SIA
-void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint64_t value ) {
-	assert(0);
-}
+//void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint64_t value ) {
+//	assert(0);
+//}
 //End SIA
 #endif
 void cpu_raise_exception_ra(CPUSPARCState *env, int tt, uintptr_t ra)
@@ -726,12 +726,14 @@ void helper_flexus_periodic(CPUSPARCState *env){
 
   static uint64_t instCnt = 0;
 
+  printf("--------------------Instruction #%i -----------------------\n", instCnt);
+
   int64_t simulation_length = QEMU_get_simulation_length();
   if( simulation_length >= 0 && instCnt >= simulation_length ) {
 
     static int already_tried_to_exit = 0;
 
-    if( already_tried_to_exit == 0 ) {
+    if( already_tried_to_exit >= 0 ) {
       already_tried_to_exit = 1;
       QEMU_break_simulation("Reached the end of the simulation");
     }

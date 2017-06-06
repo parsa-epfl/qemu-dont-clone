@@ -1450,7 +1450,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 	//make_sig(SIGUSR2, &waitset_qemu);
 	//pause_qemu_side();
 	simulator_fn();
-	assert(0);
+//	assert(0);
 //End SIA 
 #endif  
    }
@@ -2067,7 +2067,14 @@ int vm_stop_force_state(RunState state)
 }
 #ifdef CONFIG_SIAVASH
 void advance_qemu(void){
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+
+    tcg_cpu_exec(w->current_cpu);
+#else
     tcg_cpu_exec(current_cpu);
+
+#endif
 }
 #endif
 void list_cpus(FILE *f, fprintf_function cpu_fprintf, const char *optarg)
