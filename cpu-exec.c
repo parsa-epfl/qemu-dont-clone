@@ -714,21 +714,28 @@ int cpu_exec(CPUState *cpu)
             qemu_mutex_unlock_iothread();
         }
     }
-
+#ifdef CONFIG_SIAVASH
     printf ("before first\n");
     bool firstloop_once = true;
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret) && firstloop_once) {
+#else
+        while (!cpu_handle_exception(cpu, &ret)) {
+#endif
 #ifdef CONFIG_QUANTUM
             CHECK_QUANTUM(cpu);
             INIT_TB_EXIT_COND;
 #endif
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
-
+#ifdef CONFIG_SIAVASH
         bool secondloop_once = true;
         printf ("first\n");
         while (!cpu_handle_interrupt(cpu, &last_tb) && secondloop_once) {
+#else
+        while (!cpu_handle_interrupt(cpu, &last_tb)) {
+#endif
+
 #ifdef CONFIG_QUANTUM
                 CHECK_QUANTUM(cpu);
                 CHECK_TB_EXIT_COND;
@@ -737,15 +744,18 @@ int cpu_exec(CPUState *cpu)
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
 
 
-            printf ("second\n");
+           // printf ("second\n");
             /* Try to align the host and virtual clocks
                if the guest is in advance */
             align_clocks(&sc, cpu);
-
+#ifdef CONFIG_SIAVASH
             secondloop_once =false;
+#endif
             //qemu_cpu_kick(cpu);
         }
+#ifdef CONFIG_SIAVASH
         firstloop_once = false;
+#endif
     }
 
     cc->cpu_exec_exit(cpu);
