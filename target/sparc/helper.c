@@ -357,19 +357,19 @@ uint64_t readReg(void *cs_, int reg_idx, int reg_type) {
 
 // prototype to suppress warning
 uint64_t cpu_read_register_impl(void *cs_, int reg_index);
-#ifdef CONFIG_SAIVASH
+#ifdef CONFIG_SIAVASH
 //PSTATE
 //11 10  9  8  7  6  5  4  3  2  1  0 
 //IG MG                            AG
 #define AG_BIT 1 << 0
 #define MG_BIT 1 << 10
 #define IG_BIT 1 << 11
-#endif // CONFIG_SAIVASH
+#endif // CONFIG_SIAVASH
 uint64_t cpu_read_register_impl(void *cs_, int reg_index) {
 	CPUState *cs = (CPUState*)cs_;
 	CPUSPARCState *env_ptr = cs->env_ptr;
 
-#ifdef CONFIG_SAIVASH
+#ifdef CONFIG_SIAVASH
 	switch(reg_index){
 	case 0 ... 7://Global registers
 		if (env_ptr->pstate & AG_BIT) //If AG is enable we should read from alternater global registers
@@ -433,7 +433,7 @@ uint64_t cpu_read_register_impl(void *cs_, int reg_index) {
 		printf("Invalid Register :{%d}\n", reg_index);
 		assert(0);
     	}
-#endif // CONFIG_SAIVASH
+#endif // CONFIG_SIAVASH
 if(reg_index<8){//general registers
         return env_ptr->gregs[reg_index];
     }else if(reg_index<32){//register window regs
@@ -536,7 +536,7 @@ if(reg_index<8){//general registers
         case 125://Sync --not sure what this means
             //return (env_ptr->asi);
             break;
-#ifdef CONFIG_SAIVASH
+#ifdef CONFIG_SIAVASH
         case 126://NOOSHIN: PSTATE
             return (env_ptr->pstate);
             break;
@@ -556,7 +556,7 @@ void cpu_read_register( void *env_ptr, int reg_index, unsigned *reg_size, void *
     memcpy( data_out, &reg_content, sizeof(__uint64_t) );
   }
 }
-#ifdef CONFIG_SAIVASH
+#ifdef CONFIG_SIAVASH
 
 
 //SIA
