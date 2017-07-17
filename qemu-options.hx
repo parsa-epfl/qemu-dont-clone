@@ -3459,6 +3459,18 @@ STEXI
 Specify the number of instructions to execute per vcpu in each iteration.
 ETEXI
 #endif
+
+#ifdef CONFIG_PERFORMANCE
+DEF("instr", HAS_ARG, QEMU_OPTION_instr, \
+    "instr <num> specify the number of instructions to execute.\n",
+    QEMU_ARCH_ALL)
+STEXI
+@item -instr @var{num}
+@findex -instr
+Specify the number of instructions to execute.
+ETEXI
+#endif
+
 DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \
     "-loadvm [tag|id]\n" \
     "                start right away with a saved state (loadvm in monitor)\n",
