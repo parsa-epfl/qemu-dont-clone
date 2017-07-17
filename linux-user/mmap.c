@@ -24,44 +24,79 @@
 
 //#define DEBUG_MMAP
 
-static pthread_mutex_t mmap_mutex = PTHREAD_MUTEX_INITIALIZER;
 #ifndef CONFIG_PTH
+static pthread_mutex_t mmap_mutex = PTHREAD_MUTEX_INITIALIZER;
 static __thread int mmap_lock_count;
+#else
+static pthpthread_mutex_t mmap_mutex = PTHPTHREAD_MUTEX_INITIALIZER;
 #endif
-
 void mmap_lock(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (w->mmap_lock_count++ == 0) {
+        pthpthread_mutex_lock(&mmap_mutex);
+    }
+#else
     if (mmap_lock_count++ == 0) {
         pthread_mutex_lock(&mmap_mutex);
     }
+#endif
+
 }
 
 void mmap_unlock(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (--w->mmap_lock_count == 0) {
+        pthpthread_mutex_unlock(&mmap_mutex);
+    }
+#else
     if (--mmap_lock_count == 0) {
         pthread_mutex_unlock(&mmap_mutex);
     }
+#endif
 }
 
 bool have_mmap_lock(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    return w->mmap_lock_count > 0 ? true : false;
+#else
     return mmap_lock_count > 0 ? true : false;
+#endif
 }
 
 /* Grab lock to make sure things are in a consistent state after fork().  */
 void mmap_fork_start(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (w->mmap_lock_count)
+        abort();
+    pthpthread_mutex_lock(&mmap_mutex);
+#else
     if (mmap_lock_count)
         abort();
     pthread_mutex_lock(&mmap_mutex);
+#endif
 }
 
 void mmap_fork_end(int child)
 {
+#ifdef CONFIG_PTH
+    if (child)
+        pthpthread_mutex_init(&mmap_mutex, NULL);
+    else
+        pthpthread_mutex_unlock(&mmap_mutex);
+#else
     if (child)
         pthread_mutex_init(&mmap_mutex, NULL);
     else
         pthread_mutex_unlock(&mmap_mutex);
+#endif
 }
 
 /* NOTE: all the constants are the HOST ones, but addresses are target. */

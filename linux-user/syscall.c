@@ -6213,7 +6213,12 @@ static void *clone_func(void *arg)
     rcu_register_thread();
     env = info->env;
     cpu = ENV_GET_CPU(env);
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    w->thread_cpu = cpu;
+#else
     thread_cpu = cpu;
+#endif
     ts = (TaskState *)cpu->opaque;
     info->tid = gettid();
     cpu->host_tid = info->tid;
@@ -7735,7 +7740,12 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                 sys_futex(g2h(ts->child_tidptr), FUTEX_WAKE, INT_MAX,
                           NULL, NULL, 0);
             }
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    w->thread_cpu = NULL;
+#else
             thread_cpu = NULL;
+#endif
             object_unref(OBJECT(cpu));
             g_free(ts);
             rcu_unregister_thread();

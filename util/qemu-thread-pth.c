@@ -509,7 +509,7 @@ void initThreadList(void)
             current->t->thread.rcu_reader = NULL;
             current->t->thread.current_cpu = NULL;
             current->t->thread.leader = NULL;
-
+            current->t->thread.mmap_lock_count = 0;
             head = current;
 
             threalist_initialized = true;
@@ -550,6 +550,8 @@ void qemu_thread_create(QemuThread *thread, const char *name,
         tmp->t->thread.rcu_reader = NULL;
         tmp->t->thread.current_cpu = NULL;
         tmp->t->thread.leader = NULL;
+        tmp->t->thread.mmap_lock_count = 0;
+        tmp->t->thread.my_iothread = NULL;
         head->sz++;
 
         (*current).next = tmp;

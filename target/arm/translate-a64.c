@@ -45,7 +45,7 @@ extern sig_atomic_t quantum_value;
 #ifdef CONFIG_PERFORMANCE
 #include "qmp-commands.h"
 extern long long instr_value;
-static long long total_instr_exec;
+long long total_instr_exec =0;
 extern clock_t start_time, end_time;
 void finish_performance()
 {
@@ -54,11 +54,11 @@ void finish_performance()
 
     printf( "Number of seconds: %f\n", (end_time - start_time)/(double)CLOCKS_PER_SEC );
 
-    printf("%.2f\n", (double)(time(NULL) - start_time));
-    printf("performance finished2\n");
-    char* res = malloc(1024);
-    cpu_get_ic(res);
-    printf("res: %s", res);
+   // printf("%.2f\n", (double)(time(NULL) - start_time));
+    // printf("performance finished2\n");
+//    /char* res = malloc(1024);
+    //cpu_get_ic(res);
+   // printf("res: %s", res);
 
     qmp_quit("performance finished\n"); // quit qemu
 }
@@ -11423,19 +11423,19 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         cs->nr_instr++;
         cs->nr_total_instr++;
 #ifdef CONFIG_PERFORMANCE
-        total_instr_exec++;
+        //total_instr_exec= malloc(sizeof(long long));
 //        printf ("total_instr_exec %i\n", total_instr_exec);
         if (total_instr_exec >= instr_value && instr_value > 0 )
             finish_performance();
 #endif
-        if(cs->nr_instr >= quantum_value && quantum_value > 0){
-            cs->nr_quantumHits++;
-            cs->hasReachedInstrLimit = true;
+//        if(cs->nr_instr >= quantum_value && quantum_value > 0){
+//            cs->nr_quantumHits++;
+//            cs->hasReachedInstrLimit = true;
 #ifdef CONFIG_QUANTUM_DEBUG
             printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
 #endif
 
-        }
+       // }
 #endif
 
 
@@ -11599,4 +11599,9 @@ done_generating:
 #endif
     tb->size = dc->pc - pc_start;
     tb->icount = num_insns;
+    printf("num_insns: %i\n", num_insns);
+#ifdef CONFIG_PERFORMANCE
+    total_instr_exec += num_insns;
+    printf("total_instr_exec: %llu\n", total_instr_exec);
+#endif
 }

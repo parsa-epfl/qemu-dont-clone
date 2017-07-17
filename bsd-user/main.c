@@ -74,7 +74,12 @@ void fork_start(void)
 void fork_end(int child)
 {
     if (child) {
-        gdbserver_fork(thread_cpu);
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    gdbserver_fork(thread_cpu);
+#else
+    gdbserver_fork(thread_cpu);
+#endif
     }
 }
 
@@ -692,12 +697,17 @@ static void usage(void)
            x86_stack_size);
     exit(1);
 }
-
+#ifndef CONFIG_PTH
 THREAD CPUState *thread_cpu;
-
+#endif
 bool qemu_cpu_is_self(CPUState *cpu)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    return w->thread_cpu == cpu;
+#else
     return thread_cpu == cpu;
+#endif
 }
 
 void qemu_cpu_kick(CPUState *cpu)
@@ -914,7 +924,12 @@ int main(int argc, char **argv)
 #if defined(TARGET_SPARC) || defined(TARGET_PPC)
     cpu_reset(cpu);
 #endif
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    w->thread_cpu = cpu;
+#else
     thread_cpu = cpu;
+#endif
 
     if (getenv("QEMU_STRACE")) {
         do_strace = 1;

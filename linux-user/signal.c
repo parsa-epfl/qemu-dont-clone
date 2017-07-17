@@ -193,7 +193,12 @@ void target_to_host_old_sigset(sigset_t *sigset,
 
 int block_signals(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    TaskState *ts = (TaskState *)w->thread_cpu->opaque;
+#else
     TaskState *ts = (TaskState *)thread_cpu->opaque;
+ #endif
     sigset_t set;
 
     /* It's OK to block everything including SIGSEGV, because we won't
@@ -215,8 +220,12 @@ int block_signals(void)
  */
 int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    TaskState *ts = (TaskState *)w->thread_cpu->opaque;
+#else
     TaskState *ts = (TaskState *)thread_cpu->opaque;
-
+#endif
     if (oldset) {
         *oldset = ts->signal_mask;
     }
@@ -260,8 +269,12 @@ int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
  */
 static void set_sigmask(const sigset_t *set)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    TaskState *ts = (TaskState *)w->thread_cpu->opaque;
+#else
     TaskState *ts = (TaskState *)thread_cpu->opaque;
-
+#endif
     ts->signal_mask = *set;
 }
 #endif
@@ -467,7 +480,12 @@ static int core_dump_signal(int sig)
 
 void signal_init(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    TaskState *ts = (TaskState *)w->thread_cpu->opaque;
+#else
     TaskState *ts = (TaskState *)thread_cpu->opaque;
+#endif
     struct sigaction act;
     struct sigaction oact;
     int i, j;
@@ -519,7 +537,12 @@ void signal_init(void)
  */
 static void force_sig(int sig)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    CPUState *cpu = w->thread_cpu;
+#else
     CPUState *cpu = thread_cpu;
+#endif
     CPUArchState *env = cpu->env_ptr;
     target_siginfo_t info;
 
@@ -550,7 +573,12 @@ static void force_sigsegv(int oldsig)
 /* abort execution with signal */
 static void QEMU_NORETURN dump_core_and_abort(int target_sig)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    CPUState *cpu =w->thread_cpu;
+#else
     CPUState *cpu = thread_cpu;
+#endif
     CPUArchState *env = cpu->env_ptr;
     TaskState *ts = (TaskState *)cpu->opaque;
     int host_sig, core_dumped = 0;
@@ -630,7 +658,12 @@ static inline void rewind_if_in_safe_syscall(void *puc)
 static void host_signal_handler(int host_signum, siginfo_t *info,
                                 void *puc)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    CPUArchState *env = w->thread_cpu->env_ptr;
+#else
     CPUArchState *env = thread_cpu->env_ptr;
+#endif
     CPUState *cpu = ENV_GET_CPU(env);
     TaskState *ts = cpu->opaque;
 
@@ -680,7 +713,11 @@ static void host_signal_handler(int host_signum, siginfo_t *info,
     sigdelset(&uc->uc_sigmask, SIGBUS);
 
     /* interrupt the virtual CPU as soon as possible */
+#ifdef CONFIG_PTH
+    cpu_exit(w->thread_cpu);
+#else
     cpu_exit(thread_cpu);
+#endif
 }
 
 /* do_sigaltstack() returns target values and errnos. */
@@ -706,7 +743,12 @@ abi_long do_sigaltstack(abi_ulong uss_addr, abi_ulong uoss_addr, abi_ulong sp)
 
 #if defined(TARGET_PPC64)
         /* ELF V2 for PPC64 has a 4K minimum stack size for signal handlers */
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    struct image_info *image = ((TaskState *)w->thread_cpu->opaque)->info;
+#else
         struct image_info *image = ((TaskState *)thread_cpu->opaque)->info;
+#endif
         if (get_ppc64_abi(image) > 1) {
             minstacksize = 4096;
         }
@@ -5332,7 +5374,12 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     int i, err = 0;
 #if defined(TARGET_PPC64)
     struct target_sigcontext *sc = 0;
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    struct image_info *image = ((TaskState *)w->thread_cpu->opaque)->info;
+#else
     struct image_info *image = ((TaskState *)thread_cpu->opaque)->info;
+#endif
 #endif
 
     rt_sf_addr = get_sigframe(ka, env, sizeof(*rt_sf));

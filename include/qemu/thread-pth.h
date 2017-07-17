@@ -64,6 +64,12 @@ typedef struct pth_wrapper
     // translation block context
     int have_tb_lock;
 
+
+    // linux user
+    CPUState* thread_cpu;
+    int mmap_lock_count;
+
+
 }pth_wrapper;
 
 typedef struct  pthpthread_st              *pthpthread_t;

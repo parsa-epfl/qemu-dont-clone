@@ -126,13 +126,23 @@ void fork_end(int child)
         /* Child processes created by fork() only have a single thread.
            Discard information about the parent threads.  */
         CPU_FOREACH_SAFE(cpu, next_cpu) {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (cpu != w->thread_cpu) {
+#else
             if (cpu != thread_cpu) {
+#endif
                 QTAILQ_REMOVE(&cpus, cpu, node);
             }
         }
         qemu_mutex_init(&tcg_ctx.tb_ctx.tb_lock);
         qemu_init_cpu_list();
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    gdbserver_fork(w->thread_cpu);
+#else
         gdbserver_fork(thread_cpu);
+#endif
     } else {
         qemu_mutex_unlock(&tcg_ctx.tb_ctx.tb_lock);
         cpu_list_unlock();
@@ -3770,12 +3780,17 @@ void cpu_loop(CPUHPPAState *env)
 }
 
 #endif /* TARGET_HPPA */
-
+#ifndef CONFIG_PTH
 THREAD CPUState *thread_cpu;
-
+#endif
 bool qemu_cpu_is_self(CPUState *cpu)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    return w->thread_cpu == cpu;
+#else
     return thread_cpu == cpu;
+#endif
 }
 
 void qemu_cpu_kick(CPUState *cpu)
@@ -4327,8 +4342,12 @@ int main(int argc, char **argv, char **envp)
     }
     env = cpu->env_ptr;
     cpu_reset(cpu);
-
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    w->thread_cpu = cpu;
+#else
     thread_cpu = cpu;
+#endif
 
     if (getenv("QEMU_STRACE")) {
         do_strace = 1;

@@ -92,7 +92,12 @@ enum {
 static const char *get_elf_platform(void)
 {
     static char elf_platform[] = "i386";
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    int family = object_property_get_int(OBJECT(w->thread_cpu), "family", NULL);
+#else
     int family = object_property_get_int(OBJECT(thread_cpu), "family", NULL);
+#endif
     if (family > 6)
         family = 6;
     if (family >= 3)
@@ -104,8 +109,12 @@ static const char *get_elf_platform(void)
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    X86CPU *cpu = X86_CPU(w->thread_cpu);
+#else
     X86CPU *cpu = X86_CPU(thread_cpu);
-
+#endif
     return cpu->env.features[FEAT_1_EDX];
 }
 

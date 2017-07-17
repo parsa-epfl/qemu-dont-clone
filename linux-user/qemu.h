@@ -201,7 +201,10 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                     abi_long arg5, abi_long arg6, abi_long arg7,
                     abi_long arg8);
 void gemu_log(const char *fmt, ...) GCC_FMT_ATTR(1, 2);
+#ifndef CONFIG_PTH
 extern THREAD CPUState *thread_cpu;
+#endif
+
 void cpu_loop(CPUArchState *env);
 const char *target_strerror(int err);
 int get_osversion(void);
@@ -334,19 +337,32 @@ unsigned long init_guest_space(unsigned long host_start,
 #ifdef HAVE_SAFE_SYSCALL
 /* The core part of this function is implemented in assembly */
 extern long safe_syscall_base(int *pending, long number, ...);
-
+#ifndef CONFIG_PTH
 #define safe_syscall(...)                                               \
     ({                                                                  \
         long ret_;                                                      \
         int *psp_ = &((TaskState *)thread_cpu->opaque)->signal_pending; \
-        ret_ = safe_syscall_base(psp_, __VA_ARGS__);                    \
+    ret_ = safe_syscall_base(psp_, __VA_ARGS__);                        \
         if (is_error(ret_)) {                                           \
             errno = -ret_;                                              \
             ret_ = -1;                                                  \
         }                                                               \
         ret_;                                                           \
     })
-
+#else
+#define safe_syscall(...)                                               \
+    ({                                                                  \
+        long ret_;                                                      \
+    pth_wrapper* w = getWrapper();                                      \
+    int *psp_ = &((TaskState *)w->thread_cpu->opaque)->signal_pending;  \
+    ret_ = safe_syscall_base(psp_, __VA_ARGS__);                        \
+        if (is_error(ret_)) {                                           \
+            errno = -ret_;                                              \
+            ret_ = -1;                                                  \
+        }                                                               \
+        ret_;                                                           \
+    })
+#endif
 #else
 
 /* Fallback for architectures which don't yet provide a safe-syscall assembly

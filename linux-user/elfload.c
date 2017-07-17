@@ -118,7 +118,12 @@ typedef abi_int         target_pid_t;
 static const char *get_elf_platform(void)
 {
     static char elf_platform[] = "i386";
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    int family = object_property_get_int(OBJECT(w->thread_cpu), "family", NULL);
+#else
     int family = object_property_get_int(OBJECT(thread_cpu), "family", NULL);
+#endif
     if (family > 6)
         family = 6;
     if (family >= 3)
@@ -130,8 +135,12 @@ static const char *get_elf_platform(void)
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    X86CPU *cpu = X86_CPU(w->thread_cpu);
+#else
     X86CPU *cpu = X86_CPU(thread_cpu);
-
+#endif
     return cpu->env.features[FEAT_1_EDX];
 }
 
@@ -419,7 +428,12 @@ static int validate_guest_space(unsigned long guest_base,
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    ARMCPU *cpu = ARM_CPU(w->thread_cpu);
+#else
     ARMCPU *cpu = ARM_CPU(thread_cpu);
+#endif
     uint32_t hwcaps = 0;
 
     hwcaps |= ARM_HWCAP_ARM_SWP;
@@ -454,7 +468,12 @@ static uint32_t get_elf_hwcap(void)
 
 static uint32_t get_elf_hwcap2(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
     ARMCPU *cpu = ARM_CPU(thread_cpu);
+#else
+    ARMCPU *cpu = ARM_CPU(thread_cpu);
+#endif
     uint32_t hwcaps = 0;
 
     GET_FEATURE(ARM_FEATURE_V8_AES, ARM_HWCAP2_ARM_AES);
@@ -518,7 +537,12 @@ enum {
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    ARMCPU *cpu = ARM_CPU(w->thread_cpu);
+#else
     ARMCPU *cpu = ARM_CPU(thread_cpu);
+#endif
     uint32_t hwcaps = 0;
 
     hwcaps |= ARM_HWCAP_A64_FP;
@@ -734,7 +758,12 @@ enum {
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    PowerPCCPU *cpu = POWERPC_CPU(w->thread_cpu);
+#else
     PowerPCCPU *cpu = POWERPC_CPU(thread_cpu);
+#endif
     uint32_t features = 0;
 
     /* We don't have to be terribly complete here; the high points are
@@ -770,7 +799,12 @@ static uint32_t get_elf_hwcap(void)
 
 static uint32_t get_elf_hwcap2(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    PowerPCCPU *cpu = POWERPC_CPU(w->thread_cpu);
+#else
     PowerPCCPU *cpu = POWERPC_CPU(thread_cpu);
+#endif
     uint32_t features = 0;
 
 #define GET_FEATURE(flag, feature)                                      \
@@ -801,8 +835,13 @@ static uint32_t get_elf_hwcap2(void)
 #define DLINFO_ARCH_ITEMS       5
 #define ARCH_DLINFO                                     \
     do {                                                \
-        PowerPCCPU *cpu = POWERPC_CPU(thread_cpu);              \
-        NEW_AUX_ENT(AT_DCACHEBSIZE, cpu->env.dcache_line_size); \
+#ifdef CONFIG_PTH                                       \
+    pth_wrapper* w = getWrapper();                      \
+    PowerPCCPU *cpu = POWERPC_CPU(w->thread_cpu);       \
+#else                                                   \
+        PowerPCCPU *cpu = POWERPC_CPU(thread_cpu);      \
+#endif                                                  \
+    NEW_AUX_ENT(AT_DCACHEBSIZE, cpu->env.dcache_line_size); \
         NEW_AUX_ENT(AT_ICACHEBSIZE, cpu->env.icache_line_size); \
         NEW_AUX_ENT(AT_UCACHEBSIZE, 0);                 \
         /*                                              \
@@ -1130,7 +1169,12 @@ enum {
 
 static uint32_t get_elf_hwcap(void)
 {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    SuperHCPU *cpu = SUPERH_CPU(w->thread_cpu);
+#else
     SuperHCPU *cpu = SUPERH_CPU(thread_cpu);
+#endif
     uint32_t hwcap = 0;
 
     hwcap |= SH_CPU_HAS_FPU;
@@ -3074,7 +3118,12 @@ static int fill_note_info(struct elf_note_info *info,
     /* read and fill status of all threads */
     cpu_list_lock();
     CPU_FOREACH(cpu) {
+#ifdef CONFIG_PTH
+    pth_wrapper* w = getWrapper();
+    if (cpu == w->thread_cpu) {
+#else
         if (cpu == thread_cpu) {
+#endif
             continue;
         }
         fill_thread_info(info, (CPUArchState *)cpu->env_ptr);
