@@ -721,8 +721,8 @@ int cpu_exec(CPUState *cpu)
         while (!cpu_handle_exception(cpu, &ret)) {
 #endif
 #ifdef CONFIG_QUANTUM
-//            CHECK_QUANTUM(cpu);
-//            INIT_TB_EXIT_COND;
+            CHECK_QUANTUM(cpu);
+            INIT_TB_EXIT_COND;
 #endif
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
@@ -735,8 +735,8 @@ int cpu_exec(CPUState *cpu)
 #endif
 
 #ifdef CONFIG_QUANTUM
-//                CHECK_QUANTUM(cpu);
-//                CHECK_TB_EXIT_COND;
+                CHECK_QUANTUM(cpu);
+                CHECK_TB_EXIT_COND;
 #endif
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);

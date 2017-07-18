@@ -289,6 +289,8 @@ void call_rcu1(struct rcu_head *node, void (*func)(struct rcu_head *node))
 void rcu_register_thread(void)
 {
 #ifdef CONFIG_PTH
+    initThreadList();
+
     pth_wrapper* w = getWrapper();
 
     if (!w->rcu_reader)
@@ -362,11 +364,11 @@ void rcu_after_fork(void)
 static void __attribute__((__constructor__)) rcu_init(void)
 {
 #ifdef CONFIG_PTH
-    initThreadList();
-    pth_wrapper* w = getWrapper();
-    if (w->rcu_reader == NULL){
-        w->rcu_reader = calloc(1, sizeof(struct rcu_reader_data));
-    }
+//    initThreadList();
+//    pth_wrapper* w = getWrapper();
+//    if (w->rcu_reader == NULL){
+//        w->rcu_reader = calloc(1, sizeof(struct rcu_reader_data));
+//    }
 
     pthpthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_unlock);
 #else

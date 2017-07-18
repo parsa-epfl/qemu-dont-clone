@@ -66,10 +66,10 @@ typedef struct pth_wrapper
 
 
     // linux user
+#ifdef CONFIG_LINUX_USER
     CPUState* thread_cpu;
     int mmap_lock_count;
-
-
+#endif
 }pth_wrapper;
 
 typedef struct  pthpthread_st              *pthpthread_t;
