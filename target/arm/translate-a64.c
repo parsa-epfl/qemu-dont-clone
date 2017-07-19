@@ -50,17 +50,8 @@ extern clock_t start_time, end_time;
 void finish_performance()
 {
     end_time = clock();
-    //float seconds = (float)(end_time - start_time) / CLOCKS_PER_SEC;
-
     printf( "Number of seconds: %f\n", (end_time - start_time)/(double)CLOCKS_PER_SEC );
-
-   // printf("%.2f\n", (double)(time(NULL) - start_time));
-    // printf("performance finished2\n");
-//    /char* res = malloc(1024);
-    //cpu_get_ic(res);
-   // printf("res: %s", res);
-
-    qmp_quit("performance finished\n"); // quit qemu
+    qmp_quit(NULL); // quit qemu
 }
 
 #endif
@@ -860,6 +851,7 @@ static void do_gpr_st_memidx(DisasContext *s, TCGv_i64 source,
 						       tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
 
+
     if (iss_valid) {
         uint32_t syn;
 
@@ -957,6 +949,7 @@ static void do_fp_st(DisasContext *s, int srcidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
     } else {
         bool be = s->be_data == MO_BE;
         TCGv_i64 tcg_hiaddr = tcg_temp_new_i64();
@@ -970,6 +963,7 @@ static void do_fp_st(DisasContext *s, int srcidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
         tcg_gen_ld_i64(tmp, cpu_env, fp_reg_hi_offset(s, srcidx));
         tcg_gen_qemu_st_i64(tmp, be ? tcg_addr : tcg_hiaddr, get_mem_index(s),
                             s->be_data | MO_Q);
@@ -979,6 +973,7 @@ static void do_fp_st(DisasContext *s, int srcidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
         tcg_temp_free_i64(tcg_hiaddr);
     }
 
@@ -1004,6 +999,7 @@ static void do_fp_ld(DisasContext *s, int destidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
     } else {
         bool be = s->be_data == MO_BE;
         TCGv_i64 tcg_hiaddr;
@@ -1020,6 +1016,7 @@ static void do_fp_ld(DisasContext *s, int destidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
         tcg_gen_qemu_ld_i64(tmphi, be ? tcg_addr : tcg_hiaddr, get_mem_index(s),
                             s->be_data | MO_Q);
 #ifdef CONFIG_FLEXUS
@@ -1028,6 +1025,7 @@ static void do_fp_ld(DisasContext *s, int destidx, TCGv_i64 tcg_addr, int size)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
         tcg_temp_free_i64(tcg_hiaddr);
     }
 
@@ -1178,6 +1176,7 @@ static void do_vec_st(DisasContext *s, int srcidx, int element,
 						       tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
 
+
     tcg_temp_free_i64(tcg_tmp);
 }
 
@@ -1195,6 +1194,7 @@ static void do_vec_ld(DisasContext *s, int destidx, int element,
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
     write_vec_element(s, tcg_tmp, destidx, element, size);
 
     tcg_temp_free_i64(tcg_tmp);
@@ -2113,6 +2113,7 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
                                       tcg_const_i32(IS_USER(s)),
                                            tcg_const_tl(flexus_ins_pc), tcg_const_i32(1)) );
 #endif
+
             if (is_lasr) {
                 tcg_gen_mb(TCG_MO_ALL | TCG_BAR_LDAQ);
             }
@@ -2126,6 +2127,7 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
                                       tcg_const_i32(IS_USER(s)),
                                            tcg_const_tl(flexus_ins_pc), tcg_const_i32(1)) );
 #endif
+
             gen_store_exclusive(s, rs, rt, rt2, tcg_addr, size, is_pair);
         }
     } else {
@@ -2788,6 +2790,7 @@ static void disas_ldst_multiple_struct(DisasContext *s, uint32_t insn)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
                 } else {
                     do_vec_ld(s, tt, e, tcg_addr, size);
 #ifdef CONFIG_FLEXUS
@@ -2796,6 +2799,7 @@ static void disas_ldst_multiple_struct(DisasContext *s, uint32_t insn)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
                     /* For non-quad operations, setting a slice of the low
                      * 64 bits of the register clears the high 64 bits (in
                      * the ARM ARM pseudocode this is implicit in the fact
@@ -2932,6 +2936,7 @@ static void disas_ldst_single_struct(DisasContext *s, uint32_t insn)
 			              tcg_const_tl(flexus_ins_pc),
                                    tcg_const_i32(0)) );
 #endif
+
             switch (scale) {
             case 0:
                 mulconst = 0x0101010101010101ULL;
@@ -2968,6 +2973,7 @@ static void disas_ldst_single_struct(DisasContext *s, uint32_t insn)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
             } else {
                 do_vec_st(s, rt, index, tcg_addr, scale);
 #ifdef CONFIG_FLEXUS
@@ -2976,6 +2982,7 @@ static void disas_ldst_single_struct(DisasContext *s, uint32_t insn)
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
 #endif
+
             }
         }
         tcg_gen_addi_i64(tcg_addr, tcg_addr, ebytes);
@@ -11419,13 +11426,10 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         tcg_gen_insn_start(dc->pc, 0, 0);
         num_insns++;
 
+
 #ifdef CONFIG_QUANTUM
         cs->nr_instr++;
         cs->nr_total_instr++;
-#ifdef CONFIG_PERFORMANCE
-        if (total_instr_exec >= instr_value && instr_value > 0 )
-            finish_performance();
-#endif
         if(cs->nr_instr >= quantum_value && quantum_value > 0){
             cs->nr_quantumHits++;
             cs->hasReachedInstrLimit = true;
@@ -11496,7 +11500,9 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
 				      tcg_const_i32(QEMU_Non_Branch),
 								    tcg_const_i32(0) ) );
 #endif /* CONFIG_FLEXUS */
-
+#ifdef CONFIG_PERFORMANCE
+    gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)));
+#endif
         disas_a64_insn(env, dc);
 
         if (tcg_check_temp_count()) {
@@ -11597,7 +11603,5 @@ done_generating:
 #endif
     tb->size = dc->pc - pc_start;
     tb->icount = num_insns;
-#ifdef CONFIG_PERFORMANCE
-    total_instr_exec += num_insns;
-#endif
+
 }

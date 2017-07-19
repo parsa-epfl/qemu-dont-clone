@@ -56,6 +56,9 @@ void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint6
 //End SIA
 #endif
 
+#ifdef CONFIG_PERFORMANCE
+extern long long instr_value;
+#endif
 static int vfp_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
 {
     int nregs;
@@ -10329,6 +10332,7 @@ void helper_flexus_magic_ins(int v){
       break;
     };
 }
+void finish_performance();
 
 void helper_flexus_periodic(CPUARMState *env, int isUser){
   ARMCPU *arm_cpu = arm_env_get_cpu(env);
@@ -10336,6 +10340,7 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
 
   static uint64_t instCnt = 0;
 
+#ifndef CONFIG_PERFORMANCE
   int64_t simulation_length = QEMU_get_simulation_length();
   if( simulation_length >= 0 && instCnt >= simulation_length ) {
 
@@ -10345,7 +10350,11 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
       already_tried_to_exit = 1;
       QEMU_break_simulation("Reached the end of the simulation");
     }
+#else
+  if( instCnt >=  instr_value ) {
+      finish_performance();
 
+#endif
     //exit_request = 1;
     cpu->exit_request = 1;
     cpu_loop_exit(cpu);
