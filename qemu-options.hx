@@ -3452,18 +3452,10 @@ ETEXI
 #ifdef CONFIG_QUANTUM
 DEF("quantum", HAS_ARG, QEMU_OPTION_quantum,"aaa", QEMU_ARCH_ALL)
 STEXI
-@item -quantum [value=@var{N}][,record=@var{V}]
+@item -quantum [core=@var{N}][,record=@var{V}][,node=@var{C}]
 @findex -quantum
 Specify the number of instructions to execute per vcpu in each iteration.
 ETEXI
-
-DEF("quan", HAS_ARG, QEMU_OPTION_quan,"aaa", QEMU_ARCH_ALL)
-STEXI
-@item -quan @var{N}
-@findex -quan
-Specify the number of instructions to execute per vcpu in each iteration.
-ETEXI
-
 #endif
 
 DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \

@@ -76,7 +76,7 @@ void helper_quantum(CPUARMState *env, int isUser){
           timer_started = true;
    }
 
-      if(cc->nr_total_instr >= quantum_record_value && quantum_record_value > 0){
+      if(total_num_instructions >= quantum_record_value && quantum_record_value > 0){
           if(timer_started && !timer_ended){
                 end = rdtsc();
                 elapsed = end-start;
@@ -84,6 +84,8 @@ void helper_quantum(CPUARMState *env, int isUser){
               }
             // end time stamp
       }
+
+
 
 
 }

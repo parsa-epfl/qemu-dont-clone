@@ -35,7 +35,7 @@ int timing_mode = 0;
 extern int flexus_is_simulating;
 extern int64_t flexus_simulation_length;
 #endif /* CONFIG_FLEXUS */
-#ifdef CONFIG_SECCOMP
+#ifdef
 #include "sysemu/seccomp.h"
 #endif
 
@@ -518,10 +518,13 @@ static QemuOptsList qemu_quantum_opts = {
     .head = QTAILQ_HEAD_INITIALIZER(qemu_quantum_opts.head),
     .desc = {
         {
-            .name = "value",
+            .name = "core",
             .type = QEMU_OPT_STRING,
         }, {
             .name = "record",
+            .type = QEMU_OPT_STRING,
+        },{
+            .name = "node",
             .type = QEMU_OPT_STRING,
         },
         { /* end of list */ }

@@ -52,7 +52,7 @@
 #include "sysemu/replay.h"
 
 #ifdef CONFIG_QUANTUM
-int64_t quantum_value, quantum_record_value;
+int64_t quantum_value, quantum_record_value, quantum_node_value;
 int64_t total_num_instructions;
 extern uint64_t elapsed;
 
@@ -784,17 +784,29 @@ void cpu_ticks_init(void)
 #define KIL 1E3
 #define MIL 1E6
 #define BIL 1E9
-void configure_quantum(QemuOpts *opts, Error **errp)
+
+
+
+int64_t processLetterforExponent(int64_t *val, char c)
 {
-    const char* qopt, *qopt_record;
-    qopt = qemu_opt_get(opts, "value");
-    qopt_record = qemu_opt_get(opts, "record");
-
-    if(!qopt){
-        error_setg(errp, "quantum option not valid");
+    switch(c){
+        case 'K': case 'k' :
+        *val *= KIL;
+        break;
+        case 'M':case 'm':
+        *val  *= MIL;
+        break;
+        case 'B':case 'b':
+        *val  *= BIL;
+        break;
+        default:
+        error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
         exit(1);
-    }
+        break;
+}
 
+void processForOpts(int64_t *val, const char* qopt)
+{
     size_t s = strlen(qopt);
     char c = qopt[s-1];
 
@@ -802,76 +814,88 @@ void configure_quantum(QemuOpts *opts, Error **errp)
 
         char* temp= malloc(sizeof(qopt));
         strncpy ( temp, qopt, s-1 );
-        quantum_value = atoi(temp);
+        *val = atoi(temp);
         free(temp);
-        if (quantum_value <= 0){
-            quantum_value = 0;
+        if (*val <= 0){
+            *val = 0;
             return;
         }
 
-        switch(c){
-            case 'K': case 'k' :
-            quantum_value *= KIL;
-            break;
-            case 'M':case 'm':
-            quantum_value *= MIL;
-            break;
-            case 'B':case 'b':
-            quantum_value *= BIL;
-            break;
-            default:
-            error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
-            exit(1);
-            break;
-        }
+        processLetterforExponent(&(*val), c)
     }
     else{
-        quantum_value = atoi(qopt);
+        *val = atoi(qopt);
     }
+}
+
+void configure_quantum(QemuOpts *opts, Error **errp)
+{
+    const char* qopt, *qopt_record;
+    qopt = qemu_opt_get(opts, "value");
+    qopt_record = qemu_opt_get(opts, "record");
+    qopt_node = qemu_opt_get(opts, "node");
+
+    if(!qopt){
+        error_setg(errp, "quantum option not valid");
+        exit(1);
+    }
+
+    processForOpts(quantum_value, qopt);
+
+
+//    size_t s = strlen(qopt);
+//    char c = qopt[s-1];
+
+//    if (isalpha(c)){
+
+//        char* temp= malloc(sizeof(qopt));
+//        strncpy ( temp, qopt, s-1 );
+//        quantum_value = atoi(temp);
+//        free(temp);
+//        if (quantum_value <= 0){
+//            quantum_value = 0;
+//            return;
+//        }
+
+//        processLetterforExponent(&quantum_value, c)
+//    }
+//    else{
+//        quantum_value = atoi(qopt);
+//    }
 
 
 
     if(qopt_record){
+        processForOpts(quantum_record_value, qopt_record);
 
-        size_t s = strlen(qopt_record);
-        char c = qopt_record[s-1];
+//        size_t s = strlen(qopt_record);
+//        char c = qopt_record[s-1];
 
-            if (isalpha(c))
-            {
-                size_t s = strlen(qopt_record);
+//            if (isalpha(c))
+//            {
+//                size_t s = strlen(qopt_record);
 
-                char* temp= malloc(sizeof(qopt_record));
-                strncpy ( temp, qopt_record, s-1 );
-                quantum_record_value = atoi(temp);
-                free(temp);
+//                char* temp= malloc(sizeof(qopt_record));
+//                strncpy ( temp, qopt_record, s-1 );
+//                quantum_record_value = atoi(temp);
+//                free(temp);
 
-                if (quantum_record_value <= 0){
-                    quantum_record_value = 0;
-                    return;
-                }
+//                if (quantum_record_value <= 0){
+//                    quantum_record_value = 0;
+//                    return;
+//                }
 
-                switch(c){
-                    case 'K': case 'k' :
-                    quantum_record_value *= KIL;
-                    break;
-                    case 'M':case 'm':
-                    quantum_record_value *= MIL;
-                    break;
-                    case 'B':case 'b':
-                    quantum_record_value *= BIL;
-                    break;
-                    default:
-                    error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
-                    exit(1);
-                    break;
+//                processLetterforExponent(&quantum_record_value, c)
 
-                }
 
-            }
-            else{
-                quantum_record_value = atoi(qopt_record);
-            }
+//            }
+//            else{
+//                quantum_record_value = atoi(qopt_record);
+//            }
     }
+
+    if(qopt_node)
+        processForOpts(quantum_node_value, qopt_node);
 
 }
 #endif
