@@ -316,7 +316,7 @@ struct CPUState {
 
 #ifdef CONFIG_QUANTUM
     int nr_instr;
-    int nr_total_instr; /*shows how many instructions this CPU has executed so far*/
+    uint64_t nr_total_instr; /*shows how many instructions this CPU has executed so far*/
     bool hasReachedInstrLimit;
     bool TB_ExitRequested;
 

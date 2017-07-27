@@ -16,6 +16,8 @@ void cpu_get_quantum(const char* val);
 void cpu_set_quantum(const char* val);
 void cpu_get_ic(const char *str);
 void cpu_zero_all(void);
+void configure_quantum(QemuOpts *opts, Error **errp);
+
 #endif
 void configure_icount(QemuOpts *opts, Error **errp);
 extern int use_icount;

@@ -42,20 +42,6 @@
 extern int64_t quantum_value;
 #endif
 
-#ifdef CONFIG_PERFORMANCE
-#include "qmp-commands.h"
-extern long long instr_value;
-long long total_instr_exec =0;
-extern clock_t start_time, end_time;
-void finish_performance()
-{
-    end_time = clock();
-    printf( "Number of seconds: %f\n", (end_time - start_time)/(double)CLOCKS_PER_SEC );
-    qmp_quit(NULL); // quit qemu
-}
-
-#endif
-
 #ifdef CONFIG_FLEXUS
 #define QEMUFLEX_PROTOTYPES
 #define QEMUFLEX_QEMU_INTERNAL
@@ -11427,18 +11413,18 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         num_insns++;
 
 
-#ifdef CONFIG_QUANTUM2
-        cs->nr_instr++;
-        cs->nr_total_instr++;
-        if(cs->nr_instr >= quantum_value && quantum_value > 0){
-            cs->nr_quantumHits++;
-            cs->hasReachedInstrLimit = true;
-#ifdef CONFIG_QUANTUM_DEBUG
-            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
-#endif
+//#ifdef CONFIG_QUANTUM2
+//        cs->nr_instr++;
+//        cs->nr_total_instr++;
+//        if(cs->nr_instr >= quantum_value && quantum_value > 0){
+//            cs->nr_quantumHits++;
+//            cs->hasReachedInstrLimit = true;
+//#ifdef CONFIG_QUANTUM_DEBUG
+//            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
+//#endif
 
-        }
-#endif
+//        }
+//#endif
 
 
         if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
@@ -11486,12 +11472,16 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
             dc->is_jmp = DISAS_EXC;
             break;
         }
+#ifdef CONFIG_QUANTUM
+         gen_helper_quantum(cpu_env,tcg_const_i32(IS_USER(dc)) );
+#endif
 #ifdef CONFIG_FLEXUS
 	flexus_ins_pc = dc->pc;
 #endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_FLEXUS
-    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)) ));
+    gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)) );
+    //FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)) ));
 	FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch_aa64( cpu_env,
 				      tcg_const_tl(flexus_ins_pc),
 				      tcg_const_i64(dc->thumb ? flexus_ins_pc + 2 : flexus_ins_pc + 4),
@@ -11500,9 +11490,7 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
 				      tcg_const_i32(QEMU_Non_Branch),
 								    tcg_const_i32(0) ) );
 #endif /* CONFIG_FLEXUS */
-#ifdef CONFIG_PERFORMANCE
-    gen_helper_flexus_periodic(cpu_env,tcg_const_i32(IS_USER(dc)));
-#endif
+
         disas_a64_insn(env, dc);
 
         if (tcg_check_temp_count()) {

@@ -38,40 +38,51 @@
 
 #ifdef CONFIG_QUANTUM
 extern int64_t quantum_value;
-int nr_loop_iter = 0;
-bool exit_loop_requested = false;
-#define MAX_LOOP_TRY 1000
+//int nr_loop_iter = 0;
+//bool exit_loop_requested = false;
+//#define MAX_LOOP_TRY 1000
 
-#define CHECK_TB_EXIT_COND \
-    nr_loop_iter++; \
-    if (nr_loop_iter >= MAX_LOOP_TRY) { \
-        exit_loop_requested = true; \
-        qemu_cpu_kick(cpu); \
+//#define CHECK_TB_EXIT_COND \
+//    nr_loop_iter++; \
+//    if (nr_loop_iter >= MAX_LOOP_TRY) { \
+//        exit_loop_requested = true; \
+//        qemu_cpu_kick(cpu); \
+//    }
+//#define INIT_TB_EXIT_COND \
+//            nr_loop_iter = 0; \
+//        if (exit_loop_requested) { \
+//            exit_loop_requested = false; \
+//                    break; \
+//        }
+
+//	#ifndef CONFIG_QUANTUM_DEBUG
+//	        #define CHECK_QUANTUM(cpu) \
+//	            if(cpu->hasReachedInstrLimit){ \
+//	                break;\
+//	            }
+//	#else
+//	        #define CHECK_QUANTUM(cpu) \
+//	            if(cpu->hasReachedInstrLimit){ \
+//	                printf("CPU %i: breaking from loop - %i\n", cpu->cpu_index, cpu->nr_instr); \
+//	                break;\
+//	            }
+//	#endif
+
+//	#else
+//		#define CHECK_QUANTUM(cpu)
+//		#define INIT_TB_EXIT_COND
+//		#define CHECK_TB_EXIT_COND
+
+#define CHECK_QUANTUM(cpu) \
+    if ( quantum_value > 0) {\
+                if(cpu->hasReachedInstrLimit){ \
+                     qemu_cpu_kick(cpu); \
+                    break;\
+                } \
     }
-#define INIT_TB_EXIT_COND \
-            nr_loop_iter = 0; \
-        if (exit_loop_requested) { \
-            exit_loop_requested = false; \
-                    break; \
-        }
 
-	#ifndef CONFIG_QUANTUM_DEBUG
-	        #define CHECK_QUANTUM(cpu) \
-	            if(cpu->hasReachedInstrLimit){ \
-	                break;\
-	            }
-	#else
-	        #define CHECK_QUANTUM(cpu) \
-	            if(cpu->hasReachedInstrLimit){ \
-	                printf("CPU %i: breaking from loop - %i\n", cpu->cpu_index, cpu->nr_instr); \
-	                break;\
-	            }
-	#endif
 
-	#else
-		#define CHECK_QUANTUM(cpu) 
-		#define INIT_TB_EXIT_COND 
-		#define CHECK_TB_EXIT_COND 
+
 #endif // CONFIG_QUANTUM
 /* -icount align implementation. */
 
@@ -718,11 +729,17 @@ int cpu_exec(CPUState *cpu)
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret) && firstloop_once) {
 #else
-        while (!cpu_handle_exception(cpu, &ret)) {
+        while (!cpu_handle_exception(cpu, &ret)
+       #ifndef CONFIG_QUANTUM
+                       ) {
+       #else
+                      /*&& !cpu->hasReachedInstrLimit*/  ) {
+       #endif // CONFIG_QUANTUM
 #endif
 #ifdef CONFIG_QUANTUM
             CHECK_QUANTUM(cpu);
-            INIT_TB_EXIT_COND;
+//            INIT_TB_EXIT_COND;
+            //CHECK_QUANTUM_EXIT;
 #endif
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
@@ -731,12 +748,17 @@ int cpu_exec(CPUState *cpu)
         printf ("first\n");
         while (!cpu_handle_interrupt(cpu, &last_tb) && secondloop_once) {
 #else
-        while (!cpu_handle_interrupt(cpu, &last_tb)) {
+        while (!cpu_handle_interrupt(cpu, &last_tb)
+#ifndef CONFIG_QUANTUM
+                ) {
+#else
+               /*&& !cpu->hasReachedInstrLimit*/  ) {
+#endif // CONFIG_QUANTUM
 #endif
 
 #ifdef CONFIG_QUANTUM
                 CHECK_QUANTUM(cpu);
-                CHECK_TB_EXIT_COND;
+  //              CHECK_TB_EXIT_COND;
 #endif
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);

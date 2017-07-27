@@ -51,6 +51,13 @@
 #include "hw/nmi.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_QUANTUM
+int64_t quantum_value, quantum_record_value;
+int64_t total_num_instructions;
+extern uint64_t elapsed;
+
+#endif
+
 #ifdef CONFIG_SIAVASH
 #include "qemu/thread.h"
 #include "semaphore.h"
@@ -772,6 +779,102 @@ void cpu_ticks_init(void)
                                            cpu_throttle_timer_tick, NULL);
 }
 
+#ifdef CONFIG_QUANTUM
+
+#define KIL 1E3
+#define MIL 1E6
+#define BIL 1E9
+void configure_quantum(QemuOpts *opts, Error **errp)
+{
+    const char* qopt, *qopt_record;
+    qopt = qemu_opt_get(opts, "value");
+    qopt_record = qemu_opt_get(opts, "record");
+
+    if(!qopt){
+        error_setg(errp, "quantum option not valid");
+        exit(1);
+    }
+
+    size_t s = strlen(qopt);
+    char c = qopt[s-1];
+
+    if (isalpha(c)){
+
+        char* temp= malloc(sizeof(qopt));
+        strncpy ( temp, qopt, s-1 );
+        quantum_value = atoi(temp);
+        free(temp);
+        if (quantum_value <= 0){
+            quantum_value = 0;
+            return;
+        }
+
+        switch(c){
+            case 'K': case 'k' :
+            quantum_value *= KIL;
+            break;
+            case 'M':case 'm':
+            quantum_value *= MIL;
+            break;
+            case 'B':case 'b':
+            quantum_value *= BIL;
+            break;
+            default:
+            error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
+            exit(1);
+            break;
+        }
+    }
+    else{
+        quantum_value = atoi(qopt);
+    }
+
+
+
+    if(qopt_record){
+
+        size_t s = strlen(qopt_record);
+        char c = qopt_record[s-1];
+
+            if (isalpha(c))
+            {
+                size_t s = strlen(qopt_record);
+
+                char* temp= malloc(sizeof(qopt_record));
+                strncpy ( temp, qopt_record, s-1 );
+                quantum_record_value = atoi(temp);
+                free(temp);
+
+                if (quantum_record_value <= 0){
+                    quantum_record_value = 0;
+                    return;
+                }
+
+                switch(c){
+                    case 'K': case 'k' :
+                    quantum_record_value *= KIL;
+                    break;
+                    case 'M':case 'm':
+                    quantum_record_value *= MIL;
+                    break;
+                    case 'B':case 'b':
+                    quantum_record_value *= BIL;
+                    break;
+                    default:
+                    error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
+                    exit(1);
+                    break;
+
+                }
+
+            }
+            else{
+                quantum_record_value = atoi(qopt_record);
+            }
+    }
+
+}
+#endif
 void configure_icount(QemuOpts *opts, Error **errp)
 {
     const char *option;
@@ -1501,10 +1604,19 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 printf("CPU %i: setting instruction count to zero - %i\n", cpu->cpu_index, cpu->nr_instr);
 #endif
 #ifdef CONFIG_QUANTUM
-                cpu->nr_instr = 0;
-                if(cpu->hasReachedInstrLimit){
-                    cpu->hasReachedInstrLimit = false;
+
+                if ( quantum_value > 0)
+                 {
+                     //cpu->nr_instr = 0;
+                     if(cpu->hasReachedInstrLimit){
+                         cpu->hasReachedInstrLimit = false;
+                     }
+                 }
+                if ( quantum_record_value > 0)
+                {
+
                 }
+
 #endif
 
 #ifdef CONFIG_QUANTUM
@@ -2325,7 +2437,6 @@ void switch_thread(int t){
 #endif
 
 #ifdef CONFIG_QUANTUM
-extern int64_t quantum_value;
 
 void cpu_get_quantum(const char* val)
 {
@@ -2344,9 +2455,20 @@ void cpu_get_ic(const char *str)
     CPUState *cpu;
     int length = 0;
     char * tmp = malloc (1024);
+
+    double t = elapsed/1E9;
+
+    int MIPS = (quantum_record_value/t) / 1E6;
+
+    length += sprintf(tmp+ length, "It took %lu nanoseconds (i.e. %f second) time to execute %lu instructions. - %i MIPS\n", elapsed, t, quantum_record_value, MIPS);
+
+    length += sprintf(tmp+ length, "Total Number of instructions executed so far: %lu  so far.\n", total_num_instructions);
+
+
+
     CPU_FOREACH(cpu)
     {
-        length += sprintf(tmp+ length, "CPU %d has executed %d instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
+        length += sprintf(tmp+ length, "CPU %d has executed %lu instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
     }
 
     length += sprintf(tmp+ length, "\nDetails:\nCPU\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n");

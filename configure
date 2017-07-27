@@ -5088,6 +5088,9 @@ fi
 #**************************
 #PARSA START
 #**************************
+if test "$quantum" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
+fi
 if test "$flexus" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_FLEXUS $QEMU_CFLAGS -ldl"
   LIBS="-ldl $LIBS" 
@@ -5097,10 +5100,6 @@ if test "$pth" = "yes" ; then
   LIBS="-lpth $LIBS"
   libs_qga="$libs_qga -lpth"
 
-fi
-
-if test "$quantum" = "yes" ; then
-QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
 fi
 #**************************
 #PARSA END

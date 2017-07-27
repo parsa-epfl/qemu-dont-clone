@@ -1,3 +1,6 @@
+#ifdef CONFIG_QUANTUM
+DEF_HELPER_2(quantum, void, env, int)
+#endif
 #ifdef CONFIG_FLEXUS
 // maginc instruction operand
 DEF_HELPER_1(flexus_magic_ins, void, int)

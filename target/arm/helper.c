@@ -30,7 +30,63 @@
 #endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_QUANTUM
-extern int64_t quantum_value;
+extern int64_t quantum_value, quantum_record_value;
+extern int64_t total_num_instructions;
+bool timer_started, timer_ended = false;
+uint64_t start,end,elapsed;
+
+#if defined(__i386__)
+
+static __inline__ unsigned long long rdtsc(void)
+{
+    unsigned long long int x;
+    __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
+    return x;
+}
+
+#elif defined(__x86_64__)
+
+static __inline__ unsigned long long rdtsc(void)
+{
+    unsigned hi, lo;
+    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+
+#endif
+
+void helper_quantum(CPUARMState *env, int isUser){
+
+    ARMCPU *arm_cpu = arm_env_get_cpu(env);
+    CPUState *cc = CPU(arm_cpu);
+
+
+  total_num_instructions++;
+
+  cc->nr_instr++;
+  cc->nr_total_instr++;
+  if(cc->nr_instr >= quantum_value && quantum_value > 0){
+      cc->nr_instr = 0;
+      cc->nr_quantumHits++;
+      cc->hasReachedInstrLimit = true;
+  }
+
+  if (quantum_record_value > 0 && !timer_started){
+          start = rdtsc();
+          timer_started = true;
+   }
+
+      if(cc->nr_total_instr >= quantum_record_value && quantum_record_value > 0){
+          if(timer_started && !timer_ended){
+                end = rdtsc();
+                elapsed = end-start;
+                timer_ended = true;
+              }
+            // end time stamp
+      }
+
+
+}
 #endif
 
 #ifndef CONFIG_USER_ONLY
@@ -60,9 +116,6 @@ void cpu_write_register( void *env_ptr, int reg_index, unsigned *reg_size, uint6
 //End SIA
 #endif
 
-#ifdef CONFIG_PERFORMANCE
-extern long long instr_value;
-#endif
 static int vfp_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
 {
     int nregs;
@@ -10342,12 +10395,6 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
   ARMCPU *arm_cpu = arm_env_get_cpu(env);
   CPUState *cpu = CPU(arm_cpu);
 
-#ifndef CONFIG_PTH
-  CPUState* cc = current_cpu;
-#else
-  pth_wrapper* w = getWrapper();
-  CPUState* cc = w->current_cpu;
-#endif
   static uint64_t instCnt = 0;
 
   int64_t simulation_length = QEMU_get_simulation_length();
@@ -10380,19 +10427,6 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
   QEMU_increment_instruction_count(cpu_proc_num(cpu), isUser);
 
   instCnt++;
-
-#ifdef CONFIG_QUANTUM
-        cc->nr_instr++;
-        cc->nr_total_instr++;
-        if(cc->nr_instr >= quantum_value && quantum_value > 0){
-            cc->nr_quantumHits++;
-            cc->hasReachedInstrLimit = true;
-#ifdef CONFIG_QUANTUM_DEBUG
-            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
-#endif
-
-        }
-#endif
 
   uint64_t eventDelay = 1000;
   if((instCnt % eventDelay) == 0 ){

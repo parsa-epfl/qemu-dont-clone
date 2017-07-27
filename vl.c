@@ -43,15 +43,9 @@ extern int64_t flexus_simulation_length;
 #include <libvdeplug.h>
 #endif
 
-#ifdef CONFIG_QUANTUM
-sig_atomic_t quantum_value;
-#endif
 
-#ifdef CONFIG_PERFORMANCE
-#include <time.h>
-long long instr_value;
-clock_t start_time, end_time;
-#endif
+
+
 
 #ifdef CONFIG_SDL
 #if defined(__APPLE__) || defined(main)
@@ -3007,14 +3001,6 @@ int main(int argc, char **argv, char **envp)
     QemuOptsList *olist;
     int optind;
     const char *optarg;
-#ifdef CONFIG_QUANTUM
-    const char *quantum_opt, *quantum_record_opt = NULL;
-#endif
-#ifdef CONFIG_PERFORMANCE
-    const char *instr_opt = NULL;
-    instr_value = 0;
-    start_time = clock();
-#endif
     const char *loadvm = NULL;
     MachineClass *machine_class;
     const char *cpu_model;
@@ -3725,11 +3711,6 @@ int main(int argc, char **argv, char **envp)
 
             case QEMU_OPTION_quan:
                  printf("aaa");
-#endif
-#ifdef CONFIG_PERFORMANCE
-            case QEMU_OPTION_instr:
-                instr_opt = optarg;
-                break;
 #endif
             case QEMU_OPTION_full_screen:
                 full_screen = 1;
@@ -4793,22 +4774,7 @@ int main(int argc, char **argv, char **envp)
 
 #ifdef CONFIG_QUANTUM
     if (quantum_opts) {
-        quantum_opt = qemu_opt_get(opts, "value");
-        quantum_record_opt = qemu_opt_get(opts, "record");
-
-        quantum_value = atoi(quantum_opt);
-
-        if (quantum_value < 0)
-            quantum_value = 0;
-    }
-    else{
-        quantum_value = 0;
-    }
-#endif
-
-#ifdef CONFIG_PERFORMANCE
-    if (instr_opt) {
-        instr_value = atoi(instr_opt);
+        configure_quantum(quantum_opts, &error_abort);
     }
 #endif
 
