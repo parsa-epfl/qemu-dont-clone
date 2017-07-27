@@ -39,7 +39,7 @@
 #include "trace-tcg.h"
 
 #ifdef CONFIG_QUANTUM
-extern sig_atomic_t quantum_value;
+extern int64_t quantum_value;
 #endif
 
 #ifdef CONFIG_PERFORMANCE
@@ -11427,7 +11427,7 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         num_insns++;
 
 
-#ifdef CONFIG_QUANTUM
+#ifdef CONFIG_QUANTUM2
         cs->nr_instr++;
         cs->nr_total_instr++;
         if(cs->nr_instr >= quantum_value && quantum_value > 0){

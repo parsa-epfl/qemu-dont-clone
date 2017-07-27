@@ -29,6 +29,10 @@
 #include "exec/cputlb.h"
 #endif /* CONFIG_FLEXUS */
 
+#ifdef CONFIG_QUANTUM
+extern int64_t quantum_value;
+#endif
+
 #ifndef CONFIG_USER_ONLY
 static bool get_phys_addr(CPUARMState *env, target_ulong address,
                           int access_type, ARMMMUIdx mmu_idx,
@@ -10332,15 +10336,20 @@ void helper_flexus_magic_ins(int v){
       break;
     };
 }
-void finish_performance();
+void finish_performance(void);
 
 void helper_flexus_periodic(CPUARMState *env, int isUser){
   ARMCPU *arm_cpu = arm_env_get_cpu(env);
   CPUState *cpu = CPU(arm_cpu);
 
+#ifndef CONFIG_PTH
+  CPUState* cc = current_cpu;
+#else
+  pth_wrapper* w = getWrapper();
+  CPUState* cc = w->current_cpu;
+#endif
   static uint64_t instCnt = 0;
 
-#ifndef CONFIG_PERFORMANCE
   int64_t simulation_length = QEMU_get_simulation_length();
   if( simulation_length >= 0 && instCnt >= simulation_length ) {
 
@@ -10350,11 +10359,6 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
       already_tried_to_exit = 1;
       QEMU_break_simulation("Reached the end of the simulation");
     }
-#else
-  if( instCnt >=  instr_value ) {
-      finish_performance();
-
-#endif
     //exit_request = 1;
     cpu->exit_request = 1;
     cpu_loop_exit(cpu);
@@ -10376,6 +10380,19 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
   QEMU_increment_instruction_count(cpu_proc_num(cpu), isUser);
 
   instCnt++;
+
+#ifdef CONFIG_QUANTUM
+        cc->nr_instr++;
+        cc->nr_total_instr++;
+        if(cc->nr_instr >= quantum_value && quantum_value > 0){
+            cc->nr_quantumHits++;
+            cc->hasReachedInstrLimit = true;
+#ifdef CONFIG_QUANTUM_DEBUG
+            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
+#endif
+
+        }
+#endif
 
   uint64_t eventDelay = 1000;
   if((instCnt % eventDelay) == 0 ){

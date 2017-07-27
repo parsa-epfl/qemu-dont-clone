@@ -2325,45 +2325,45 @@ void switch_thread(int t){
 #endif
 
 #ifdef CONFIG_QUANTUM
-extern sig_atomic_t quantum_value;
+extern int64_t quantum_value;
 
 void cpu_get_quantum(const char* val)
 {
-    val = malloc (128);
-    sprintf((char*)val, "%d", quantum_value);
+    char* tmp = malloc(128);
+    sprintf(tmp, "%lu", quantum_value);
+    strcpy(val, tmp);
 }
 
 void cpu_set_quantum(const char* val)
 {
-   quantum_value = atoi((char*)val);
+   quantum_value = atoi(val);
 }
 
 void cpu_get_ic(const char *str)
 {
     CPUState *cpu;
     int length = 0;
-    str = malloc (1024);
+    char * tmp = malloc (1024);
     CPU_FOREACH(cpu)
     {
-        length += sprintf((char*)str+ length, "CPU %d has executed %d instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
+        length += sprintf(tmp+ length, "CPU %d has executed %d instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
     }
 
-    length += sprintf((char*)str+ length, "\nDetails:\nCPU\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n");
-
+    length += sprintf(tmp+ length, "\nDetails:\nCPU\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n");
     CPU_FOREACH(cpu)
     {
-
-        length += sprintf((char*)str+ length, "%d\t%d\t\t%d\t%d\t\t%d\t%d\t%d\t%d\n",
-                                                                     cpu->cpu_index,
-                                                                     cpu->nr_quantumHits,
-                                                                     cpu->nr_exp[0],
-                                                                     cpu->nr_exp[1],
-                                                                     cpu->nr_exp[2],
-                                                                     cpu->nr_exp[3],
-                                                                     cpu->nr_exp[4],
-                                                                     cpu->nr_exp[5]);
+        length += sprintf(tmp+ length, "%d\t%d\t\t%d\t%d\t\t%d\t%d\t%d\n",
+                                                                         cpu->cpu_index,
+                                                                         cpu->nr_quantumHits,
+                                                                         cpu->nr_exp[0],
+                                                                         cpu->nr_exp[1],
+                                                                         cpu->nr_exp[2],
+                                                                         cpu->nr_exp[3],
+                                                                         cpu->nr_exp[4]);
 
     }
+
+    strcpy(str, tmp);
 
 }
 

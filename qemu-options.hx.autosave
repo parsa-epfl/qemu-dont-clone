@@ -3457,7 +3457,7 @@ STEXI
 Specify the number of instructions to execute per vcpu in each iteration.
 ETEXI
 
-DEF("quan", HAS_ARG, QEMU_OPTION_quan,"aaa", QEMU_ARCH_ALL)
+DEF("quan", HAS_ARG, QEMU_OPTION_quan,"-loadvm @var{N}", QEMU_ARCH_ALL)
 STEXI
 @item -quan @var{N}
 @findex -quan

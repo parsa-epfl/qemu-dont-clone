@@ -516,6 +516,25 @@ static QemuOptsList qemu_icount_opts = {
     },
 };
 
+#ifdef CONFIG_QUANTUM
+static QemuOptsList qemu_quantum_opts = {
+    .name = "quantum",
+    .implied_opt_name = "value",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_quantum_opts.head),
+    .desc = {
+        {
+            .name = "value",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "record",
+            .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+#endif
+
 static QemuOptsList qemu_semihosting_config_opts = {
     .name = "semihosting-config",
     .implied_opt_name = "enable",
@@ -2982,11 +3001,14 @@ int main(int argc, char **argv, char **envp)
     int cyls, heads, secs, translation;
     QemuOpts *opts, *machine_opts;
     QemuOpts *hda_opts = NULL, *icount_opts = NULL, *accel_opts = NULL;
+#ifdef CONFIG_QUANTUM
+    QemuOpts *quantum_opts = NULL;
+#endif
     QemuOptsList *olist;
     int optind;
     const char *optarg;
 #ifdef CONFIG_QUANTUM
-    const char *quantum_opt = NULL;
+    const char *quantum_opt, *quantum_record_opt = NULL;
 #endif
 #ifdef CONFIG_PERFORMANCE
     const char *instr_opt = NULL;
@@ -3064,6 +3086,9 @@ int main(int argc, char **argv, char **envp)
     qemu_add_opts(&qemu_name_opts);
     qemu_add_opts(&qemu_numa_opts);
     qemu_add_opts(&qemu_icount_opts);
+#ifdef CONFIG_QUANTUM
+    qemu_add_opts(&qemu_quantum_opts);
+#endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
     module_call_init(MODULE_INIT_OPTS);
@@ -3690,8 +3715,16 @@ int main(int argc, char **argv, char **envp)
                 break;
 #ifdef CONFIG_QUANTUM
             case QEMU_OPTION_quantum:
-                quantum_opt = optarg;
+                printf("aaa");
+                quantum_opts = qemu_opts_parse_noisily(qemu_find_opts("quantum"),
+                                                      optarg, true);
+                if (!quantum_opts) {
+                    exit(1);
+                }
                 break;
+
+            case QEMU_OPTION_quan:
+                 printf("aaa");
 #endif
 #ifdef CONFIG_PERFORMANCE
             case QEMU_OPTION_instr:
@@ -4759,8 +4792,12 @@ int main(int argc, char **argv, char **envp)
     }
 
 #ifdef CONFIG_QUANTUM
-    if (quantum_opt) {
+    if (quantum_opts) {
+        quantum_opt = qemu_opt_get(opts, "value");
+        quantum_record_opt = qemu_opt_get(opts, "record");
+
         quantum_value = atoi(quantum_opt);
+
         if (quantum_value < 0)
             quantum_value = 0;
     }

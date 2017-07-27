@@ -37,7 +37,7 @@
 #include "sysemu/replay.h"
 
 #ifdef CONFIG_QUANTUM
-extern sig_atomic_t quantum_value;
+extern int64_t quantum_value;
 int nr_loop_iter = 0;
 bool exit_loop_requested = false;
 #define MAX_LOOP_TRY 1000
