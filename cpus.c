@@ -55,6 +55,7 @@
 int64_t quantum_value, quantum_record_value, quantum_node_value;
 int64_t total_num_instructions;
 extern uint64_t elapsed;
+extern clock_t total_t;
 
 #endif
 
@@ -787,7 +788,7 @@ void cpu_ticks_init(void)
 
 
 
-int64_t processLetterforExponent(int64_t *val, char c)
+void processLetterforExponent(int64_t *val, char c, Error **errp)
 {
     switch(c){
         case 'K': case 'k' :
@@ -803,9 +804,10 @@ int64_t processLetterforExponent(int64_t *val, char c)
         error_setg(errp, "the suffix you used is not valid: valid suffixes are K,k,M,m,B,b");
         exit(1);
         break;
+    }
 }
 
-void processForOpts(int64_t *val, const char* qopt)
+void processForOpts(int64_t *val, const char* qopt, Error **errp)
 {
     size_t s = strlen(qopt);
     char c = qopt[s-1];
@@ -821,7 +823,7 @@ void processForOpts(int64_t *val, const char* qopt)
             return;
         }
 
-        processLetterforExponent(&(*val), c)
+        processLetterforExponent(&(*val), c, &errp);
     }
     else{
         *val = atoi(qopt);
@@ -830,72 +832,26 @@ void processForOpts(int64_t *val, const char* qopt)
 
 void configure_quantum(QemuOpts *opts, Error **errp)
 {
-    const char* qopt, *qopt_record;
-    qopt = qemu_opt_get(opts, "value");
+    const char* qopt, *qopt_record, *qopt_node;
+    qopt = qemu_opt_get(opts, "core");
     qopt_record = qemu_opt_get(opts, "record");
     qopt_node = qemu_opt_get(opts, "node");
 
-    if(!qopt){
-        error_setg(errp, "quantum option not valid");
+    if(!qopt && !qopt_record && !qopt_node){
+        error_setg(errp, "quantum option is not valid");
         exit(1);
     }
+    if(qopt)
+    processForOpts(&quantum_value, qopt, &errp);
 
-    processForOpts(quantum_value, qopt);
+    if(qopt_record)
+        processForOpts(&quantum_record_value, qopt_record, &errp);
 
-
-//    size_t s = strlen(qopt);
-//    char c = qopt[s-1];
-
-//    if (isalpha(c)){
-
-//        char* temp= malloc(sizeof(qopt));
-//        strncpy ( temp, qopt, s-1 );
-//        quantum_value = atoi(temp);
-//        free(temp);
-//        if (quantum_value <= 0){
-//            quantum_value = 0;
-//            return;
-//        }
-
-//        processLetterforExponent(&quantum_value, c)
-//    }
-//    else{
-//        quantum_value = atoi(qopt);
-//    }
-
-
-
-    if(qopt_record){
-        processForOpts(quantum_record_value, qopt_record);
-
-//        size_t s = strlen(qopt_record);
-//        char c = qopt_record[s-1];
-
-//            if (isalpha(c))
-//            {
-//                size_t s = strlen(qopt_record);
-
-//                char* temp= malloc(sizeof(qopt_record));
-//                strncpy ( temp, qopt_record, s-1 );
-//                quantum_record_value = atoi(temp);
-//                free(temp);
-
-//                if (quantum_record_value <= 0){
-//                    quantum_record_value = 0;
-//                    return;
-//                }
-
-//                processLetterforExponent(&quantum_record_value, c)
-
-
-//            }
-//            else{
-//                quantum_record_value = atoi(qopt_record);
-//            }
+    if(qopt_node){
+        processForOpts(&quantum_node_value, qopt_node, &errp);
+        if (quantum_node_value > 0)
+            raise(SIGSTOP);
     }
-
-    if(qopt_node)
-        processForOpts(quantum_node_value, qopt_node);
 
 }
 #endif
@@ -1636,11 +1592,6 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                          cpu->hasReachedInstrLimit = false;
                      }
                  }
-                if ( quantum_record_value > 0)
-                {
-
-                }
-
 #endif
 
 #ifdef CONFIG_QUANTUM
@@ -2483,6 +2434,8 @@ void cpu_get_ic(const char *str)
     double t = elapsed/1E9;
 
     int MIPS = (quantum_record_value/t) / 1E6;
+
+    length += sprintf(tmp+ length, "Total time taken by CPU: %li\n", total_t  );
 
     length += sprintf(tmp+ length, "It took %lu nanoseconds (i.e. %f second) time to execute %lu instructions. - %i MIPS\n", elapsed, t, quantum_record_value, MIPS);
 

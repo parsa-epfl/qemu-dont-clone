@@ -30,10 +30,14 @@
 #endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_QUANTUM
-extern int64_t quantum_value, quantum_record_value;
+#include <sys/types.h>
+#include <unistd.h>
+
+extern int64_t quantum_value, quantum_record_value, quantum_node_value;
 extern int64_t total_num_instructions;
 bool timer_started, timer_ended = false;
 uint64_t start,end,elapsed;
+clock_t start_t, end_t, total_t;
 
 #if defined(__i386__)
 
@@ -71,19 +75,34 @@ void helper_quantum(CPUARMState *env, int isUser){
       cc->hasReachedInstrLimit = true;
   }
 
-  if (quantum_record_value > 0 && !timer_started){
-          start = rdtsc();
-          timer_started = true;
-   }
+    if (quantum_record_value > 0 )
+    {
+        if (!timer_started){
+              start = rdtsc();
+              start_t = clock();
+              timer_started = true;
+        }
 
-      if(total_num_instructions >= quantum_record_value && quantum_record_value > 0){
+        if(total_num_instructions >= quantum_record_value){
           if(timer_started && !timer_ended){
                 end = rdtsc();
                 elapsed = end-start;
                 timer_ended = true;
+                end_t = clock();
+                total_t = (double)(end_t - start_t) / CLOCKS_PER_SEC;
               }
             // end time stamp
       }
+    }
+
+    if (quantum_node_value > 0 )
+    {
+        if(total_num_instructions % quantum_node_value)
+        {
+            printf("STOPPING PROCESS %i", getpid());
+            raise (SIGSTOP);
+        }
+    }
 
 
 

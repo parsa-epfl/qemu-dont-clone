@@ -35,7 +35,7 @@ int timing_mode = 0;
 extern int flexus_is_simulating;
 extern int64_t flexus_simulation_length;
 #endif /* CONFIG_FLEXUS */
-#ifdef
+#ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
 #endif
 
@@ -3704,16 +3704,12 @@ int main(int argc, char **argv, char **envp)
                 break;
 #ifdef CONFIG_QUANTUM
             case QEMU_OPTION_quantum:
-                printf("aaa");
                 quantum_opts = qemu_opts_parse_noisily(qemu_find_opts("quantum"),
                                                       optarg, true);
                 if (!quantum_opts) {
                     exit(1);
                 }
                 break;
-
-            case QEMU_OPTION_quan:
-                 printf("aaa");
 #endif
             case QEMU_OPTION_full_screen:
                 full_screen = 1;
