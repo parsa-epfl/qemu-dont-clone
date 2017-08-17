@@ -32,7 +32,8 @@
 #ifdef CONFIG_QUANTUM
 #include <sys/types.h>
 #include <unistd.h>
-
+extern bool save_requested;
+extern char save_request_name[100];
 extern int64_t quantum_value, quantum_record_value, quantum_node_value;
 extern int64_t total_num_instructions;
 bool timer_started, timer_ended = false;
@@ -59,12 +60,9 @@ static __inline__ unsigned long long rdtsc(void)
 
 #endif
 
-void helper_quantum(CPUARMState *env, int isUser){
+void helper_quantum(){
 
-    ARMCPU *arm_cpu = arm_env_get_cpu(env);
-    CPUState *cc = CPU(arm_cpu);
-
-
+  CPUState *cc = current_cpu;
   total_num_instructions++;
 
   cc->nr_instr++;
@@ -97,16 +95,19 @@ void helper_quantum(CPUARMState *env, int isUser){
 
     if (quantum_node_value > 0 )
     {
-        if(total_num_instructions % quantum_node_value)
+        if(total_num_instructions % quantum_node_value == 0)
         {
-            printf("STOPPING PROCESS %i", getpid());
+            if (save_requested)
+            {
+                if ( qemu_mutex_iothread_locked)
+                    qemu_mutex_lock_iothread();
+                save_vmstate(NULL, save_request_name);
+                save_requested = false;
+                qemu_mutex_unlock_iothread();
+            }
             raise (SIGSTOP);
         }
     }
-
-
-
-
 }
 #endif
 

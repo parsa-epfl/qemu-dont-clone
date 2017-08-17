@@ -1,5 +1,5 @@
 #ifdef CONFIG_QUANTUM
-DEF_HELPER_2(quantum, void, env, int)
+DEF_HELPER_0(quantum, void)
 #endif
 #ifdef CONFIG_FLEXUS
 // maginc instruction operand

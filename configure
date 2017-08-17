@@ -374,6 +374,8 @@ pth="no"
 
 #quantum support
 quantum="no"
+#multinode support
+multinode="no"
 #**************************
 #PARSA END
 #**************************
@@ -920,6 +922,10 @@ for opt do
   ;;
   --enable-quantum) quantum="yes"
   ;;
+--disable-multinode) multinode="no"
+;;
+--enable-multinode) multinode="yes"
+;;
 #**************************
 #PARSA END
 #**************************
@@ -1498,6 +1504,8 @@ disabled with --disable-FEATURE, default is enabled if available:
 
 
   Quantum	      support for quantum value - no MTTCG at the moment
+  Multinode	      support for multinode value - no MTTCG at the moment
+
   #**************************
   #PARSA END
   #**************************
@@ -5091,6 +5099,9 @@ fi
 if test "$quantum" = "yes" ; then
 QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
 fi
+if test "$multinode" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_MULTINODE $QEMU_CFLAGS"
+fi
 if test "$flexus" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_FLEXUS $QEMU_CFLAGS -ldl"
   LIBS="-ldl $LIBS" 
@@ -5260,6 +5271,7 @@ echo "Flexus support    $flexus"
 echo "GNU Pth           $pth"
 
 echo "quantum support   $quantum"
+echo "multinode support   $multinode"
 echo "#**************************"
 echo "#PARSA END"
 echo "#**************************"

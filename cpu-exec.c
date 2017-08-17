@@ -75,10 +75,10 @@ extern int64_t quantum_value;
 
 #define CHECK_QUANTUM(cpu) \
     if ( quantum_value > 0) {\
-                if(cpu->hasReachedInstrLimit){ \
-                     qemu_cpu_kick(cpu); \
-                    break;\
-                } \
+        if(cpu->hasReachedInstrLimit){ \
+            qemu_cpu_kick(cpu); \
+            break;\
+        } \
     }
 
 
@@ -737,7 +737,7 @@ int cpu_exec(CPUState *cpu)
        #endif // CONFIG_QUANTUM
 #endif
 #ifdef CONFIG_QUANTUM
-            CHECK_QUANTUM(cpu);
+//            CHECK_QUANTUM(cpu);
 //            INIT_TB_EXIT_COND;
             //CHECK_QUANTUM_EXIT;
 #endif
@@ -757,7 +757,7 @@ int cpu_exec(CPUState *cpu)
 #endif
 
 #ifdef CONFIG_QUANTUM
-                CHECK_QUANTUM(cpu);
+   //             CHECK_QUANTUM(cpu);
   //              CHECK_TB_EXIT_COND;
 #endif
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);

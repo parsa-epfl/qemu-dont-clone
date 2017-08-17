@@ -53,10 +53,9 @@
 
 #ifdef CONFIG_QUANTUM
 int64_t quantum_value, quantum_record_value, quantum_node_value;
-int64_t total_num_instructions;
+int64_t total_num_instructions = 0;
 extern uint64_t elapsed;
 extern clock_t total_t;
-
 #endif
 
 #ifdef CONFIG_SIAVASH
@@ -823,7 +822,7 @@ void processForOpts(int64_t *val, const char* qopt, Error **errp)
             return;
         }
 
-        processLetterforExponent(&(*val), c, &errp);
+        processLetterforExponent(&(*val), c, errp);
     }
     else{
         *val = atoi(qopt);
@@ -842,19 +841,53 @@ void configure_quantum(QemuOpts *opts, Error **errp)
         exit(1);
     }
     if(qopt)
-    processForOpts(&quantum_value, qopt, &errp);
+    processForOpts(&quantum_value, qopt, errp);
 
     if(qopt_record)
-        processForOpts(&quantum_record_value, qopt_record, &errp);
+        processForOpts(&quantum_record_value, qopt_record, errp);
 
     if(qopt_node){
-        processForOpts(&quantum_node_value, qopt_node, &errp);
+        processForOpts(&quantum_node_value, qopt_node, errp);
         if (quantum_node_value > 0)
+        {
             raise(SIGSTOP);
+        }
     }
 
 }
 #endif
+#ifdef CONFIG_MULTINODE
+static void * createClientWrapper(void* arg);
+
+void configure_multinode(QemuOpts *opts, Error **errp)
+{
+    multinode *cfg = malloc(sizeof(multinode));
+
+    cfg->m_hostaddress = qemu_opt_get(opts, "hostip");
+    cfg->m_hostport = qemu_opt_get_number(opts, "hostport",0);
+    cfg->m_clientaddress = qemu_opt_get(opts, "clientip");
+    cfg->m_clientport = qemu_opt_get_number(opts, "clientport",0);
+
+    if(!cfg->m_hostaddress || cfg->m_hostport == 0){
+        error_setg(errp, "multinode option is not valid");
+        exit(1);
+    }
+    if (!cfg->m_clientaddress || cfg->m_clientport == 0)
+        cfg->m_bindclient = false;
+    else
+        cfg->m_bindclient = true;
+
+
+        QemuThread thread;
+        qemu_thread_create(&thread,
+                           "client-net",
+                           createClientWrapper,
+                           cfg,
+                           QEMU_THREAD_DETACHED);
+
+}
+#endif
+
 void configure_icount(QemuOpts *opts, Error **errp)
 {
     const char *option;
@@ -1413,6 +1446,115 @@ static void process_icount_data(CPUState *cpu)
     }
 }
 
+#ifdef CONFIG_QUANTUM
+#include "signal.h"
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+
+bool save_requested = false;
+char save_request_name[100];
+static void save_vm_requested(const char* name)
+{
+    strcpy(save_request_name,name);
+    save_requested=true;
+}
+
+static void proccessServerMessages(char* msg)
+{
+    const char *s = " ";
+
+    /* get the first token */
+    char * token = strtok(msg, s);
+    if (token != NULL )
+    {
+        if (strcmp(token,"save") == 0)
+        {
+            token = strtok(NULL, s);
+            if (token != NULL )
+            {
+                save_vm_requested(token);
+            }
+        }
+    }
+}
+
+static void createClient(const multinode *cfg)
+{
+    int sock;
+    struct sockaddr_in server;
+    char server_msg[2000];
+
+    //Create socket
+    sock = socket(AF_INET , SOCK_STREAM , 0);
+    if (sock == -1)
+    {
+        error_report("Could not create socket");
+        return;
+
+    }
+    printf("Socket created");
+
+    if (cfg->m_bindclient)
+    {
+        printf("using client specific ip and port %s %i\n", cfg->m_clientaddress, cfg->m_clientport);
+
+        struct sockaddr_in client;
+        client.sin_addr.s_addr = inet_addr(cfg->m_clientaddress);
+        client.sin_family = AF_INET;
+        client.sin_port = htons( cfg->m_clientport );
+
+        //Bind to specific port for client - useful when multiple nics are available
+        if( bind(sock,(struct sockaddr *)&client , sizeof(client)) < 0)
+        {
+            //print the error message
+            error_report("bind failed. Error");
+            return;
+        }
+    }
+
+    server.sin_addr.s_addr = inet_addr(cfg->m_hostaddress);
+    server.sin_family = AF_INET;
+    server.sin_port = htons( cfg->m_hostport );
+
+    //Connect to remote server
+    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        error_report("connect failed. Error");
+        return;
+
+    }
+
+    printf("Connected\n");
+
+    //keep communicating with server
+    while(1)
+    {
+        //Receive a reply from the server
+        if( recv(sock , server_msg , 2000 , 0) < 0)
+        {
+            error_report("recv failed");
+        }
+
+        if (server_msg != NULL)
+            proccessServerMessages(server_msg);
+
+    }
+
+    close(sock);
+
+}
+
+static void * createClientWrapper(void* arg)
+{
+    printf("Will try connecting to Server now...\n");
+    multinode* cfg = (multinode*)arg;
+    createClient(cfg);
+    return NULL;
+
+}
+#endif
 
 static int tcg_cpu_exec(CPUState *cpu)
 {
@@ -2412,6 +2554,7 @@ void switch_thread(int t){
 #endif
 
 #ifdef CONFIG_QUANTUM
+
 
 void cpu_get_quantum(const char* val)
 {

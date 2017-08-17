@@ -3458,6 +3458,15 @@ Specify the number of instructions to execute per vcpu in each iteration.
 ETEXI
 #endif
 
+#ifdef CONFIG_MULTINODE
+DEF("multinode", HAS_ARG, QEMU_OPTION_multinode,"aaa", QEMU_ARCH_ALL)
+STEXI
+@item -multinode [hostip=@var{N}][,hostport=@var{V}][,clientip=@var{V}][,clientport=@var{V}]
+@findex -multinode
+Activate multinode comm.
+ETEXI
+#endif
+
 DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \
     "-loadvm [tag|id]\n" \
     "                start right away with a saved state (loadvm in monitor)\n",

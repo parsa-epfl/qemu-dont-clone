@@ -33,7 +33,7 @@
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 #include "exec/log.h"
-
+#include "include/sysemu/cpus.h"
 
 
 #include "trace-tcg.h"
@@ -11473,8 +11473,9 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
             break;
         }
 #ifdef CONFIG_QUANTUM
-         gen_helper_quantum(cpu_env,tcg_const_i32(IS_USER(dc)) );
+    gen_helper_quantum();
 #endif
+
 #ifdef CONFIG_FLEXUS
 	flexus_ins_pc = dc->pc;
 #endif /* CONFIG_FLEXUS */
@@ -11511,7 +11512,7 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
              num_insns < max_insns
 #ifdef CONFIG_QUANTUM
              //     check the quantum here
-             && ! cs->hasReachedInstrLimit
+  //           && ! cs->hasReachedInstrLimit
 #endif
              );
 

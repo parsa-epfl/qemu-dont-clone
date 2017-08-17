@@ -19,7 +19,22 @@ void cpu_zero_all(void);
 void configure_quantum(QemuOpts *opts, Error **errp);
 void processForOpts(int64_t *val, const char* qopt, Error **errp);
 void processLetterforExponent(int64_t *val, char c, Error **errp);
+#endif
 
+#ifdef CONFIG_MULTINODE
+void configure_multinode(QemuOpts *opts, Error **errp);
+
+typedef struct multinode
+{
+    const char* m_hostaddress;
+    unsigned m_hostport;
+
+    const char* m_clientaddress;
+    unsigned m_clientport;
+
+    bool m_bindclient;
+
+}multinode;
 #endif
 void configure_icount(QemuOpts *opts, Error **errp);
 extern int use_icount;

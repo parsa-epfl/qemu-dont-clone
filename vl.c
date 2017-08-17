@@ -513,7 +513,7 @@ static QemuOptsList qemu_icount_opts = {
 #ifdef CONFIG_QUANTUM
 static QemuOptsList qemu_quantum_opts = {
     .name = "quantum",
-    .implied_opt_name = "value",
+    .implied_opt_name = "core",
     .merge_lists = true,
     .head = QTAILQ_HEAD_INITIALIZER(qemu_quantum_opts.head),
     .desc = {
@@ -531,7 +531,30 @@ static QemuOptsList qemu_quantum_opts = {
     },
 };
 #endif
-
+#ifdef CONFIG_MULTINODE
+static QemuOptsList qemu_multinode_opts = {
+    .name = "multinode",
+    .implied_opt_name = "hostip",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_quantum_opts.head),
+    .desc = {
+        {
+            .name = "hostip",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "hostport",
+            .type = QEMU_OPT_NUMBER,
+        }, {
+            .name = "clientip",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "clientport",
+            .type = QEMU_OPT_NUMBER,
+        },
+        { /* end of list */ }
+    },
+};
+#endif
 static QemuOptsList qemu_semihosting_config_opts = {
     .name = "semihosting-config",
     .implied_opt_name = "enable",
@@ -3001,6 +3024,10 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_QUANTUM
     QemuOpts *quantum_opts = NULL;
 #endif
+#ifdef CONFIG_MULTINODE
+    QemuOpts *multinode_opts = NULL;
+#endif
+
     QemuOptsList *olist;
     int optind;
     const char *optarg;
@@ -3077,6 +3104,9 @@ int main(int argc, char **argv, char **envp)
     qemu_add_opts(&qemu_icount_opts);
 #ifdef CONFIG_QUANTUM
     qemu_add_opts(&qemu_quantum_opts);
+#endif
+#ifdef CONFIG_MULTINODE
+    qemu_add_opts(&qemu_multinode_opts);
 #endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
@@ -3707,6 +3737,15 @@ int main(int argc, char **argv, char **envp)
                 quantum_opts = qemu_opts_parse_noisily(qemu_find_opts("quantum"),
                                                       optarg, true);
                 if (!quantum_opts) {
+                    exit(1);
+                }
+                break;
+#endif
+#ifdef CONFIG_MULTINODE
+            case QEMU_OPTION_multinode:
+                multinode_opts = qemu_opts_parse_noisily(qemu_find_opts("multinode"),
+                                                      optarg, true);
+                if (!multinode_opts) {
                     exit(1);
                 }
                 break;
@@ -4769,11 +4808,23 @@ int main(int argc, char **argv, char **envp)
         if (load_vmstate(loadvm) < 0) {
             autostart = 0;
         }
+#ifdef CONFIG_MULTINODE
+        else
+        {
+            raise(SIGSTOP);
+        }
+#endif
     }
 
 #ifdef CONFIG_QUANTUM
     if (quantum_opts) {
         configure_quantum(quantum_opts, &error_abort);
+    }
+#endif
+
+#ifdef CONFIG_MULTINODE
+    if (multinode_opts) {
+        configure_multinode(multinode_opts, &error_abort);
     }
 #endif
 
