@@ -101,7 +101,15 @@ void helper_quantum(){
             {
                 if ( qemu_mutex_iothread_locked)
                     qemu_mutex_lock_iothread();
-                save_vmstate(NULL, save_request_name);
+                NameInfo* n = qmp_query_name(NULL);
+                if (n->has_name)
+                {
+                    char* name = malloc(100);
+                    strcpy(name, save_request_name);
+                    strcat(name, "-");
+                    strcat(name, n->name);
+                    save_vmstate(NULL, name);
+                }
                 save_requested = false;
                 qemu_mutex_unlock_iothread();
             }
