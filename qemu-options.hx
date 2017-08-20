@@ -685,7 +685,7 @@ the guest when the data has been flushed to the disk using
 
 In case you don't care about data integrity over host failures, use
 @option{cache=unsafe}. This option tells QEMU that it never needs to write any
-data to the disk but can instead keep things in cache. If anything goes wrong,
+data to the disk but can instead keep things in cache. If anything goes wrong
 like your host losing power, the disk storage getting disconnected accidentally,
 etc. your image will most probably be rendered unusable.   When using
 the @option{-snapshot} option, unsafe caching is always used.
@@ -3448,7 +3448,26 @@ Specify the number of instructions to execute during the simulation, then exits.
 the @code{-startsimulation} option, or the simulation must be trigerred by magic instructions or another way.
 ETEXI
 #endif
+#ifdef CONFIG_EXTSNAP
+DEF("loadext", HAS_ARG, QEMU_OPTION_loadext, \
+    "-loadext [tag|id]\n" \
+    "                start right away with a externally saved state (loadvm-ext in monitor)\n",
+    QEMU_ARCH_ALL)
+STEXI
+@item -loadext @var{file}
+@findex -loadext
+Start right away with a externally saved state (@code{loadvm-ext} in monitor)
+ETEXI
 
+DEF("exton", 0, QEMU_OPTION_exton, \
+    "-exton      use external snapshots subsystem\n", QEMU_ARCH_ALL)
+#endif
+STEXI
+@item -exton
+@findex -exton
+Use the external snapshot subsystem.
+ETEXI
+#endif
 #ifdef CONFIG_QUANTUM
 DEF("quantum", HAS_ARG, QEMU_OPTION_quantum,"aaa", QEMU_ARCH_ALL)
 STEXI

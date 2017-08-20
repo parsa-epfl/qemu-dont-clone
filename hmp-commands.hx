@@ -361,7 +361,7 @@ ETEXI
     {
         .name       = "delvm",
         .args_type  = "name:s",
-        .params     = "tag|id",
+        .params     = "tag",
         .help       = "delete a VM snapshot from its tag or id",
         .cmd        = hmp_delvm,
         .command_completion = delvm_completion,
@@ -1738,6 +1738,40 @@ STEXI
 @findex cpu-add
 Add CPU with id @var{id}
 ETEXI
+
+#ifdef CONFIG_EXTSNAP
+    {
+        .name       = "savevm-ext",
+        .args_type  = "name:s?",
+        .params     = "[tag|id]",
+        .help       = "save an external VM snapshot. If no tag or id are provided, a new snapshot is created",
+        .cmd        = hmp_savevm_ext,
+    },
+
+STEXI
+@item savevm-ext [@var{tag}]
+@findex savevm-ext
+Create an external incremental snapshot of the whole virtual machine. If @var{tag} is
+provided, it is used as human readable identifier. If there is already
+a snapshot with the same tag or ID, it isn't replaced. More info at
+ETEXI
+
+    {
+        .name       = "loadvm-ext",
+        .args_type  = "name:s",
+        .params     = "tag",
+        .help       = "restore a VM extrenal snapshot from its tag",
+        .cmd = hmp_loadvm_ext,
+    },
+
+STEXI
+@item loadvm-ext @var{tag}
+@findex loadvm
+Set the whole virtual machine to the external snapshot identified by the tag
+@var{tag}.
+ETEXI
+#endif
+
 
 #ifdef CONFIG_QUANTUM
     {

@@ -368,6 +368,7 @@ bogus_os="no"
 #**************************
 #PARSA START
 #**************************
+extsnap="no"
 flexus="no"
 # gnu pth support
 pth="no"
@@ -926,6 +927,10 @@ for opt do
 ;;
 --enable-multinode) multinode="yes"
 ;;
+  --disable-extsnap) extsnap="no"
+  ;;
+  --enable-extsnap) extsnap="yes"
+  ;;
 #**************************
 #PARSA END
 #**************************
@@ -1495,10 +1500,11 @@ disabled with --disable-FEATURE, default is enabled if available:
   qom-cast-debug  cast debugging support
   tools           build qemu-io, qemu-nbd and qemu-image tools
 
+
   #**************************
   #PARSA START
   #**************************
-
+  extsnap         external snapshots support
   flexus          support for the Flexus simulator
   GNU Pth         support for GNU Pth - The GNU Portable Threads
 
@@ -5266,6 +5272,7 @@ echo "replication support $replication"
 echo "#**************************"
 echo "#PARSA START"
 echo "#**************************"
+echo "external snapshots support $extsnap"
 
 echo "Flexus support    $flexus"
 echo "GNU Pth           $pth"
@@ -6264,6 +6271,11 @@ fi
 #**************************
 #PARSA START
 #**************************
+
+if test "$extsnap" = "yes" ; then
+  echo "CONFIG_EXTSNAP=y" >> $config_host_mak
+fi
+
 if test "$flexus" = "yes" ; then
   echo "CONFIG_FLEXUS=y" >> $config_target_mak
   put_in_define "CONFIG_FLEXUS"

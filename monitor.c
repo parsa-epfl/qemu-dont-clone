@@ -1854,7 +1854,21 @@ static void hmp_loadvm(Monitor *mon, const QDict *qdict)
         vm_start();
     }
 }
+#ifdef CONFIG_EXTSNAP
+static void hmp_loadvm_ext(Monitor *mon, const QDict *qdict)
+{
+    const char *name = qdict_get_str(qdict, "name");
+    if(incremental_load_vmstate_ext(name, mon) < 0) {
+	monitor_printf(mon, "Error: can't load the snapshot with args: %s\n", name);
+    }
+}
 
+static void hmp_savevm_ext(Monitor *mon, const QDict *qdict)
+{
+    const char *name = qdict_get_str(qdict, "name");
+    save_vmstate_ext(mon, name);
+}
+#endif
 int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
 {
     mon_fd_t *monfd;
@@ -2545,11 +2559,11 @@ static int default_fmt_size = 4;
 static int is_valid_option(const char *c, const char *typestr)
 {
     char option[3];
-  
+
     option[0] = '-';
     option[1] = *c;
     option[2] = '\0';
-  
+
     typestr = strstr(typestr, option);
     return (typestr != NULL);
 }
@@ -2915,7 +2929,7 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                     p++;
                     if(c != *p) {
                         if(!is_valid_option(p, typestr)) {
-                  
+
                             monitor_printf(mon, "%s: unsupported option -%c\n",
                                            cmd->name, *p);
                             goto fail;
