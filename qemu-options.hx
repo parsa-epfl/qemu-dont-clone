@@ -3461,7 +3461,6 @@ ETEXI
 
 DEF("exton", 0, QEMU_OPTION_exton, \
     "-exton      use external snapshots subsystem\n", QEMU_ARCH_ALL)
-#endif
 STEXI
 @item -exton
 @findex -exton

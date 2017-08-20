@@ -2334,13 +2334,24 @@
 { 'command': 'cpu-add', 'data': {'id': 'int'} }
 
 ##
+# @QuantumInfo:
+#
+# Guest Quantum information.
+#
+# @quantum: The Quantum of the guest
+#
+# Since: 2.9.5
+##
+{ 'struct': 'QuantumInfo', 'data': {'quantum': 'uint64'} }
+
+##
 # @cpu-get-quantum:
 #
 # query quantum value
 #
 # Since: 2.6 - PARSALAB
 ##
-{ 'command': 'cpu-get-quantum', 'data': {'val': 'str'} }
+{ 'command': 'cpu-get-quantum', 'returns':'QuantumInfo' }
 
 ##
 # @cpu-set-quantum:
@@ -2349,16 +2360,42 @@
 #
 # Since: 2.6 - PARSALAB
 ##
-{ 'command': 'cpu-set-quantum', 'data': {'val': 'str'} }
+{ 'command': 'cpu-set-quantum', 'data': {'val': 'uint64'} }
 
 ##
-# @cpu-get-ic:
+# @DbgData:
+#
+# per CPU DEBUG information.
+#
+# @instr: CPU DEBUG data
+# @mips: CPU DEBUG data
+# @data: CPU DEBUG data
+# @time: CPU DEBUG data
+#
+# Since: 2.9.5
+##
+{ 'struct': 'DbgData', 'data': {'instr': 'uint64','mips': 'int','*data': 'str','*time':'str'} }
+
+##
+# @DbgDataAll:
+#
+# Guest CPU DEBUG information.
+#
+# @data: The CPU DEBUG of the guest
+# @size: num cpus
+#
+# Since: 2.9.5
+##
+{ 'struct': 'DbgDataAll', 'data': {'*data': 'DbgData', 'size':'int'} }
+
+##
+# @cpu-dbg:
 #
 # Get number of instructions exececuted by each CPU
 #
 # Since: 2.6 - PARSALAB
 ##
-{ 'command': 'cpu-get-ic', 'data': {'str': 'str'} }
+{ 'command': 'cpu-dbg', 'returns': 'DbgDataAll' }
 
 ##
 # @cpu-zero-all:

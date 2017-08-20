@@ -1452,7 +1452,7 @@ static void process_icount_data(CPUState *cpu)
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
-
+#ifdef CONFIG_MULTINODE
 bool save_requested = false;
 char save_request_name[100];
 static void save_vm_requested(const char* name)
@@ -1461,7 +1461,7 @@ static void save_vm_requested(const char* name)
     save_requested=true;
 }
 
-static void proccessServerMessages(char* msg)
+static int proccessServerMessages(char* msg)
 {
     const char *s = " ";
 
@@ -1475,8 +1475,16 @@ static void proccessServerMessages(char* msg)
             if (token != NULL )
             {
                 save_vm_requested(token);
+
             }
+            return 0;
         }
+        if (strcmp(token,"kill") == 0)
+        {
+            return -1;
+
+        }
+
     }
 }
 
@@ -1537,9 +1545,13 @@ static void createClient(const multinode *cfg)
             error_report("recv failed");
         }
 
+        int ret = 0;
         if (server_msg != NULL)
-            proccessServerMessages(server_msg);
+        {
 
+            if (proccessServerMessages(server_msg) == -1)
+                break:
+        }
     }
 
     close(sock);
@@ -1554,6 +1566,7 @@ static void * createClientWrapper(void* arg)
     return NULL;
 
 }
+#endif
 #endif
 
 static int tcg_cpu_exec(CPUState *cpu)
@@ -2555,57 +2568,48 @@ void switch_thread(int t){
 
 #ifdef CONFIG_QUANTUM
 
-
-void cpu_get_quantum(const char* val)
+uint64_t cpu_get_quantum(void)
 {
-    char* tmp = malloc(128);
-    sprintf(tmp, "%lu", quantum_value);
-    strcpy(val, tmp);
+    return quantum_value;
 }
 
-void cpu_set_quantum(const char* val)
+void cpu_set_quantum(uint64_t val)
 {
-   quantum_value = atoi(val);
+   quantum_value = val;
 }
 
-void cpu_get_ic(const char *str)
+void cpu_dbg(DbgDataAll *info)
 {
     CPUState *cpu;
-    int length = 0;
-    char * tmp = malloc (1024);
+//    int length = 0;
+//    char * tmp = malloc (1024);
 
-    double t = elapsed/1E9;
+//    double t = elapsed/1E9;
 
-    int MIPS = (quantum_record_value/t) / 1E6;
+//    int MIPS = (quantum_record_value/t) / 1E6;
 
-    length += sprintf(tmp+ length, "Total time taken by CPU: %li\n", total_t  );
+//    length += sprintf(tmp+ length, "Total time taken by CPU: %li\n", total_t  );
 
-    length += sprintf(tmp+ length, "It took %lu nanoseconds (i.e. %f second) time to execute %lu instructions. - %i MIPS\n", elapsed, t, quantum_record_value, MIPS);
+//    length += sprintf(tmp+ length, "It took %lu nanoseconds (i.e. %f second) time to execute %lu instructions. - %i MIPS\n", elapsed, t, quantum_record_value, MIPS);
 
-    length += sprintf(tmp+ length, "Total Number of instructions executed so far: %lu  so far.\n", total_num_instructions);
+//    length += sprintf(tmp+ length, "Total Number of instructions executed so far: %lu  so far.\n", total_num_instructions);
 
-
-
-    CPU_FOREACH(cpu)
-    {
-        length += sprintf(tmp+ length, "CPU %d has executed %lu instructions so far.\n", cpu->cpu_index, cpu->nr_total_instr);
+    CPU_FOREACH(cpu){
+        info->size++;
     }
 
-    length += sprintf(tmp+ length, "\nDetails:\nCPU\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n");
+    info->data = g_malloc0(sizeof(DbgData)*info->size);
     CPU_FOREACH(cpu)
     {
-        length += sprintf(tmp+ length, "%d\t%d\t\t%d\t%d\t\t%d\t%d\t%d\n",
-                                                                         cpu->cpu_index,
-                                                                         cpu->nr_quantumHits,
-                                                                         cpu->nr_exp[0],
-                                                                         cpu->nr_exp[1],
-                                                                         cpu->nr_exp[2],
-                                                                         cpu->nr_exp[3],
-                                                                         cpu->nr_exp[4]);
-
+        info->data[cpu->cpu_index].instr = cpu->nr_total_instr;
+        sprintf(info->data[cpu->cpu_index].data, "\nDetails:\tQUANTUM-HITS\tIRQs\tEXP-DEBUGs\tHLTs\tSTOPs\tYIELDs\n%d\t\t%d\t%d\t\t%d\t%d\t%d\n",
+                                                                                    cpu->nr_quantumHits,
+                                                                                    cpu->nr_exp[0],
+                                                                                    cpu->nr_exp[1],
+                                                                                    cpu->nr_exp[2],
+                                                                                    cpu->nr_exp[3],
+                                                                                    cpu->nr_exp[4]);
     }
-
-    strcpy(str, tmp);
 
 }
 
@@ -2625,7 +2629,6 @@ void cpu_zero_all(void)
         cpu->nr_exp[5] = 0;
 
     }
-
 }
 #endif
 

@@ -60,7 +60,7 @@ static __inline__ unsigned long long rdtsc(void)
 
 #endif
 
-void helper_quantum(){
+void helper_quantum(void){
 
   CPUState *cc = current_cpu;
   total_num_instructions++;
@@ -97,6 +97,7 @@ void helper_quantum(){
     {
         if(total_num_instructions % quantum_node_value == 0)
         {
+#ifdef CONFIG_MULTINODE
             if (save_requested)
             {
                 if ( qemu_mutex_iothread_locked)
@@ -113,6 +114,7 @@ void helper_quantum(){
                 save_requested = false;
                 qemu_mutex_unlock_iothread();
             }
+#endif
             raise (SIGSTOP);
         }
     }

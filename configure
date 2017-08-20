@@ -8,45 +8,6 @@
 CLICOLOR_FORCE= GREP_OPTIONS=
 unset CLICOLOR_FORCE GREP_OPTIONS
 
-src=`dirname "$0"`
-config_defines=$src/config_defines.h
-config_vars=""
-config_vars_printed=""
-echo > $config_defines
-
-has_not_been_printed()
-{
-for var in $config_vars_printed; do
-    if [ "$1" == "$var" ]; then
-      return 1
-    fi
-
-  return 0
-done
-}
-
-
-put_in_define() {
-
-config_vars="$1 $config_vars"
-
-for var in $config_vars; do
-  if [ $1 = $var ]; then
-    if has_not_been_printed $1; then
-      echo "" >> $config_defines
-      echo "#ifndef $1" >> $config_defines
-      echo "#define $1" >> $config_defines
-      echo "#endif // $1" >> $config_defines
-      config_vars="$1 $config_vars_printed"
-    fi
-
-  fi
-done
-}
-
-
-
-
 
 # Don't allow CCACHE, if present, to use cached results of compile tests!
 export CCACHE_RECACHE=yes
@@ -5102,21 +5063,14 @@ fi
 #**************************
 #PARSA START
 #**************************
-if test "$quantum" = "yes" ; then
-QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
-fi
-if test "$multinode" = "yes" ; then
-QEMU_CFLAGS="-DCONFIG_MULTINODE $QEMU_CFLAGS"
-fi
 if test "$flexus" = "yes" ; then
-  QEMU_CFLAGS="-DCONFIG_FLEXUS $QEMU_CFLAGS -ldl"
+  QEMU_CFLAGS=" -ldl -DCONFIG_FLEXUS $QEMU_CFLAGS"
   LIBS="-ldl $LIBS" 
 fi
 if test "$pth" = "yes" ; then
-  QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
+  QEMU_CFLAGS="-lpth -fPIC $QEMU_CFLAGS"
   LIBS="-lpth $LIBS"
   libs_qga="$libs_qga -lpth"
-
 fi
 #**************************
 #PARSA END
@@ -6028,9 +5982,6 @@ if test "$linux" = "yes" ; then
 fi
 
 for target in $target_list; do
-echo > $config_defines
-echo "#ifndef CONFIG_DEFINES_H" >> $config_defines
-echo "#define CONFIG_DEFINES_H" >> $config_defines
 target_dir="$target"
 config_target_mak=$target_dir/config-target.mak
 target_name=$(echo $target | cut -d '-' -f 1)
@@ -6277,17 +6228,17 @@ if test "$extsnap" = "yes" ; then
 fi
 
 if test "$flexus" = "yes" ; then
-  echo "CONFIG_FLEXUS=y" >> $config_target_mak
-  put_in_define "CONFIG_FLEXUS"
+  echo "CONFIG_FLEXUS=y" >> $config_host_mak
 fi
 if test "$pth" = "yes" ; then
-  echo "CONFIG_PTH=y" >> $config_target_mak
-  put_in_define "CONFIG_PTH"
+  echo "CONFIG_PTH=y" >> $config_host_mak
 fi
 
 if test "$quantum" = "yes" ; then
-echo "CONFIG_QUANTUM=y" >> $config_target_mak
-put_in_define "CONFIG_QUANTUM"
+echo "CONFIG_QUANTUM=y" >> $config_host_mak
+fi
+if test "$multinode" = "yes" ; then
+echo "CONFIG_MUTINODE=y" >> $config_host_mak
 fi
 #**************************
 #PARSA END
@@ -6523,6 +6474,3 @@ echo ' "$@"' >>config.status
 chmod +x config.status
 
 rm -r "$TMPDIR1"
-
-echo "" >> $config_defines
-echo "#endif // CONFIG_DEFINES_H" >> $config_defines

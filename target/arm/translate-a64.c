@@ -11412,21 +11412,6 @@ void gen_intermediate_code_a64(ARMCPU *cpu, TranslationBlock *tb)
         tcg_gen_insn_start(dc->pc, 0, 0);
         num_insns++;
 
-
-//#ifdef CONFIG_QUANTUM2
-//        cs->nr_instr++;
-//        cs->nr_total_instr++;
-//        if(cs->nr_instr >= quantum_value && quantum_value > 0){
-//            cs->nr_quantumHits++;
-//            cs->hasReachedInstrLimit = true;
-//#ifdef CONFIG_QUANTUM_DEBUG
-//            printf("CPU %i: hit quantum - %i\n", cs->cpu_index, cs->nr_instr);
-//#endif
-
-//        }
-//#endif
-
-
         if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
             CPUBreakpoint *bp;
             QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {

@@ -12,9 +12,9 @@ void cpu_stop_current(void);
 void cpu_ticks_init(void);
 
 #ifdef CONFIG_QUANTUM
-void cpu_get_quantum(const char* val);
-void cpu_set_quantum(const char* val);
-void cpu_get_ic(const char *str);
+uint64_t cpu_get_quantum(void);
+void cpu_set_quantum(uint64_t val);
+void cpu_dbg(DbgDataAll *info);
 void cpu_zero_all(void);
 void configure_quantum(QemuOpts *opts, Error **errp);
 void processForOpts(int64_t *val, const char* qopt, Error **errp);

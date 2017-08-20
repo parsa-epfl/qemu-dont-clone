@@ -1,4 +1,3 @@
-#include "config_defines.h"
 #ifdef CONFIG_PTH
 
 #include "qemu/thread-pth-internal.h"

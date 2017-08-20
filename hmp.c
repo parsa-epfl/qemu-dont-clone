@@ -39,6 +39,10 @@
 #include "qemu/error-report.h"
 #include "hw/intc/intc.h"
 
+#ifdef CONFIG_QUANTUM
+#include "include/sysemu/cpus.h"
+#endif
+
 #ifdef CONFIG_SPICE
 #include <spice/enums.h>
 #endif
@@ -2016,43 +2020,35 @@ void hmp_cpu_get_quantum(Monitor *mon, const QDict *qdict)
 {
     Error *err = NULL;
 
-    char* q = malloc(256);
-    qmp_cpu_get_quantum(q, &err);
-    monitor_printf(mon, "Current Quantum is set to %s:\n", q);
+    uint64_t q = cpu_get_quantum();
+    monitor_printf(mon, "Current Quantum is set to %lu:\n", q);
 
     hmp_handle_error(mon, &err);
 }
 
 void hmp_cpu_set_quantum(Monitor *mon, const QDict *qdict)
 {
-    Error *err = NULL;
-
     int val = qdict_get_int(qdict, "var");
-    char * tmp = malloc(128);
-    sprintf(tmp, "%d", val);
-
-    char * str = tmp;
-
 
     if (val < 0)
         monitor_printf(mon, "Cannot assign a negative value to quantum.\n");
     else if (val ==0) {
          monitor_printf(mon, "Turning off CPU starvation mode.\n");
-         qmp_cpu_set_quantum(str, &err);
+         cpu_set_quantum(val);
     }
     else {
-        qmp_cpu_set_quantum(str, &err);
+        cpu_set_quantum(val);
         monitor_printf(mon, "New Quantum is set to %d:\n", val);
     }
 }
 
-void hmp_cpu_get_ic(Monitor *mon,  const QDict *qdict)
+void hmp_cpu_dbg(Monitor *mon,  const QDict *qdict)
 {
     Error *err = NULL;
 
-    char* res = malloc(1024);
-    qmp_cpu_get_ic(res, &err);
-    monitor_printf(mon, "CPUs:\n%s", res);
+    DbgDataAll* dbg = qmp_cpu_dbg(&err);
+    for (int i = 0; i < dbg->size; i++)
+        monitor_printf(mon, "%lu\n%s", dbg->data[i].instr, dbg->data[i].data);
 
 }
 

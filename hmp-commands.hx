@@ -1809,7 +1809,7 @@ ETEXI
         .args_type  = "",
         .params     = "",
         .help       = "get total instructions executed",
-        .cmd = hmp_cpu_get_ic,
+        .cmd = hmp_cpu_dbg,
     },
 
 STEXI

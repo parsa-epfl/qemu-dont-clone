@@ -130,23 +130,26 @@ void qmp_cpu_add(int64_t id, Error **errp)
     }
 }
 
-void qmp_cpu_get_quantum(const char *val, Error **errp)
+QuantumInfo *qmp_cpu_get_quantum(Error **errp)
 {
 #ifdef CONFIG_QUANTUM
-    cpu_get_quantum(val);
+    QuantumInfo *info = g_malloc0(sizeof(*info));
+    info->quantum = cpu_get_quantum();
 #endif
 }
 
-void qmp_cpu_set_quantum(const char *val, Error **errp)
+void qmp_cpu_set_quantum(uint64_t val, Error **errp)
 {
 #ifdef CONFIG_QUANTUM
     cpu_set_quantum(val);
 #endif
 }
-void qmp_cpu_get_ic(const char *str, Error **errp)
+DbgDataAll *qmp_cpu_dbg(Error **errp)
 {
 #ifdef CONFIG_QUANTUM
-    cpu_get_ic(str);
+    DbgDataAll *info = g_malloc0(sizeof(*info));
+    cpu_dbg(info);
+    return info;
 #endif
 }
 void qmp_cpu_zero_all(Error **errp)

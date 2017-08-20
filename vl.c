@@ -43,6 +43,13 @@ extern int64_t flexus_simulation_length;
 #include <libvdeplug.h>
 #endif
 
+#ifdef CONFIG_MULTINODE
+bool multinode_in_use;
+#endif
+
+#ifdef CONFIG_QUANTUM
+extern int64_t quantum_value, quantum_record_value, quantum_node_value;
+#endif
 
 
 
@@ -3023,6 +3030,7 @@ int main(int argc, char **argv, char **envp)
     QemuOpts *hda_opts = NULL, *icount_opts = NULL, *accel_opts = NULL;
 #ifdef CONFIG_QUANTUM
     QemuOpts *quantum_opts = NULL;
+    quantum_value = quantum_record_value = quantum_node_value = 0;
 #endif
 #ifdef CONFIG_MULTINODE
     QemuOpts *multinode_opts = NULL;
@@ -4828,7 +4836,7 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_MULTINODE
         else
         {
-            raise(SIGSTOP);
+                raise(SIGSTOP);
         }
 #endif
     }
