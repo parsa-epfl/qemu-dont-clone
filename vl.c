@@ -51,8 +51,9 @@ bool multinode_in_use;
 extern int64_t quantum_value, quantum_record_value, quantum_node_value;
 #endif
 
-
-
+#ifdef CONFIG_EXTSNAP
+    bool exton = false;
+#endif
 
 #ifdef CONFIG_SDL
 #if defined(__APPLE__) || defined(main)
@@ -3062,7 +3063,6 @@ int main(int argc, char **argv, char **envp)
     Error *err = NULL;
     bool list_data_dirs = false;
 #ifdef CONFIG_EXTSNAP
-    bool exton = false;
     const char* loadext = NULL;
 #endif
     typedef struct BlockdevOptions_queue {
