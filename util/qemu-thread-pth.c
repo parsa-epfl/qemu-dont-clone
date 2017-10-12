@@ -1,21 +1,11 @@
-#ifndef CONFIG_PTH
-/*
- * Wrappers around mutex/cond/thread functions
- *
- * Copyright Red Hat, Inc. 2009
- *
- * Author:
- *  Marcelo Tosatti <mtosatti@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
+#ifdef CONFIG_PTH
+
 #include "qemu/osdep.h"
 #include "qemu/thread.h"
 #include "qemu/atomic.h"
 #include "qemu/notify.h"
-#include "trace.h"
+#include "include/qemu/thread-pth.h"
+
 
 static bool name_threads;
 
@@ -41,19 +31,17 @@ void qemu_mutex_init(QemuMutex *mutex)
 {
     int err;
 
-    err = pthread_mutex_init(&mutex->lock, NULL);
+    err = pthpthread_mutex_init(&mutex->lock, NULL);
+
     if (err)
         error_exit(err, __func__);
-    mutex->initialized = true;
 }
 
 void qemu_mutex_destroy(QemuMutex *mutex)
 {
     int err;
 
-    assert(mutex->initialized);
-    mutex->initialized = false;
-    err = pthread_mutex_destroy(&mutex->lock);
+    err = pthpthread_mutex_destroy(&mutex->lock);
     if (err)
         error_exit(err, __func__);
 }
@@ -62,37 +50,21 @@ void qemu_mutex_lock(QemuMutex *mutex)
 {
     int err;
 
-    assert(mutex->initialized);
-    err = pthread_mutex_lock(&mutex->lock);
+    err = pthpthread_mutex_lock(&mutex->lock);
     if (err)
         error_exit(err, __func__);
-
-    trace_qemu_mutex_locked(mutex);
 }
 
 int qemu_mutex_trylock(QemuMutex *mutex)
 {
-    int err;
-
-    assert(mutex->initialized);
-    err = pthread_mutex_trylock(&mutex->lock);
-    if (err == 0) {
-        trace_qemu_mutex_locked(mutex);
-        return 0;
-    }
-    if (err != EBUSY) {
-        error_exit(err, __func__);
-    }
-    return -EBUSY;
+    return pthpthread_mutex_trylock(&mutex->lock);
 }
 
 void qemu_mutex_unlock(QemuMutex *mutex)
 {
     int err;
 
-    assert(mutex->initialized);
-    trace_qemu_mutex_unlocked(mutex);
-    err = pthread_mutex_unlock(&mutex->lock);
+    err = pthpthread_mutex_unlock(&mutex->lock);
     if (err)
         error_exit(err, __func__);
 }
@@ -100,35 +72,31 @@ void qemu_mutex_unlock(QemuMutex *mutex)
 void qemu_rec_mutex_init(QemuRecMutex *mutex)
 {
     int err;
-    pthread_mutexattr_t attr;
+    pthpthread_mutexattr_t attr;
 
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    err = pthread_mutex_init(&mutex->lock, &attr);
-    pthread_mutexattr_destroy(&attr);
+    pthpthread_mutexattr_init(&attr);
+    pthpthread_mutexattr_settype(&attr, PTHPTHREAD_MUTEX_RECURSIVE);
+    err = pthpthread_mutex_init(&mutex->lock, &attr);
+    pthpthread_mutexattr_destroy(&attr);
     if (err) {
         error_exit(err, __func__);
     }
-    mutex->initialized = true;
 }
 
 void qemu_cond_init(QemuCond *cond)
 {
     int err;
 
-    err = pthread_cond_init(&cond->cond, NULL);
+    err = pthpthread_cond_init(&cond->cond, NULL);
     if (err)
         error_exit(err, __func__);
-    cond->initialized = true;
 }
 
 void qemu_cond_destroy(QemuCond *cond)
 {
     int err;
 
-    assert(cond->initialized);
-    cond->initialized = false;
-    err = pthread_cond_destroy(&cond->cond);
+    err = pthpthread_cond_destroy(&cond->cond);
     if (err)
         error_exit(err, __func__);
 }
@@ -137,8 +105,7 @@ void qemu_cond_signal(QemuCond *cond)
 {
     int err;
 
-    assert(cond->initialized);
-    err = pthread_cond_signal(&cond->cond);
+    err = pthpthread_cond_signal(&cond->cond);
     if (err)
         error_exit(err, __func__);
 }
@@ -147,8 +114,7 @@ void qemu_cond_broadcast(QemuCond *cond)
 {
     int err;
 
-    assert(cond->initialized);
-    err = pthread_cond_broadcast(&cond->cond);
+    err = pthpthread_cond_broadcast(&cond->cond);
     if (err)
         error_exit(err, __func__);
 }
@@ -157,10 +123,7 @@ void qemu_cond_wait(QemuCond *cond, QemuMutex *mutex)
 {
     int err;
 
-    assert(cond->initialized);
-    trace_qemu_mutex_unlocked(mutex);
-    err = pthread_cond_wait(&cond->cond, &mutex->lock);
-    trace_qemu_mutex_locked(mutex);
+    err = pthpthread_cond_wait(&cond->cond, &mutex->lock);
     if (err)
         error_exit(err, __func__);
 }
@@ -169,12 +132,12 @@ void qemu_sem_init(QemuSemaphore *sem, int init)
 {
     int rc;
 
-#ifndef CONFIG_SEM_TIMEDWAIT
-    rc = pthread_mutex_init(&sem->lock, NULL);
+#if defined(__APPLE__) || defined(__NetBSD__) || defined(CONFIG_PTH)
+    rc = pthpthread_mutex_init(&sem->lock, NULL);
     if (rc != 0) {
         error_exit(rc, __func__);
     }
-    rc = pthread_cond_init(&sem->cond, NULL);
+    rc = pthpthread_cond_init(&sem->cond, NULL);
     if (rc != 0) {
         error_exit(rc, __func__);
     }
@@ -188,21 +151,18 @@ void qemu_sem_init(QemuSemaphore *sem, int init)
         error_exit(errno, __func__);
     }
 #endif
-    sem->initialized = true;
 }
 
 void qemu_sem_destroy(QemuSemaphore *sem)
 {
     int rc;
 
-    assert(sem->initialized);
-    sem->initialized = false;
-#ifndef CONFIG_SEM_TIMEDWAIT
-    rc = pthread_cond_destroy(&sem->cond);
+#if defined(__APPLE__) || defined(__NetBSD__) || defined (CONFIG_PTH)
+     rc = pthpthread_cond_destroy(&sem->cond);
     if (rc < 0) {
         error_exit(rc, __func__);
     }
-    rc = pthread_mutex_destroy(&sem->lock);
+    rc = pthpthread_mutex_destroy(&sem->lock);
     if (rc < 0) {
         error_exit(rc, __func__);
     }
@@ -218,16 +178,15 @@ void qemu_sem_post(QemuSemaphore *sem)
 {
     int rc;
 
-    assert(sem->initialized);
-#ifndef CONFIG_SEM_TIMEDWAIT
-    pthread_mutex_lock(&sem->lock);
+#if defined(__APPLE__) || defined(__NetBSD__)|| defined (CONFIG_PTH)
+    pthpthread_mutex_lock(&sem->lock);
     if (sem->count == UINT_MAX) {
         rc = EINVAL;
     } else {
         sem->count++;
-        rc = pthread_cond_signal(&sem->cond);
+        rc = pthpthread_cond_signal(&sem->cond);
     }
-    pthread_mutex_unlock(&sem->lock);
+    pthpthread_mutex_unlock(&sem->lock);
     if (rc != 0) {
         error_exit(rc, __func__);
     }
@@ -256,13 +215,12 @@ int qemu_sem_timedwait(QemuSemaphore *sem, int ms)
     int rc;
     struct timespec ts;
 
-    assert(sem->initialized);
-#ifndef CONFIG_SEM_TIMEDWAIT
+#if defined(__APPLE__) || defined(__NetBSD__)|| defined (CONFIG_PTH)
     rc = 0;
     compute_abs_deadline(&ts, ms);
-    pthread_mutex_lock(&sem->lock);
+    pthpthread_mutex_lock(&sem->lock);
     while (sem->count == 0) {
-        rc = pthread_cond_timedwait(&sem->cond, &sem->lock, &ts);
+        rc = pthpthread_cond_timedwait(&sem->cond, &sem->lock, &ts);
         if (rc == ETIMEDOUT) {
             break;
         }
@@ -273,7 +231,7 @@ int qemu_sem_timedwait(QemuSemaphore *sem, int ms)
     if (rc != ETIMEDOUT) {
         --sem->count;
     }
-    pthread_mutex_unlock(&sem->lock);
+    pthpthread_mutex_unlock(&sem->lock);
     return (rc == ETIMEDOUT ? -1 : 0);
 #else
     if (ms <= 0) {
@@ -304,17 +262,16 @@ void qemu_sem_wait(QemuSemaphore *sem)
 {
     int rc;
 
-    assert(sem->initialized);
-#ifndef CONFIG_SEM_TIMEDWAIT
-    pthread_mutex_lock(&sem->lock);
+#if defined(__APPLE__) || defined(__NetBSD__)|| defined (CONFIG_PTH)
+    pthpthread_mutex_lock(&sem->lock);
     while (sem->count == 0) {
-        rc = pthread_cond_wait(&sem->cond, &sem->lock);
+        rc = pthpthread_cond_wait(&sem->cond, &sem->lock);
         if (rc != 0) {
             error_exit(rc, __func__);
         }
     }
     --sem->count;
-    pthread_mutex_unlock(&sem->lock);
+    pthpthread_mutex_unlock(&sem->lock);
 #else
     do {
         rc = sem_wait(&sem->sem);
@@ -325,29 +282,25 @@ void qemu_sem_wait(QemuSemaphore *sem)
 #endif
 }
 
-#ifdef __linux__
-#include "qemu/futex.h"
-#else
+#ifdef __linux__ 
 static inline void qemu_futex_wake(QemuEvent *ev, int n)
 {
-    assert(ev->initialized);
-    pthread_mutex_lock(&ev->lock);
+  pthpthread_mutex_lock(&ev->lock);
     if (n == 1) {
-        pthread_cond_signal(&ev->cond);
+	pthpthread_cond_signal(&ev->cond);
     } else {
-        pthread_cond_broadcast(&ev->cond);
+	pthpthread_cond_broadcast(&ev->cond);
     }
-    pthread_mutex_unlock(&ev->lock);
+    pthpthread_mutex_unlock(&ev->lock);
 }
 
 static inline void qemu_futex_wait(QemuEvent *ev, unsigned val)
 {
-    assert(ev->initialized);
-    pthread_mutex_lock(&ev->lock);
+    pthpthread_mutex_lock(&ev->lock);
     if (ev->value == val) {
-        pthread_cond_wait(&ev->cond, &ev->lock);
+	pthpthread_cond_wait(&ev->cond, &ev->lock);
     }
-    pthread_mutex_unlock(&ev->lock);
+    pthpthread_mutex_unlock(&ev->lock);
 }
 #endif
 
@@ -371,22 +324,19 @@ static inline void qemu_futex_wait(QemuEvent *ev, unsigned val)
 
 void qemu_event_init(QemuEvent *ev, bool init)
 {
-#ifndef __linux__
-    pthread_mutex_init(&ev->lock, NULL);
-    pthread_cond_init(&ev->cond, NULL);
+#ifndef __linux__  
+    pthpthread_mutex_init(&ev->lock, NULL);
+    pthpthread_cond_init(&ev->cond, NULL);
 #endif
 
     ev->value = (init ? EV_SET : EV_FREE);
-    ev->initialized = true;
 }
 
 void qemu_event_destroy(QemuEvent *ev)
 {
-    assert(ev->initialized);
-    ev->initialized = false;
 #ifndef __linux__
-    pthread_mutex_destroy(&ev->lock);
-    pthread_cond_destroy(&ev->cond);
+    pthpthread_mutex_destroy(&ev->lock);
+    pthpthread_cond_destroy(&ev->cond);
 #endif
 }
 
@@ -395,7 +345,6 @@ void qemu_event_set(QemuEvent *ev)
     /* qemu_event_set has release semantics, but because it *loads*
      * ev->value we need a full memory barrier here.
      */
-    assert(ev->initialized);
     smp_mb();
     if (atomic_read(&ev->value) != EV_SET) {
         if (atomic_xchg(&ev->value, EV_SET) == EV_BUSY) {
@@ -409,7 +358,6 @@ void qemu_event_reset(QemuEvent *ev)
 {
     unsigned value;
 
-    assert(ev->initialized);
     value = atomic_read(&ev->value);
     smp_mb_acquire();
     if (value == EV_SET) {
@@ -418,6 +366,8 @@ void qemu_event_reset(QemuEvent *ev)
          * do nothing.  Otherwise change EV_SET->EV_FREE.
          */
         atomic_or(&ev->value, EV_FREE);
+    
+    PTH_YIELD
     }
 }
 
@@ -425,7 +375,6 @@ void qemu_event_wait(QemuEvent *ev)
 {
     unsigned value;
 
-    assert(ev->initialized);
     value = atomic_read(&ev->value);
     smp_mb_acquire();
     if (value != EV_SET) {
@@ -444,7 +393,7 @@ void qemu_event_wait(QemuEvent *ev)
     }
 }
 
-static pthread_key_t exit_key;
+static pth_key_t exit_key;
 
 union NotifierThreadData {
     void *ptr;
@@ -455,17 +404,17 @@ QEMU_BUILD_BUG_ON(sizeof(union NotifierThreadData) != sizeof(void *));
 void qemu_thread_atexit_add(Notifier *notifier)
 {
     union NotifierThreadData ntd;
-    ntd.ptr = pthread_getspecific(exit_key);
+    ntd.ptr = pthpthread_getspecific(exit_key);
     notifier_list_add(&ntd.list, notifier);
-    pthread_setspecific(exit_key, ntd.ptr);
+    pthpthread_setspecific(exit_key, ntd.ptr);
 }
 
 void qemu_thread_atexit_remove(Notifier *notifier)
 {
     union NotifierThreadData ntd;
-    ntd.ptr = pthread_getspecific(exit_key);
+    ntd.ptr = pthpthread_getspecific(exit_key);
     notifier_remove(notifier);
-    pthread_setspecific(exit_key, ntd.ptr);
+    pthpthread_setspecific(exit_key, ntd.ptr);
 }
 
 static void qemu_thread_atexit_run(void *arg)
@@ -476,68 +425,122 @@ static void qemu_thread_atexit_run(void *arg)
 
 static void __attribute__((constructor)) qemu_thread_atexit_init(void)
 {
-    pthread_key_create(&exit_key, qemu_thread_atexit_run);
+    pth_key_create(&exit_key, qemu_thread_atexit_run);
 }
 
 
 /* Attempt to set the threads name; note that this is for debug, so
  * we're not going to fail if we can't set it.
  */
-static void qemu_thread_set_name(QemuThread *thread, const char *name)
+
+// already done
+
+//static void qemu_thread_set_name(QemuThread *thread, const char *name)
+//{
+//#ifdef CONFIG_PTHREAD_SETNAME_NP
+//    //pthread_setname_np(thread->thread, name);
+//#endif
+//}
+
+pth_t main_thread = NULL;
+
+pth_t get_main_thread(void);
+
+pth_t get_main_thread(void) {
+  if( main_thread == NULL )
+    main_thread = pthpthread_self();
+  return main_thread;
+}
+
+static bool threadlist_initialized = false;
+static QLIST_HEAD(, threadlist) pth_wrappers =
+        QLIST_HEAD_INITIALIZER(pth_wrappers);
+static int threadlist_size;
+
+
+void initMainThread(void)
 {
-#ifdef CONFIG_PTHREAD_SETNAME_NP
-    pthread_setname_np(thread->thread, name);
-#endif
+    if (!threadlist_initialized){
+        threadlist* head = calloc(1, sizeof(threadlist));
+        head->qemuthread = calloc(1, sizeof(QemuThread));
+        head->qemuthread->wrapper.pth_thread = pth_self();
+        threadlist_initialized = true;
+        memset(&head->qemuthread->wrapper.rcu_reader, 0, sizeof(struct rcu_reader_data));
+        head->qemuthread->wrapper.thread_name = strdup("main");
+        QLIST_INSERT_HEAD(&pth_wrappers, head, next);
+        threadlist_size++;
+
+    }
 }
 
 void qemu_thread_create(QemuThread *thread, const char *name,
                        void *(*start_routine)(void*),
                        void *arg, int mode)
 {
+	get_main_thread();
+
     sigset_t set, oldset;
     int err;
-    pthread_attr_t attr;
 
-    err = pthread_attr_init(&attr);
+    pthpthread_attr_t attr;
+    err = pthpthread_attr_init(&attr);
+
     if (err) {
         error_exit(err, __func__);
     }
 
     /* Leave signal handling to the iothread.  */
     sigfillset(&set);
-    pthread_sigmask(SIG_SETMASK, &set, &oldset);
-    err = pthread_create(&thread->thread, &attr, start_routine, arg);
-    if (err)
-        error_exit(err, __func__);
+    pthpthread_sigmask(SIG_SETMASK, &set, &oldset);
+
+
+    /***********************************************/
+    // THREAD LIST
+    initMainThread();
+
+    threadlist* head = calloc(1, sizeof(threadlist));
+    head->qemuthread = thread;
+    head->qemuthread->wrapper.thread_name = strdup(name);
+    memset(&head->qemuthread->wrapper.rcu_reader, 0, sizeof(struct rcu_reader_data));
+    threadlist_size++;
+    QLIST_INSERT_HEAD(&pth_wrappers, head, next);
+    /***********************************************/
 
     if (name_threads) {
-        qemu_thread_set_name(thread, name);
+        pth_attr_set((pth_attr_t)attr, PTH_ATTR_NAME, name);
     }
 
     if (mode == QEMU_THREAD_DETACHED) {
-        err = pthread_detach(thread->thread);
+    err = pthpthread_attr_setdetachstate(&attr, PTHPTHREAD_CREATE_DETACHED);
         if (err) {
             error_exit(err, __func__);
         }
     }
-    pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 
-    pthread_attr_destroy(&attr);
+    err = pthpthread_create(&thread->wrapper.pth_thread, &attr, start_routine, arg);
+    if (err)
+        error_exit(err, __func__);
+
+    PTH_YIELD
+
+    pthpthread_sigmask(SIG_SETMASK, &oldset, NULL);
+
+    pthpthread_attr_destroy(&attr);
 }
 
 void qemu_thread_get_self(QemuThread *thread)
 {
-    thread->thread = pthread_self();
+    thread->wrapper.pth_thread = pthpthread_self();
 }
 
 bool qemu_thread_is_self(QemuThread *thread)
 {
-   return pthread_equal(pthread_self(), thread->thread);
+   return pthpthread_equal(pthpthread_self(), thread->wrapper.pth_thread);
 }
 
 void qemu_thread_exit(void *retval)
 {
-    pthread_exit(retval);
+    pthpthread_exit(retval);
 }
 
 void *qemu_thread_join(QemuThread *thread)
@@ -545,10 +548,24 @@ void *qemu_thread_join(QemuThread *thread)
     int err;
     void *ret;
 
-    err = pthread_join(thread->thread, &ret);
+    err = pthpthread_join(thread->wrapper.pth_thread, &ret);
     if (err) {
         error_exit(err, __func__);
     }
     return ret;
 }
-#endif
+
+
+
+pth_wrapper* pth_get_wrapper(void){
+    threadlist * entry = NULL;
+    QLIST_FOREACH(entry, &pth_wrappers, next){
+        if (entry->qemuthread->wrapper.pth_thread == pth_self())
+            return &entry->qemuthread->wrapper;
+    }
+
+    assert(false && "pth: thread was none added to pth thread list! did you use function attributes? if yes, they are not supported.");
+}
+
+
+#endif //  CONFIG_PTH

@@ -90,8 +90,11 @@ static int qemu_signal_init(void)
      * SIGTERM are also handled asynchronously, even though it is not
      * strictly necessary, because they use the same handler as SIGINT.
      */
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_BLOCK, &set, NULL);
-
+#else
+    pthpthread_sigmask(SIG_BLOCK, &set, NULL);
+#endif
     sigdelset(&set, SIG_IPI);
     sigfd = qemu_signalfd(&set);
     if (sigfd == -1) {

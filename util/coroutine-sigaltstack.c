@@ -53,16 +53,26 @@ typedef struct {
     void *tr_handler;
 } CoroutineThreadState;
 
+#ifndef CONFIG_PTH
 static pthread_key_t thread_state_key;
-
+#else
+static pthpthread_key_t thread_state_key;
+#endif
 static CoroutineThreadState *coroutine_get_thread_state(void)
 {
+#ifndef CONFIG_PTH
     CoroutineThreadState *s = pthread_getspecific(thread_state_key);
-
+#else
+    CoroutineThreadState *s = pthpthread_getspecific(thread_state_key);
+#endif
     if (!s) {
         s = g_malloc0(sizeof(*s));
         s->current = &s->leader.base;
+#ifndef CONFIG_PTH
         pthread_setspecific(thread_state_key, s);
+#else
+        pthpthread_setspecific(thread_state_key, s);
+#endif
     }
     return s;
 }
@@ -77,8 +87,11 @@ static void qemu_coroutine_thread_cleanup(void *opaque)
 static void __attribute__((constructor)) coroutine_init(void)
 {
     int ret;
-
+#ifndef CONFIG_PTH
     ret = pthread_key_create(&thread_state_key, qemu_coroutine_thread_cleanup);
+#else
+    ret = pthpthread_key_create(&thread_state_key, qemu_coroutine_thread_cleanup);
+#endif
     if (ret != 0) {
         fprintf(stderr, "unable to create leader key: %s\n", strerror(errno));
         abort();
@@ -178,7 +191,11 @@ Coroutine *qemu_coroutine_new(void)
      */
     sigemptyset(&sigs);
     sigaddset(&sigs, SIGUSR2);
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_BLOCK, &sigs, &osigs);
+#else
+    pthpthread_sigmask(SIG_BLOCK, &sigs, &osigs);
+#endif
     sa.sa_handler = coroutine_trampoline;
     sigfillset(&sa.sa_mask);
     sa.sa_flags = SA_ONSTACK;
@@ -204,7 +221,11 @@ Coroutine *qemu_coroutine_new(void)
      * called.
      */
     coTS->tr_called = 0;
+#ifndef CONFIG_PTH
     pthread_kill(pthread_self(), SIGUSR2);
+#else
+    pthpthread_kill(pthpthread_self(), SIGUSR2);
+#endif
     sigfillset(&sigs);
     sigdelset(&sigs, SIGUSR2);
     while (!coTS->tr_called) {
@@ -230,8 +251,11 @@ Coroutine *qemu_coroutine_new(void)
      * Restore the old SIGUSR2 signal handler and mask
      */
     sigaction(SIGUSR2, &osa, NULL);
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_SETMASK, &osigs, NULL);
-
+#else
+    pthpthread_sigmask(SIG_SETMASK, &osigs, NULL);
+#endif
     /*
      * Now enter the trampoline again, but this time not as a signal
      * handler. Instead we jump into it directly. The functionally
@@ -284,8 +308,11 @@ Coroutine *qemu_coroutine_self(void)
 
 bool qemu_in_coroutine(void)
 {
+#ifndef CONFIG_PTH
     CoroutineThreadState *s = pthread_getspecific(thread_state_key);
-
+#else
+    CoroutineThreadState *s = pthpthread_getspecific(thread_state_key);
+#endif
     return s && s->current->caller;
 }
 

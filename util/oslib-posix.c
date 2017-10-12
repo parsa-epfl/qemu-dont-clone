@@ -310,7 +310,11 @@ static void *do_touch_pages(void *arg)
     /* unblock SIGBUS */
     sigemptyset(&set);
     sigaddset(&set, SIGBUS);
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_UNBLOCK, &set, &oldset);
+#else
+    pthpthread_sigmask(SIG_UNBLOCK, &set, &oldset);
+#endif
 
     if (sigsetjmp(memset_args->env, 1)) {
         memset_thread_failed = true;
@@ -332,7 +336,11 @@ static void *do_touch_pages(void *arg)
             addr += hpagesize;
         }
     }
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+#else
+    pthpthread_sigmask(SIG_SETMASK, &oldset, NULL);
+#endif
     return NULL;
 }
 
@@ -452,7 +460,11 @@ pid_t qemu_fork(Error **errp)
      * kill off caller's signal handlers without a race.
      */
     sigfillset(&newmask);
+#ifndef CONFIG_PTH
     if (pthread_sigmask(SIG_SETMASK, &newmask, &oldmask) != 0) {
+#else
+    if (pthpthread_sigmask(SIG_SETMASK, &newmask, &oldmask) != 0) {
+#endif
         error_setg_errno(errp, errno,
                          "cannot block signals");
         return -1;
@@ -464,7 +476,11 @@ pid_t qemu_fork(Error **errp)
     if (pid < 0) {
         /* attempt to restore signal mask, but ignore failure, to
          * avoid obscuring the fork failure */
+#ifndef CONFIG_PTH
         (void)pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#else
+        (void)pthpthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#endif
         error_setg_errno(errp, saved_errno,
                          "cannot fork child process");
         errno = saved_errno;
@@ -476,7 +492,11 @@ pid_t qemu_fork(Error **errp)
          * safely running. Only documented failures are EFAULT (not
          * possible, since we are using just-grabbed mask) or EINVAL
          * (not possible, since we are using correct arguments).  */
+#ifndef CONFIG_PTH
         (void)pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#else
+        (void)pthpthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#endif
     } else {
         /* child process */
         size_t i;
@@ -499,7 +519,11 @@ pid_t qemu_fork(Error **errp)
          * caller's done with their signal mask and don't want to
          * propagate that to children */
         sigemptyset(&newmask);
+#ifndef CONFIG_PTH
         if (pthread_sigmask(SIG_SETMASK, &newmask, NULL) != 0) {
+#else
+        if (pthpthread_sigmask(SIG_SETMASK, &newmask, NULL) != 0) {
+#endif
             Error *local_err = NULL;
             error_setg_errno(&local_err, errno,
                              "cannot unblock signals");
@@ -557,11 +581,11 @@ void *qemu_alloc_stack(size_t *sz)
 
     return ptr;
 }
-
+#ifndef CONFIG_PTH
 #ifdef CONFIG_DEBUG_STACK_USAGE
 static __thread unsigned int max_stack_usage;
 #endif
-
+#endif
 void qemu_free_stack(void *stack, size_t sz)
 {
 #ifdef CONFIG_DEBUG_STACK_USAGE

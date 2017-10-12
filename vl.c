@@ -1800,8 +1800,9 @@ void qemu_system_guest_panicked(GuestPanicInformation *info)
 {
     qemu_log_mask(LOG_GUEST_ERROR, "Guest crashed\n");
 
-    if (current_cpu) {
-        current_cpu->crash_occurred = true;
+    PTH_UPDATE_CONTEXT
+    if (PTH(current_cpu)) {
+        PTH(current_cpu)->crash_occurred = true;
     }
     qapi_event_send_guest_panicked(GUEST_PANIC_ACTION_PAUSE,
                                    !!info, info, &error_abort);
@@ -3090,6 +3091,9 @@ static void register_global_properties(MachineState *ms)
 
 int main(int argc, char **argv, char **envp)
 {
+#ifdef CONFIG_PTH
+    initMainThread();
+#endif
     int i;
     int snapshot, linux_boot;
     const char *initrd_filename;

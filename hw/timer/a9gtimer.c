@@ -43,11 +43,12 @@
 
 static inline int a9_gtimer_get_current_cpu(A9GTimerState *s)
 {
-    if (current_cpu->cpu_index >= s->num_cpu) {
+    PTH_UPDATE_CONTEXT
+    if (PTH(current_cpu)->cpu_index >= s->num_cpu) {
         hw_error("a9gtimer: num-cpu %d but this cpu is %d!\n",
-                 s->num_cpu, current_cpu->cpu_index);
+                 s->num_cpu, PTH(current_cpu)->cpu_index);
     }
-    return current_cpu->cpu_index;
+    return PTH(current_cpu)->cpu_index;
 }
 
 static inline uint64_t a9_gtimer_get_conv(A9GTimerState *s)

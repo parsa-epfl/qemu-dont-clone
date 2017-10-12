@@ -55,8 +55,9 @@ static const uint8_t gic_id_gicv2[] = {
 
 static inline int gic_get_current_cpu(GICState *s)
 {
+    PTH_UPDATE_CONTEXT
     if (s->num_cpu > 1) {
-        return current_cpu->cpu_index;
+        return PTH(current_cpu)->cpu_index;
     }
     return 0;
 }
