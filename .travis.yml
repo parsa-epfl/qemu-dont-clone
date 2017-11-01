@@ -45,13 +45,13 @@ sudo: required
 branches:
   only:
     - master_parsa
+    - FIX_TEST
 # We will get submodules ourselves
 git:
   submodules: false
 # Builds GCC version: 5
 env:
   global:
-      - BUILD_CMD="source ${TRAVIS_BUILD_DIR}/test_qemu.sh"
       - TEST_CMD="source ${TRAVIS_BUILD_DIR}/test_qemu.sh"
 matrix:
   include:

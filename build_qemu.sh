@@ -49,6 +49,9 @@ export IS_EXTSNAP=`grep enable-extsnap configure`
 export IS_QUANTUM=`grep enable-quantum configure`
 export IS_PTH=`grep enable-pth configure`
 
+echo $IS_EXTSNAP
+cat configure
+
 if [[ "$IS_EXTSNAP" == "" ]] && [[ "$TEST_EXTSNAP" == "yes" ]]; then
     exit 0
 fi

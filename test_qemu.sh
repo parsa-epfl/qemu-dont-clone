@@ -41,7 +41,7 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cd $HOME/build/parsa-epfl/qemu-dont-clone/tests/
+cd $HOME/build/parsa-epfl/qemu/tests/
 cp ../scripts/user_example.cfg ../scripts/user.cfg
 
 export IS_EXTSNAP=`grep enable-extsnap ../configure`
@@ -63,11 +63,11 @@ fi
 sed -i "s/USER_NAME username/USER_NAME $USER/" ../scripts/user.cfg
 sed -i "s/QEMU_CORE_NUM 4/QEMU_CORE_NUM 1/" ../scripts/user.cfg
 sed -i "s/MEM 4096/MEM 512/" ../scripts/user.cfg
-path_to_kernel=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/images/kernel" | sed 's/[[\.*^$/]/\\&/g')
+path_to_kernel=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/images/kernel" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/qemu\/image\/kernel/$path_to_kernel/g" ../scripts/user.cfg
-path_to_qemu=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/" | sed 's/[[\.*^$/]/\\&/g')
+path_to_qemu=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/qemu/$path_to_qemu/g" ../scripts/user.cfg
-path_to_image=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/images/ubuntu-16.04-blanc/ubuntu-stripped-comp3.qcow2" | sed 's/[[\.*^$/]/\\&/g')
+path_to_image=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/images/ubuntu-16.04-blanc/ubuntu-stripped-comp3.qcow2" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/server\/image\/.qcow2\/or\/.img/$path_to_image/g" ../scripts/user.cfg
 sed -i "s/\/path\/to\/client\/image\/.qcow2\/or\/.img/$path_to_image/g" ../scripts/user.cfg
 
@@ -101,7 +101,7 @@ check_status() {
     fi
 }
 
-if [ TEST_EXTSNAP == "yes" ]; then
+if [ $TEST_EXTSNAP == "yes" ]; then
     # Test run_system.sh in default mode
     bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/single_save -ow -sn=test_snap
     pushd $DIR/results/single_save >> /dev/null
@@ -130,7 +130,7 @@ if [ TEST_EXTSNAP == "yes" ]; then
 fi
 
 # PTH test
-if [ TEST_PTH == "yes" ]; then
+if [ $TEST_PTH == "yes" ]; then
     bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/pth -ow -pth -mult --no_ns3
     pushd $DIR/results/pth >> /dev/null
     TEST_PTH_DIFF=`grep PTH_SUCCESS logs`
@@ -138,7 +138,7 @@ if [ TEST_PTH == "yes" ]; then
     popd >> /dev/null
 fi
 
-if [ TEST_QUANTUM == "yes" ]; then
+if [ $TEST_QUANTUM == "yes" ]; then
     bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/pth -ow -qn -mult --no_ns3
     pushd $DIR/results/quantum >> /dev/null
     TEST_QUANTUM_BOOT=`grep QUANTUM_SUCCESS logs`
