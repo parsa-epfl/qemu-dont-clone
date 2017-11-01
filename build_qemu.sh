@@ -89,9 +89,9 @@ mkdir images
 cd images
 mkdir ubuntu-16.04-blank
 cd ubuntu-16.04-blank
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true -O ubuntu-stripped-comp3.qcow2
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true -O initrd.img-4.4.0-83-generic
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true -O vmlinuz-4.4.0-83-generic
 cd ../..
 git submodule update --init dtc
 # Build Qemu
