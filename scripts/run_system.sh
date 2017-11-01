@@ -93,7 +93,7 @@ check_invoke_script() {
 
 check_ssh() {
     # Loop to wait for successful SSH
-if [ TEST_SSH == "yes" ]; then
+if [ "$TEST_SSH" == "yes" ]; then
     FAILURE=1
     sleep 100
     while [ "$FAILURE" != 0 ]

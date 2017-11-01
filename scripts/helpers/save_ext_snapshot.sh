@@ -67,7 +67,7 @@ send "{ \"execute\": \"human-monitor-command\", \"arguments\": { \"command-line\
 expect {
   timeout { send_user "\n Failed to Save Snapshot"; exit 1 }
   eof { send_user "\nnc failure for qmp-sock\n"; exit 1 }
-  "*Saving after:*" { send_user "\nSnapshot saved ( SNAP_SUCCESS )\r" }
+  "*{\"return\": \"\"}*" { send_user "\nSnapshot saved ( SNAP_SUCCESS )\r" }
 }
 expect eof
 EOD
