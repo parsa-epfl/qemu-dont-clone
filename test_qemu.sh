@@ -41,7 +41,7 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cd $HOME/build/parsa-epfl/qemu-dont-clone/tests/
+cd $HOME/build/parsa-epfl/qemu/tests/
 cp ../scripts/user_example.cfg ../scripts/user.cfg
 
 export IS_EXTSNAP=`grep enable-extsnap ../configure`
@@ -63,11 +63,11 @@ fi
 sed -i "s/USER_NAME username/USER_NAME $USER/" ../scripts/user.cfg
 sed -i "s/QEMU_CORE_NUM 4/QEMU_CORE_NUM 1/" ../scripts/user.cfg
 sed -i "s/MEM 4096/MEM 512/" ../scripts/user.cfg
-path_to_kernel=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/images/kernel" | sed 's/[[\.*^$/]/\\&/g')
+path_to_kernel=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/images/ubuntu-16.04-blank/" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/qemu\/image\/kernel/$path_to_kernel/g" ../scripts/user.cfg
-path_to_qemu=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/" | sed 's/[[\.*^$/]/\\&/g')
+path_to_qemu=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/qemu/$path_to_qemu/g" ../scripts/user.cfg
-path_to_image=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu-dont-clone/images/ubuntu-16.04-blanc/ubuntu-stripped-comp3.qcow2" | sed 's/[[\.*^$/]/\\&/g')
+path_to_image=$(printf '%s\n' "$HOME/build/parsa-epfl/qemu/images/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2" | sed 's/[[\.*^$/]/\\&/g')
 sed -i "s/\/path\/to\/server\/image\/.qcow2\/or\/.img/$path_to_image/g" ../scripts/user.cfg
 sed -i "s/\/path\/to\/client\/image\/.qcow2\/or\/.img/$path_to_image/g" ../scripts/user.cfg
 
@@ -101,9 +101,9 @@ check_status() {
     fi
 }
 
-if [ TEST_EXTSNAP == "yes" ]; then
+if [ "$TEST_EXTSNAP" == "yes" ]; then
     # Test run_system.sh in default mode
-    bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/single_save -ow -sn=test_snap
+    bash $DIR/scripts/run_system.sh --kill -exp=../results/single_save -ow -sn=test_snap
     pushd $DIR/results/single_save >> /dev/null
 
     # Check to see if commands are executing
@@ -115,7 +115,7 @@ if [ TEST_EXTSNAP == "yes" ]; then
     check_status "$TEST_SNAPSHOT" "Saving Snapshot" "$DIR/results/single_save/Qemu_0/logs"
     popd >> /dev/null
     # Test run_system.sh in load mode
-    bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/single_load -ow -lo=test_snap -rs -sn=test_snap
+    bash $DIR/scripts/run_system.sh --kill -exp=../results/single_load -ow -lo=test_snap -rs -sn=test_snap
     pushd $DIR/results/single_load >> /dev/null
 
     # Test to see if commands are executing
@@ -130,19 +130,19 @@ if [ TEST_EXTSNAP == "yes" ]; then
 fi
 
 # PTH test
-if [ TEST_PTH == "yes" ]; then
-    bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/pth -ow -pth -mult --no_ns3
+if [ "$TEST_PTH" == "yes" ]; then
+    bash $DIR/scripts/run_system.sh --kill -exp=../results/pth -ow -pth -mult --no_ns3
     pushd $DIR/results/pth >> /dev/null
     TEST_PTH_DIFF=`grep PTH_SUCCESS logs`
     check_status "$TEST_PTH_DIFF" "PTH works" "$DIR/results/pth/diffout"
     popd >> /dev/null
 fi
 
-if [ TEST_QUANTUM == "yes" ]; then
-    bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/pth -ow -qn -mult --no_ns3
+if [ "$TEST_QUANTUM" == "yes" ]; then
+    bash $DIR/scripts/run_system.sh --kill -exp=../results/quantum -ow -qn -mult --no_ns3
     pushd $DIR/results/quantum >> /dev/null
     TEST_QUANTUM_BOOT=`grep QUANTUM_SUCCESS logs`
-    check_status "$TEST_QUANTUM_BOOT" "PTH working" "$DIR/results/pth/diffout"
+    check_status "$TEST_QUANTUM_BOOT" "QUANTUM works" "$DIR/results/quantum"
     popd >> /dev/null
 fi
 
@@ -154,7 +154,7 @@ exit 0
 #################################################################################
 
 # Test run_system.sh in multiple instance mode
-bash $DIR/../scripts/run_system.sh --kill -exp=../tests/results/multiple_ping -mult -ow --no_ns3
+bash $DIR/scripts/run_system.sh --kill -exp=../results/multiple_ping -mult -ow --no_ns3
 pushd $DIR/results/multiple_ping >> /dev/null
 
 # Test to see if instances are configured
