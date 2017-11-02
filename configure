@@ -415,6 +415,14 @@ supported_cpu="no"
 supported_os="no"
 bogus_os="no"
 
+#**************************
+#PARSA START
+#**************************
+#external snapshot support
+extsnap=""
+#**************************
+#PARSA END
+#**************************
 # parse CC options first
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -925,6 +933,17 @@ for opt do
     # configure to be used by RPM and similar macros that set
     # lots of directory switches by default.
   ;;
+
+#**************************
+#PARSA START
+#**************************
+  --disable-extsnap) extsnap="no"
+  ;;
+  --enable-extsnap) extsnap="yes"
+  ;;
+#**************************
+#PARSA END
+#**************************
   --disable-sdl) sdl="no"
   ;;
   --enable-sdl) sdl="yes"
@@ -1534,6 +1553,13 @@ disabled with --disable-FEATURE, default is enabled if available:
   crypto-afalg    Linux AF_ALG crypto backend driver
   vhost-user      vhost-user support
 
+  #**************************
+  #PARSA START
+  #**************************
+  extsnap         external snapshots support
+  #**************************
+  #PARSA END
+  #**************************
 NOTE: The object files are built at the place where configure is launched
 EOF
 exit 0
@@ -5234,7 +5260,15 @@ EOF
     fi
   fi
 fi
-
+#**************************
+#PARSA START
+#**************************
+if test "$extsnap" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_EXTSNAP $QEMU_CFLAGS"
+fi
+#**************************
+#PARSA END
+#**************************
 # Check that the C++ compiler exists and works with the C compiler.
 # All the QEMU_CXXFLAGS are based on QEMU_CFLAGS. Keep this at the end to don't miss any other that could be added.
 if has $cxx; then
@@ -5423,7 +5457,13 @@ echo "jemalloc support  $jemalloc"
 echo "avx2 optimization $avx2_opt"
 echo "replication support $replication"
 echo "VxHS block device $vxhs"
-
+echo "#**************************"
+echo "#PARSA START"
+echo "#**************************"
+echo "external snapshots support $extsnap"
+echo "#**************************"
+echo "#PARSA END"
+echo "#**************************"
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
 fi
@@ -6426,6 +6466,16 @@ if test "$target_softmmu" = "yes" ; then
     echo "TARGET_SUPPORTS_MTTCG=y" >> $config_target_mak
   fi
 fi
+#**************************
+#PARSA START
+#**************************
+if test "$extsnap" = "yes" ; then
+  echo "CONFIG_EXTSNAP=y" >> $config_host_mak
+fi
+#**************************
+#PARSA END
+#**************************
+
 if test "$target_user_only" = "yes" ; then
   echo "CONFIG_USER_ONLY=y" >> $config_target_mak
   echo "CONFIG_QEMU_INTERP_PREFIX=\"$interp_prefix1\"" >> $config_target_mak
