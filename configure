@@ -420,6 +420,8 @@ bogus_os="no"
 #**************************
 # gnu pth support
 pth="no"
+#external snapshot support
+extsnap=""
 #**************************
 #PARSA END
 #**************************
@@ -939,6 +941,10 @@ for opt do
   --disable-pth) pth="no"
   ;;
   --enable-pth) pth="yes"
+  ;;
+  --disable-extsnap) extsnap="no"
+  ;;
+  --enable-extsnap) extsnap="yes"
   ;;
 #**************************
 #PARSA END
@@ -1556,6 +1562,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   #PARSA START
   #**************************
   GNU Pth         support for GNU Pth - The GNU Portable Threads
+  extsnap         external snapshots support
   #**************************
   #PARSA END
   #**************************
@@ -5267,6 +5274,9 @@ if test "$pth" = "yes" ; then
   LIBS="-lpth $LIBS"
   libs_qga="$libs_qga -lpth"
 fi
+if test "$extsnap" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_EXTSNAP $QEMU_CFLAGS"
+fi
 #**************************
 #PARSA END
 #**************************
@@ -5462,6 +5472,7 @@ echo "#**************************"
 echo "#PARSA START"
 echo "#**************************"
 echo "GNU Pth           $pth"
+echo "external snapshots support $extsnap"
 echo "#**************************"
 echo "#PARSA END"
 echo "#**************************"
@@ -6472,6 +6483,9 @@ fi
 #**************************
 if test "$pth" = "yes" ; then
   echo "CONFIG_PTH=y" >> $config_host_mak
+fi
+if test "$extsnap" = "yes" ; then
+  echo "CONFIG_EXTSNAP=y" >> $config_host_mak
 fi
 #**************************
 #PARSA END

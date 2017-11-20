@@ -632,6 +632,9 @@ static int raw_apply_lock_bytes(BDRVRawState *s,
                                 uint64_t shared_perm_lock_bits,
                                 bool unlock, Error **errp)
 {
+#ifdef CONFIG_EXTSNAP
+    return 0;
+#endif
     int ret;
     int i;
 
@@ -675,6 +678,9 @@ static int raw_check_lock_bytes(BDRVRawState *s,
                                 uint64_t perm, uint64_t shared_perm,
                                 Error **errp)
 {
+#ifdef CONFIG_EXTSNAP
+    return 0;
+#endif
     int ret;
     int i;
 
@@ -720,6 +726,9 @@ static int raw_handle_perm_lock(BlockDriverState *bs,
                                 uint64_t new_perm, uint64_t new_shared,
                                 Error **errp)
 {
+#ifdef CONFIG_EXTSNAP
+    return 0;
+#endif
     BDRVRawState *s = bs->opaque;
     int ret = 0;
     Error *local_err = NULL;

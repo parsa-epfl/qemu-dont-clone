@@ -1,3 +1,4 @@
+#!/bin/bash
 # QFlex consists of several software components that are governed by various
 # licensing terms, in addition to software that was developed internally.
 # Anyone interested in using QFlex needs to fully understand and abide by the
@@ -40,50 +41,60 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-language: c
-sudo: required
-branches:
-  only:
-    - master_parsa
-# We will get submodules ourselves
-git:
-  submodules: false
-# Builds GCC version: 5
-matrix:
-  include:
-    - env: # Test only build
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG=""
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-extsnap"
-      - TEST_EXTSNAP="yes"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="yes"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-pth"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="yes"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-quantum"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="yes"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-before_script:
-  - ${TRAVIS_BUILD_DIR}/build_qemu.sh
-script:
-  - ${TRAVIS_BUILD_DIR}/test_qemu.sh
+set -x
+set -e
+
+# Check for test
+export IS_EXTSNAP=`grep enable-extsnap configure`
+export IS_QUANTUM=`grep enable-quantum configure`
+export IS_PTH=`grep enable-pth configure`
+
+if [[ "$IS_EXTSNAP" == "" ]] && [[ "$TEST_EXTSNAP" == "yes" ]]; then
+    exit 0
+fi
+
+if [[ "$IS_QUANTUM" == "" ]] && [[ "$TEST_QUANTUM" == "yes" ]]; then
+    exit 0
+fi
+
+if [[ "$IS_PTH" == "" ]] && [[ "$TEST_PTH" == "yes" ]]; then
+    exit 0
+fi
+
+sudo apt-get update -qq
+sudo apt-get install -y build-essential checkinstall wget python-dev \
+    software-properties-common pkg-config zip zlib1g-dev unzip curl
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y build-essential checkinstall git-core libbz2-dev libtool expect bridge-utils uml-utilities
+sudo apt-get --no-install-recommends -y build-dep qemu
+# Install a compatible version of GCC
+sudo apt-get install python-software-properties
+sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+sudo apt-get update
+sudo apt-get -y install gcc-${GCC_VERSION}
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 20
+# Install pth
+wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
+tar -xvf pth-2.0.7.tar.gz
+cd pth-2.0.7
+sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
+sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
+sudo make
+sudo make test
+sudo make install
+cd ..
+# Get images
+mkdir images
+cd images
+mkdir ubuntu-16.04-blank
+cd ubuntu-16.04-blank
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true -O ubuntu-stripped-comp3.qcow2
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true -O initrd.img-4.4.0-83-generic
+wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true -O vmlinuz-4.4.0-83-generic
+cd ../..
+git submodule update --init dtc
+# Build Qemu
+export CFLAGS="-fPIC"
+./configure --target-list=$TARGET_LIST $CONFIG --disable-werror --disable-tpm
+make -j4

@@ -91,6 +91,14 @@ void qemu_remove_exit_notifier(Notifier *notify);
 void qemu_add_machine_init_done_notifier(Notifier *notify);
 void qemu_remove_machine_init_done_notifier(Notifier *notify);
 
+#ifdef CONFIG_EXTSNAP
+int save_vmstate_ext(Monitor *mon, const char *name);
+int save_vmstate_ext_test(Monitor *mon, const char *name);
+int incremental_load_vmstate_ext(const char *name, Monitor* mon);
+int create_tmp_overlay(void);
+int delete_tmp_overlay(void);
+#endif
+
 void qemu_announce_self(void);
 
 extern int autostart;

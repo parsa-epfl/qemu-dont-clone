@@ -118,6 +118,10 @@
  *
  */
 
+#ifdef CONFIG_EXTSNAP
+extern bool exton;
+#endif
+
 typedef struct mon_cmd_t {
     const char *name;
     const char *args_type;
@@ -1972,6 +1976,31 @@ void qmp_closefd(const char *fdname, Error **errp)
 
     error_setg(errp, QERR_FD_NOT_FOUND, fdname);
 }
+#ifdef CONFIG_EXTSNAP
+static void hmp_loadvm_ext(Monitor *mon, const QDict *qdict)
+{
+    const char *name = qdict_get_str(qdict, "name");
+
+    if (exton == false) {
+	monitor_printf(mon, "Error: external snapshot subsystem was disabled\n");
+        return;
+    }
+
+    if (incremental_load_vmstate_ext(name, mon) < 0) {
+	monitor_printf(mon, "Error: can't load the snapshot with args: %s\n", name);
+    }
+}
+
+static void hmp_savevm_ext(Monitor *mon, const QDict *qdict)
+{
+    const char *name = qdict_get_str(qdict, "name");
+    if (exton == false) {
+    monitor_printf(mon, "Error: external snapshot subsystem was disabled\n");
+        return;
+    }
+    save_vmstate_ext(mon, name);
+}
+#endif //EXTSNAP
 
 int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
 {

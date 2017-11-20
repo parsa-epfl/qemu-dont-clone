@@ -1,24 +1,25 @@
+#!/bin/bash
 # QFlex consists of several software components that are governed by various
 # licensing terms, in addition to software that was developed internally.
 # Anyone interested in using QFlex needs to fully understand and abide by the
 # licenses governing all the software components.
-
-# ### Software developed externally (not by the QFlex group)
-
+#
+##### Software developed externally (not by the QFlex group)
+#
 #     * [NS-3](https://www.gnu.org/copyleft/gpl.html)
 #     * [QEMU](http://wiki.qemu.org/License)
-#     * [SimFlex](http://parsa.epfl.ch/simflex/)
-
-# ### Software developed internally (by the QFlex group)
+#     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+#
+##### Software developed internally (by the QFlex group)
 # **QFlex License**
-
+#
 # QFlex
-# Copyright (c) 2016, Parallel Systems Architecture Lab, EPFL
+# Copyright &copy; 2016, Parallel Systems Architecture Lab, EPFL
 # All rights reserved.
-
+#
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
-
+#
 #     * Redistributions of source code must retain the above copyright notice,
 #       this list of conditions and the following disclaimer.
 #     * Redistributions in binary form must reproduce the above copyright notice,
@@ -28,7 +29,7 @@
 #       nor the names of its contributors may be used to endorse or promote
 #       products derived from this software without specific prior written
 #       permission.
-
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -38,52 +39,38 @@
 # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
 # HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.#
 
-language: c
-sudo: required
-branches:
-  only:
-    - master_parsa
-# We will get submodules ourselves
-git:
-  submodules: false
-# Builds GCC version: 5
-matrix:
-  include:
-    - env: # Test only build
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG=""
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-extsnap"
-      - TEST_EXTSNAP="yes"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="yes"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-pth"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="yes"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-quantum"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="yes"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-before_script:
-  - ${TRAVIS_BUILD_DIR}/build_qemu.sh
-script:
-  - ${TRAVIS_BUILD_DIR}/test_qemu.sh
+#################################################################################
+#                                                                               #
+#       This is the script used to test an SSH attempt to the remorte host.     #
+#                                                                               #
+#################################################################################
+
+HOST="localhost"
+PASSWORD="cloudsuite"
+PORT=222$1
+USER="cloudsuite"
+TIMEOUT="180"
+
+/usr/bin/expect <<EOD
+set timeout $TIMEOUT
+spawn ssh $PASSWORD@$HOST -p$PORT -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+
+expect {
+  timeout { send_user "\nFailed to get password prompt\n"; exit 1 }
+  eof { send_user "\nSSH failure for $HOST\n"; exit 1 }
+  "*assword:*"
+}
+
+send "$PASSWORD\r"
+
+expect {
+  timeout { send_user "\nLogin failed. Password incorrect.\n"; exit 1}
+  "*ast login:*"
+}
+
+send "echo Exiting Test\r"
+
+expect eof
+EOD
