@@ -120,13 +120,23 @@ if [ "$TEST_SSH" == "yes" ]; then
 fi
 }
 
-# Now there is only 2 quantum instances
+# Now there is only 2 pth instances
 check_pth() {
-        DIFF_OUT=`diff <(head -n 10000 $1) <(head -n 10000 $2)`
+        OUT1=`head -n 10000 $1`
+        if [ -z "$OUT1" ]; then
+            echo "There is no correct dump file for instance 1" >> $DIR/../results/pth/diffout
+            exit 1
+        fi
+        OUT2=`head -n 10000 $2`
+        if [ -z "$OUT2" ]; then
+            echo "There is no correct dump file for instance 2" >> $DIR/../results/pth/diffout
+            exit 2
+        fi
+        DIFF_OUT=`diff <(echo "$OUT1") <(echo "$OUT2")`
         if [ ! -z $DIFF_OUT ]; then
             echo $DIFF_OUT > $DIR/../tests/results/pth/diffout
             echo "asm dums are different!" >> $DIR/../tests/results/pth/diffout
-            exit 1
+            exit 3
         fi
 }
 
@@ -140,10 +150,10 @@ check_run_instance() {
             source $DIR/${USER_FILE}
         fi
 
-        # Create a log folder for the instance to hold Flexus logs
+        # Create a log folder for the instance to hold QEMU's logs
         mkdir $DIR/$LOG_NAME/Qemu_$1
 
-        # Switch to Logging Directory for Flexus
+        # Switch to Logging Directory for QEMU's
         pushd $DIR/$LOG_NAME/Qemu_$1 >> /dev/null
         bash $RUN >> $LOG_QEMU 2>&1 &
         popd >> /dev/null
@@ -325,7 +335,7 @@ else
         echo -e "\nRunning Multiple Instance Mode : Port 222$i\n$RUN\nBooting... Please wait\n"
         check_run_instance $i
         echo -e "\n *** Running Multiple Instance Mode : Port 222$i ***\n" >> $LOG
-        if [ "$QUANTUM_TEST" = "TRUE" ]; then
+        if [ "$PTH_TEST" = "TRUE" ]; then
             i=$[$i+1]
             continue
         fi
@@ -346,7 +356,7 @@ else
         echo "Finished Commands $i"
 
         # Take snapshot of current state
-        if [ ! -z "${SNAPSHOT_NAME}-${i}" ]; then
+        if [ ! -z "${SNAPSHOT_NAME}" ]; then
             if [ ! -z "$REMOVE_SNAPSHOT" ]; then
                 echo -e " *** Removing Snapshot ***\n" >> $LOG
                 echo -e "\nRemoving Snapshot ${SNAPSHOT_NAME}-${i}"

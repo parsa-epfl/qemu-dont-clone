@@ -63,6 +63,7 @@ LOAD_OPTION=""
 TYPE="single"
 RUN_FOLDER=`pwd`
 RUN_NUMBER=""
+SNAPSHOT_NAME=""
 QUANTUM=0
 
 # This function is called on in ERROR state
@@ -163,7 +164,7 @@ else
     source $DIR/$USER_FILE
 fi
 
-ASM_LOG="$DIR/../tests/results/quantum/Qemu_${RUN_NUMBER}/asm"
+ASM_LOG="$DIR/../results/pth/Qemu_${RUN_NUMBER}/asm"
 
 # Configures Disk and Network ( RUN_CFG is set for server and client to run in sudo mode, kept null for single instance )
 if [ "${TYPE}" = "single" ]; then
@@ -203,19 +204,18 @@ if [ ! -z "${SNAPSHOT_NAME}" ]; then
     else
         QMP="-qmp unix:/tmp/qmp-sock,server,nowait"
     fi
+    SNAP_OPT="-exton"
 else
+    SNAP_OPT=""
     QMP=""
 fi
 
-if [ "$QUANTUM_TEST" = "TRUE" ]; then
-    QUANTUM_LOG="-d in_asm -D $ASM_LOG"
-else
-    QUANTUM_LOG=""
+if [ "$QUANTUM_TEST" != "TRUE" ]; then
     QUANTUM_OPT=""
 fi
 
 if [ "$PTH_TEST" = "TRUE" ]; then
-    PTH_OPT="-icount shift=2,sleep=off"
+    PTH_OPT="-accel tcg,thread=single -icount shift=2,sleep=off -d loop=250,in_asm -D $ASM_LOG"
 else
     PTH_OPT=""
 fi
@@ -241,7 +241,6 @@ if [ ! -z "${LOAD_OPTION}" ]; then
         -exton \
         -loadext "$LOAD_OPTS" \
         $QUANTUM_OPT \
-        $QUANTUM_LOG \
         $PTH_OPT \
         $QMP
 else # FIXME: code replication to be removed when the new snapshot mechanism is ready
@@ -256,11 +255,10 @@ else # FIXME: code replication to be removed when the new snapshot mechanism is 
         -initrd ${KERNEL_PATH}/${INITRD} \
         -nographic \
         -rtc driftfix=slew \
-        -exton \
+        $SNAP_OPT \
         $NETWORK_CONFIG \
         $DISK_CONFIG \
         $QUANTUM_OPT \
-        $QUANTUM_LOG \
         $PTH_OPT \
         $QMP
 fi

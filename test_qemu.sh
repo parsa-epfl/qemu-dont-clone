@@ -94,7 +94,7 @@ check_status() {
         printf "[ ${GREEN} PASSED ${NC} ] $2\n"
     else
         # print logs on error
-        cat $3
+        cat ${@:3}
         printf "[ ${RED} FAILED ${NC} ] $2\n" >> $LOG
         printf "[ ${RED} FAILED ${NC} ] $2\n"
         exit 1
@@ -134,7 +134,7 @@ if [ "$TEST_PTH" == "yes" ]; then
     bash $DIR/scripts/run_system.sh --kill -exp=../results/pth -ow -pth -mult --no_ns3
     pushd $DIR/results/pth >> /dev/null
     TEST_PTH_DIFF=`grep PTH_SUCCESS logs`
-    check_status "$TEST_PTH_DIFF" "PTH works" "$DIR/results/pth/diffout"
+    check_status "$TEST_PTH_DIFF" "PTH works" "$DIR/results/pth/Qemu_0/logs" "$DIR/results/pth/Qemu_1/logs" "$DIR/results/pth/diffout"
     popd >> /dev/null
 fi
 

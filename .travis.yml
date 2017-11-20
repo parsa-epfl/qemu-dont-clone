@@ -69,7 +69,7 @@ matrix:
       - GCC_VERSION="5"
     - env:
       - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-pth"
+      - CONFIG="--enable-pth --enable-extsnap"
       - TEST_EXTSNAP="no"
       - TEST_PTH="yes"
       - TEST_QUANTUM="no"
