@@ -32,6 +32,10 @@
 #include "sys/prctl.h"
 #endif
 
+#ifdef CONFIG_EXTSNAP
+    bool exton = false;
+#endif
+
 #ifdef CONFIG_SDL
 #if defined(__APPLE__) || defined(main)
 #include <SDL.h>
@@ -1800,8 +1804,9 @@ void qemu_system_guest_panicked(GuestPanicInformation *info)
 {
     qemu_log_mask(LOG_GUEST_ERROR, "Guest crashed\n");
 
-    if (current_cpu) {
-        current_cpu->crash_occurred = true;
+    PTH_UPDATE_CONTEXT
+    if (PTH(current_cpu)) {
+        PTH(current_cpu)->crash_occurred = true;
     }
     qapi_event_send_guest_panicked(GUEST_PANIC_ACTION_PAUSE,
                                    !!info, info, &error_abort);
@@ -3090,6 +3095,9 @@ static void register_global_properties(MachineState *ms)
 
 int main(int argc, char **argv, char **envp)
 {
+#ifdef CONFIG_PTH
+    initMainThread();
+#endif
     int i;
     int snapshot, linux_boot;
     const char *initrd_filename;
@@ -3125,6 +3133,9 @@ int main(int argc, char **argv, char **envp)
     Error *main_loop_err = NULL;
     Error *err = NULL;
     bool list_data_dirs = false;
+#ifdef CONFIG_EXTSNAP
+    const char* loadext = NULL;
+#endif
     char **dirs;
     typedef struct BlockdevOptions_queue {
         BlockdevOptions *bdo;
@@ -3407,6 +3418,15 @@ int main(int argc, char **argv, char **envp)
                 exit(1);
 #endif
                 break;
+#ifdef CONFIG_EXTSNAP
+            case QEMU_OPTION_exton:
+                exton = true;
+                break;
+            case QEMU_OPTION_loadext:
+                exton = true;
+                loadext = optarg;
+                break;
+#endif
             case QEMU_OPTION_portrait:
                 graphic_rotate = 90;
                 break;
@@ -4879,6 +4899,21 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
+#ifdef CONFIG_EXTSNAP
+    if (exton) {
+        if(create_tmp_overlay() < 0){
+            fprintf(stdout, "External snapshots subsystem can not be loaded\n");
+            exit(1);
+	}
+    }
+    if (loadext) {
+        if(incremental_load_vmstate_ext(loadext, NULL) < 0){
+            fprintf(stdout, "External snapshot with args: %s, can not be loaded\n", loadext);
+            exit(1);
+	}
+    }
+#endif
+
     qdev_prop_check_globals();
     if (vmstate_dump_file) {
         /* dump and exit */
@@ -4902,7 +4937,11 @@ int main(int argc, char **argv, char **envp)
     main_loop();
     replay_disable_events();
     iothread_stop_all();
-
+#ifdef CONFIG_EXTSNAP
+    if (exton == true) {
+       delete_tmp_overlay();
+    }
+#endif
     pause_all_vcpus();
     bdrv_close_all();
     res_free();

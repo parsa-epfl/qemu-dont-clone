@@ -58,7 +58,8 @@ static void cpu_exit_tb_from_sighandler(CPUState *cpu, sigset_t *old_set)
 static inline int handle_cpu_signal(uintptr_t pc, unsigned long address,
                                     int is_write, sigset_t *old_set)
 {
-    CPUState *cpu = current_cpu;
+    PTH_UPDATE_CONTEXT
+    CPUState *cpu = PTH(current_cpu);
     CPUClass *cc;
     int ret;
 

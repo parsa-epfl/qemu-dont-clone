@@ -25,6 +25,8 @@
 #include "qemu/osdep.h"
 #include "qemu-common.h"
 
+#include "qemu/thread-pth-internal.h"
+
 struct progress_state {
     float current;
     float last_print;
@@ -99,7 +101,11 @@ static void progress_dummy_init(void)
      */
     sigemptyset(&set);
     sigaddset(&set, SIGUSR1);
+#ifndef CONFIG_PTH
     pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+#else
+    pthpthread_sigmask(SIG_UNBLOCK, &set, NULL);
+#endif
 #endif
 
     state.print = progress_dummy_print;

@@ -293,6 +293,12 @@ int qemu_str_to_log_mask(const char *str)
             trace_enable_events((*tmp) + 6);
             mask |= LOG_TRACE;
 #endif
+#ifdef CONFIG_PTH
+        }else if (g_str_has_prefix(*tmp, "loop=") && (*tmp)[5] != '\0') {
+            char* subs = strndup(&(*tmp)[5],  (strlen((*tmp))-5));
+            set_loop_limit(subs);
+            mask |= LOOPLIMIT;
+#endif
         } else {
             for (item = qemu_log_items; item->mask != 0; item++) {
                 if (g_str_equal(*tmp, item->name)) {

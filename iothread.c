@@ -35,21 +35,24 @@ typedef ObjectClass IOThreadClass;
  * workloads.
  */
 #define IOTHREAD_POLL_MAX_NS_DEFAULT 32768ULL
-
+#ifndef CONFIG_PTH
 static __thread IOThread *my_iothread;
+#endif
 
 AioContext *qemu_get_current_aio_context(void)
 {
-    return my_iothread ? my_iothread->ctx : qemu_get_aio_context();
+    PTH_UPDATE_CONTEXT
+    return PTH(my_iothread) ? PTH(my_iothread)->ctx : qemu_get_aio_context();
 }
 
 static void *iothread_run(void *opaque)
 {
+    PTH_UPDATE_CONTEXT
     IOThread *iothread = opaque;
 
     rcu_register_thread();
 
-    my_iothread = iothread;
+    PTH(my_iothread) = iothread;
     qemu_mutex_lock(&iothread->init_done_lock);
     iothread->thread_id = qemu_get_thread_id();
     qemu_cond_signal(&iothread->init_done_cond);

@@ -431,7 +431,9 @@ extern struct CPUTailQ cpus;
     QTAILQ_FOREACH_REVERSE(cpu, &cpus, CPUTailQ, node)
 #define first_cpu QTAILQ_FIRST(&cpus)
 
+#ifndef CONFIG_PTH
 extern __thread CPUState *current_cpu;
+#endif
 
 static inline void cpu_tb_jmp_cache_clear(CPUState *cpu)
 {

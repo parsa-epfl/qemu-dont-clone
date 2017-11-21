@@ -1,3 +1,4 @@
+#ifndef CONFIG_PTH
 #ifndef QEMU_THREAD_POSIX_H
 #define QEMU_THREAD_POSIX_H
 
@@ -44,4 +45,5 @@ struct QemuThread {
     pthread_t thread;
 };
 
+#endif
 #endif

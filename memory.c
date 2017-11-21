@@ -424,8 +424,9 @@ static hwaddr memory_region_to_absolute_addr(MemoryRegion *mr, hwaddr offset)
 
 static int get_cpu_index(void)
 {
-    if (current_cpu) {
-        return current_cpu->cpu_index;
+    PTH_UPDATE_CONTEXT
+    if (PTH(current_cpu)) {
+        return PTH(current_cpu)->cpu_index;
     }
     return -1;
 }
@@ -1277,11 +1278,12 @@ static void iommu_memory_region_initfn(Object *obj)
 static uint64_t unassigned_mem_read(void *opaque, hwaddr addr,
                                     unsigned size)
 {
+    PTH_UPDATE_CONTEXT
 #ifdef DEBUG_UNASSIGNED
     printf("Unassigned mem read " TARGET_FMT_plx "\n", addr);
 #endif
-    if (current_cpu != NULL) {
-        cpu_unassigned_access(current_cpu, addr, false, false, 0, size);
+    if (PTH(current_cpu) != NULL) {
+        cpu_unassigned_access(PTH(current_cpu), addr, false, false, 0, size);
     }
     return 0;
 }
@@ -1289,11 +1291,12 @@ static uint64_t unassigned_mem_read(void *opaque, hwaddr addr,
 static void unassigned_mem_write(void *opaque, hwaddr addr,
                                  uint64_t val, unsigned size)
 {
+    PTH_UPDATE_CONTEXT
 #ifdef DEBUG_UNASSIGNED
     printf("Unassigned mem write " TARGET_FMT_plx " = 0x%"PRIx64"\n", addr, val);
 #endif
-    if (current_cpu != NULL) {
-        cpu_unassigned_access(current_cpu, addr, true, false, 0, size);
+    if (PTH(current_cpu) != NULL) {
+        cpu_unassigned_access(PTH(current_cpu), addr, true, false, 0, size);
     }
 }
 

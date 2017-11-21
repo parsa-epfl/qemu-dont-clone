@@ -302,7 +302,8 @@ static void pxa2xx_pwrmode_write(CPUARMState *env, const ARMCPRegInfo *ri,
 #endif
 
         /* Suspend */
-        cpu_interrupt(current_cpu, CPU_INTERRUPT_HALT);
+        PTH_UPDATE_CONTEXT
+        cpu_interrupt(PTH(current_cpu), CPU_INTERRUPT_HALT);
 
         goto message;
 

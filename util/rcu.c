@@ -61,7 +61,9 @@ static inline int rcu_gp_ongoing(unsigned long *ctr)
 /* Written to only by each individual reader. Read by both the reader and the
  * writers.
  */
+#ifndef CONFIG_PTH
 __thread struct rcu_reader_data rcu_reader;
+#endif
 
 /* Protected by rcu_registry_lock.  */
 typedef QLIST_HEAD(, rcu_reader_data) ThreadList;
@@ -173,7 +175,11 @@ void synchronize_rcu(void)
  * from liburcu.  Note that head is only used by the consumer.
  */
 static struct rcu_head dummy;
+#ifndef CONFIG_PTH
 static struct rcu_head *head = &dummy, **tail = &dummy.next;
+#else
+static struct rcu_head **tail = &dummy.next;
+#endif
 static int rcu_call_count;
 static QemuEvent rcu_call_ready_event;
 
@@ -185,7 +191,7 @@ static void enqueue(struct rcu_head *node)
     old_tail = atomic_xchg(&tail, &node->next);
     atomic_mb_set(old_tail, node);
 }
-
+#ifndef CONFIG_PTH
 static struct rcu_head *try_dequeue(void)
 {
     struct rcu_head *node, *next;
@@ -275,6 +281,7 @@ static void *call_rcu_thread(void *opaque)
     }
     abort();
 }
+#endif
 
 void call_rcu1(struct rcu_head *node, void (*func)(struct rcu_head *node))
 {
@@ -286,19 +293,22 @@ void call_rcu1(struct rcu_head *node, void (*func)(struct rcu_head *node))
 
 void rcu_register_thread(void)
 {
-    assert(rcu_reader.ctr == 0);
+    PTH_UPDATE_CONTEXT
+
+    assert(PTH(rcu_reader).ctr == 0);
     qemu_mutex_lock(&rcu_registry_lock);
-    QLIST_INSERT_HEAD(&registry, &rcu_reader, node);
+    QLIST_INSERT_HEAD(&registry, &PTH(rcu_reader), node);
     qemu_mutex_unlock(&rcu_registry_lock);
 }
 
 void rcu_unregister_thread(void)
 {
+    PTH_UPDATE_CONTEXT
     qemu_mutex_lock(&rcu_registry_lock);
-    QLIST_REMOVE(&rcu_reader, node);
+    QLIST_REMOVE(&PTH(rcu_reader), node);
     qemu_mutex_unlock(&rcu_registry_lock);
 }
-
+#ifndef CONFIG_PTH
 static void rcu_init_complete(void)
 {
     QemuThread thread;
@@ -317,6 +327,7 @@ static void rcu_init_complete(void)
 
     rcu_register_thread();
 }
+#endif
 
 static int atfork_depth = 1;
 
@@ -330,7 +341,7 @@ void rcu_disable_atfork(void)
     atfork_depth--;
 }
 
-#ifdef CONFIG_POSIX
+#if defined(CONFIG_POSIX) && !defined(CONFIG_PTH)
 static void rcu_init_lock(void)
 {
     if (atfork_depth < 1) {
@@ -360,12 +371,13 @@ static void rcu_init_child(void)
     memset(&registry, 0, sizeof(registry));
     rcu_init_complete();
 }
-#endif
+
 
 static void __attribute__((__constructor__)) rcu_init(void)
 {
-#ifdef CONFIG_POSIX
+#if defined(CONFIG_POSIX)
     pthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_child);
 #endif
     rcu_init_complete();
 }
+#endif

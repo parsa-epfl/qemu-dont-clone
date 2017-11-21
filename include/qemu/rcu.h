@@ -55,6 +55,7 @@ extern unsigned long rcu_gp_ctr;
 
 extern QemuEvent rcu_gp_event;
 
+#ifndef CONFIG_PTH
 struct rcu_reader_data {
     /* Data used by both reader and synchronize_rcu() */
     unsigned long ctr;
@@ -66,12 +67,18 @@ struct rcu_reader_data {
     /* Data used for registry, protected by rcu_registry_lock */
     QLIST_ENTRY(rcu_reader_data) node;
 };
+#else
+#include "include/qemu/thread-pth.h"
+#endif
 
+#ifndef CONFIG_PTH
 extern __thread struct rcu_reader_data rcu_reader;
+#endif
 
 static inline void rcu_read_lock(void)
 {
-    struct rcu_reader_data *p_rcu_reader = &rcu_reader;
+    PTH_UPDATE_CONTEXT
+    struct rcu_reader_data *p_rcu_reader = &PTH(rcu_reader);
     unsigned ctr;
 
     if (p_rcu_reader->depth++ > 0) {
@@ -84,7 +91,8 @@ static inline void rcu_read_lock(void)
 
 static inline void rcu_read_unlock(void)
 {
-    struct rcu_reader_data *p_rcu_reader = &rcu_reader;
+    PTH_UPDATE_CONTEXT
+    struct rcu_reader_data *p_rcu_reader = &PTH(rcu_reader);
 
     assert(p_rcu_reader->depth != 0);
     if (--p_rcu_reader->depth > 0) {

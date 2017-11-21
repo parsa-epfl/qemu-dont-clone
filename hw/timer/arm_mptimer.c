@@ -39,7 +39,8 @@
 
 static inline int get_current_cpu(ARMMPTimerState *s)
 {
-    int cpu_id = current_cpu ? current_cpu->cpu_index : 0;
+    PTH_UPDATE_CONTEXT
+    int cpu_id = PTH(current_cpu) ? PTH(current_cpu)->cpu_index : 0;
 
     if (cpu_id >= s->num_cpu) {
         hw_error("arm_mptimer: num-cpu %d but this cpu is %d!\n",

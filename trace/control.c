@@ -28,6 +28,9 @@
 #include "monitor/monitor.h"
 #include "trace-root.h"
 
+#ifdef CONFIG_PTH
+int iloop;
+#endif
 int trace_events_enabled_count;
 
 typedef struct TraceEventGroup {
@@ -197,7 +200,12 @@ static void do_trace_enable_events(const char *line_buf)
                     line_ptr);
     }
 }
-
+#ifdef CONFIG_PTH
+void set_loop_limit(const char *str)
+{
+    iloop = atoi(str);
+}
+#endif
 void trace_enable_events(const char *line_buf)
 {
     if (is_help_option(line_buf)) {
