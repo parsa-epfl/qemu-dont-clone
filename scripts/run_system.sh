@@ -122,22 +122,29 @@ fi
 
 # Now there is only 2 pth instances
 check_pth() {
-        OUT1=`head -n 10000 $1`
-        if [ -z "$OUT1" ]; then
-            echo "There is no correct dump file for instance 1" >> $DIR/../results/pth/diffout
-            exit 1
-        fi
-        OUT2=`head -n 10000 $2`
-        if [ -z "$OUT2" ]; then
-            echo "There is no correct dump file for instance 2" >> $DIR/../results/pth/diffout
-            exit 2
-        fi
-        DIFF_OUT=`diff <(echo "$OUT1") <(echo "$OUT2")`
-        if [ ! -z $DIFF_OUT ]; then
-            echo $DIFF_OUT > $DIR/../tests/results/pth/diffout
-            echo "asm dums are different!" >> $DIR/../tests/results/pth/diffout
-            exit 3
-        fi
+    OUT1=`head -n 10000 $1`
+    if [ -z "$OUT1" ]; then
+        echo "There is no correct dump file for instance 1" >> $DIR/../results/pth/diffout
+        exit 1
+    fi
+    OUT2=`head -n 10000 $2`
+    if [ -z "$OUT2" ]; then
+        echo "There is no correct dump file for instance 2" >> $DIR/../results/pth/diffout
+        exit 2
+    fi
+    DIFF_OUT=`diff <(echo "$OUT1") <(echo "$OUT2")`
+    if [ ! -z $DIFF_OUT ]; then
+        echo $DIFF_OUT > $DIR/../tests/results/pth/diffout
+        echo "asm dumps are different!" >> $DIR/../tests/results/pth/diffout
+        exit 3
+    fi
+}
+
+check_quantum() {
+    LINENUM=`cat $1 | wc -l`
+    if [ "$LINENUM" -lt "1000" ]; then
+        exit 1;
+    fi
 }
 
 check_run_instance() {
@@ -249,7 +256,7 @@ echo -e "\n *** Running run_system.sh *** "
 
 # Configure Log files
 if [ ! -z $EXPERIMENT ]; then
-    LOG_NAME=$EXPERIMENT
+    export LOG_NAME=$EXPERIMENT
 fi
 
 LOG="$DIR/$LOG_NAME/logs"
@@ -279,28 +286,33 @@ if [ "$TYPE" = "single" ]; then
     echo -e "\nRunning Single Instance Mode : Port 2220\n$RUN\nBooting... Please wait\n"
     check_run_instance 0
     echo -e "\n *** Running Single Instance Mode : Port 2220 ***\n" >> $LOG
-    check_ssh 0
-    echo -e "\n\n *** SSH to remote server success ***\n" >> $LOG
 
-    # After successful SSH, execute all the commands specified for "single" instance on remote host
-    echo -e " *** Running Commands on remote host ***\n" >> $LOG
-    echo -e "Running Commands"
-    check_invoke_script $DIR/helpers/ssh_commands.sh 0 >> $LOG
-    echo Finished Commands
+    if [ "$TEST_SSH" == "yes" ]; then
+        check_ssh 0
+        echo -e "\n\n *** SSH to remote server success ***\n" >> $LOG
 
-    # Take snapshot of current state
-    if [ ! -z "$SNAPSHOT_NAME" ]; then
-        if [ ! -z "$REMOVE_SNAPSHOT" ]; then
-            echo -e " *** Removing Snapshot ***\n" >> $LOG
-            echo -e "\nRemoving Snapshot $SNAPSHOT_NAME"
-            # FIXME: to be updated when the new snapshot mechanism is ready (delvm testing)
-            check_invoke_script $DIR/helpers/remove_ext_snapshot.sh $SNAPSHOT_NAME "${IMG_0}" >> $LOG
-            check_error $? "Snapshot Removed" "Error Removing Snapshot"
-        else
-            echo -e " *** Taking Snapshot ***\n" >> $LOG
-            echo -e "\nTaking Snapshot $SNAPSHOT_NAME"
-            check_invoke_script $DIR/helpers/save_ext_snapshot.sh $SNAPSHOT_NAME >> $LOG
-            check_error $? "Snapshot Saved" "Error Saving Snapshot"
+        # After successful SSH, execute all the commands specified for "single" instance on remote host
+        echo -e " *** Running Commands on remote host ***\n" >> $LOG
+        echo -e "Running Commands"
+        check_invoke_script $DIR/helpers/ssh_commands.sh 0 >> $LOG
+        echo Finished Commands
+    fi
+
+    if [ "$TEST_EXTSNAP" == "yes" ]; then
+        # Take snapshot of current state
+        if [ ! -z "$SNAPSHOT_NAME" ]; then
+            if [ ! -z "$REMOVE_SNAPSHOT" ]; then
+                echo -e " *** Removing Snapshot ***\n" >> $LOG
+                echo -e "\nRemoving Snapshot $SNAPSHOT_NAME"
+                # FIXME: to be updated when the new snapshot mechanism is ready (delvm testing)
+                check_invoke_script $DIR/helpers/remove_ext_snapshot.sh $SNAPSHOT_NAME "${IMG_0}" >> $LOG
+                check_error $? "Snapshot Removed" "Error Removing Snapshot"
+            else
+                echo -e " *** Taking Snapshot ***\n" >> $LOG
+                echo -e "\nTaking Snapshot $SNAPSHOT_NAME"
+                check_invoke_script $DIR/helpers/save_ext_snapshot.sh $SNAPSHOT_NAME >> $LOG
+                check_error $? "Snapshot Saved" "Error Saving Snapshot"
+            fi
         fi
     fi
 else
@@ -375,7 +387,7 @@ fi
 
 echo -e "\n *** All commands executed ***" >> $LOG
 
-if [ "$PTH_TEST" = "TRUE" ]; then
+if [[ "$PTH_TEST" = "TRUE" ]] || [[ "$QUANTUM_TEST" = "TRUE" ]]; then
         sleep 5
 fi
 
@@ -391,8 +403,14 @@ else
 fi
 
 if [ "$PTH_TEST" = "TRUE" ]; then
-        LOG_QEMU0="$DIR/$LOG_NAME/Qemu_0/asm"
-        LOG_QEMU1="$DIR/$LOG_NAME/Qemu_1/asm"
-        check_pth $LOG_QEMU0 $LOG_QEMU1
-        check_error $? "PTH_SUCCESS" "Error pth" >> $LOG
+    LOG_QEMU0="$DIR/$LOG_NAME/Qemu_0/asm"
+    LOG_QEMU1="$DIR/$LOG_NAME/Qemu_1/asm"
+    check_pth $LOG_QEMU0 $LOG_QEMU1
+    check_error $? "PTH_SUCCESS" "Error pth" >> $LOG
+fi
+
+if [ "$QUANTUM_TEST" = "TRUE" ]; then
+    LOG_QEMU0="$DIR/$LOG_NAME/Qemu_0/asm"
+    check_quantum $LOG_QEMU0
+    check_error $? "QUANTUM_SUCCESS" "Error quantum" >> $LOG
 fi
