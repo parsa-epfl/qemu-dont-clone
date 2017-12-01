@@ -164,7 +164,11 @@ else
     source $DIR/$USER_FILE
 fi
 
-ASM_LOG="$DIR/../results/pth/Qemu_${RUN_NUMBER}/asm"
+if [ ! -z "$RUN_NUMBER" ]; then
+    ASM_LOG="$DIR/$LOG_NAME/Qemu_${RUN_NUMBER}/asm"
+else
+    ASM_LOG="$DIR/$LOG_NAME/Qemu_0/asm"
+fi
 
 # Configures Disk and Network ( RUN_CFG is set for server and client to run in sudo mode, kept null for single instance )
 if [ "${TYPE}" = "single" ]; then
@@ -192,9 +196,9 @@ fi
 
 # Evaluates set quantum Option
 if [ "${QUANTUM}" = "0" ]; then
-    QUANTUM_OPT="-quantum 1024"
+    QUANTUM_OPT="-accel tcg,thread=single -quantum 1024 -d nochain,in_asm -D $ASM_LOG"
 else
-    QUANTUM_OPT="-quantum ${QUANTUM}"
+    QUANTUM_OPT="-accel tcg,thread=single -quantum ${QUANTUM} -d nochain,in_asm -D $ASM_LOG"
 fi
 
 # Evaluates QMP Option

@@ -139,10 +139,10 @@ if [ "$TEST_PTH" == "yes" ]; then
 fi
 
 if [ "$TEST_QUANTUM" == "yes" ]; then
-    bash $DIR/scripts/run_system.sh --kill -exp=../results/quantum -ow -qn -mult --no_ns3
+    bash $DIR/scripts/run_system.sh --kill -exp=../results/quantum -ow -qn --no_ns3
     pushd $DIR/results/quantum >> /dev/null
     TEST_QUANTUM_BOOT=`grep QUANTUM_SUCCESS logs`
-    check_status "$TEST_QUANTUM_BOOT" "QUANTUM works" "$DIR/results/quantum"
+    check_status "$TEST_QUANTUM_BOOT" "QUANTUM works" "$DIR/results/quantum/Qemu_0/logs"
     popd >> /dev/null
 fi
 
