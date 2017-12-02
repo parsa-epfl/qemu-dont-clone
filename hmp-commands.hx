@@ -1822,7 +1822,80 @@ STEXI
 @findex cpu-add
 Add CPU with id @var{id}
 ETEXI
+#ifdef CONFIG_QUANTUM
+    {
+        .name       = "quantum-set",
+        .args_type  = "value:s,record:s,core:s",
+        .params     = "var",
+        .help       = "cpu set quantum",
+        .cmd  = hmp_quantum_set,
+    },
 
+STEXI
+@item cpu-sq @var{var}
+@findex cpu set quantum
+Set Quantum value for all CPUs @var{var}
+ETEXI
+    {
+        .name       = "quantum-pause",
+        .args_type  = "",
+        .params     = "",
+        .help       = "quantum-pause",
+        .cmd  = hmp_quantum_pause,
+    },
+
+STEXI
+@item quantum-pause
+@findex quantum pause
+activate pausing on quantum
+
+ETEXI
+
+    {
+        .name       = "quantum-get",
+        .args_type  = "",
+        .params     = "",
+        .help       = "get cpu quantum",
+        .cmd = hmp_quantum_get,
+    },
+
+STEXI
+@item cpu-gq
+@findex get cpu quantum
+Get current quantum.
+
+ETEXI
+
+    {
+        .name       = "cpu-get-ic",
+        .args_type  = "",
+        .params     = "",
+        .help       = "get total instructions executed",
+        .cmd = hmp_cpu_dbg,
+    },
+
+STEXI
+@item cpu-get-ic
+@findex get total instructions executed
+Get total number of instructions executed so far by each CPU.
+
+ETEXI
+
+    {
+        .name       = "cpu-zero-all",
+        .args_type  = "",
+        .params     = "",
+        .help       = "Zero total instructions count, Debug information",
+        .cmd = hmp_cpu_zero_all,
+    },
+
+STEXI
+@item cpu-zero-all
+@findex zero total instructions, Debug information
+Zero out total number of instructions, Debug information.
+
+ETEXI
+#endif // CONFIG_QUANTUM
 #ifdef CONFIG_EXTSNAP
     {
         .name       = "savevm-ext",

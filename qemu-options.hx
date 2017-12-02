@@ -3667,7 +3667,6 @@ Don't exit QEMU on guest shutdown, but instead only stop the emulation.
 This allows for instance switching to monitor to commit changes to the
 disk image.
 ETEXI
-
 #ifdef CONFIG_EXTSNAP
 DEF("loadext", HAS_ARG, QEMU_OPTION_loadext, \
     "-loadext [tag|id]\n" \
@@ -3687,6 +3686,14 @@ STEXI
 Use the external snapshot subsystem.
 ETEXI
 #endif //CONFIG_EXTSNAP
+#ifdef CONFIG_QUANTUM
+DEF("quantum", HAS_ARG, QEMU_OPTION_quantum,"aaa", QEMU_ARCH_ALL)
+STEXI
+@item -quantum [core=@var{N}][,record=@var{V}][,step=@var{S}][,file=@var{F}][,node=@var{C}]
+@findex -quantum
+Specify the number of instructions to execute per vcpu in each iteration.
+ETEXI
+#endif
 
 DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \
     "-loadvm [tag|id]\n" \

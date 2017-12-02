@@ -90,7 +90,6 @@ void qemu_remove_exit_notifier(Notifier *notify);
 
 void qemu_add_machine_init_done_notifier(Notifier *notify);
 void qemu_remove_machine_init_done_notifier(Notifier *notify);
-
 #ifdef CONFIG_EXTSNAP
 int save_vmstate_ext(Monitor *mon, const char *name);
 int save_vmstate_ext_test(Monitor *mon, const char *name);
@@ -98,7 +97,31 @@ int incremental_load_vmstate_ext(const char *name, Monitor* mon);
 int create_tmp_overlay(void);
 int delete_tmp_overlay(void);
 #endif
+#ifdef CONFIG_QUANTUM
+bool query_quantum_pause_state(void);
+void quantum_pause(void);
+void quantum_unpause(void);
 
+uint64_t* increment_total_num_instr(void);
+
+uint64_t query_total_num_instr(void);
+void set_total_num_instr(uint64_t val);
+
+uint64_t query_quantum_core_value(void);
+uint64_t query_quantum_record_value(void);
+uint64_t query_quantum_step_value(void);
+uint64_t query_quantum_node_value(void);
+const char* query_quantum_file_value(void);
+
+void set_quantum_value(uint64_t val);
+void set_quantum_record_value(uint64_t val);
+void set_quantum_node_value(uint64_t val);
+void cpu_dbg(DbgDataAll *info);
+void cpu_zero_all(void);
+void configure_quantum(QemuOpts *opts, Error **errp);
+void processForOpts(uint64_t *val, const char* qopt, Error **errp);
+void processLetterforExponent(uint64_t *val, char c, Error **errp);
+#endif
 void qemu_announce_self(void);
 
 extern int autostart;

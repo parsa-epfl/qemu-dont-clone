@@ -33,6 +33,79 @@
 #include "tcg.h"
 #include <zlib.h> /* For crc32 */
 
+#ifdef CONFIG_QUANTUM
+static uint64_t *tni; // total num instructions
+static uint64_t qv, qr, qn, qs; // total num instructions
+const char* qf = NULL;
+static FILE* qfile = NULL;
+static bool qinit = false,start_record= false,cont_record= true;
+static double start_time = 0.0f, diff_time = 0.0f, tmp = 0.0f;
+static int qidx;
+
+void helper_quantum(CPUARMState *env)
+{
+    tni = increment_total_num_instr();
+    if (!qinit){
+        qv = query_quantum_core_value() ;
+        qr = query_quantum_record_value();
+        qn = query_quantum_node_value();
+        qs = query_quantum_step_value();
+        qf = query_quantum_file_value();
+        if (qr > 0){
+            qfile = fopen(qf, "w");
+            if (qfile == NULL)
+                assert(false);
+        }
+        qinit = true;
+    }
+
+    if (!qemu_tcg_mttcg_enabled()){
+        if (qv > 0){
+            CPUState *cs = ENV_GET_CPU(env);
+            if ((cs->nr_total_instr++) % qv == 0){
+                cs->hasReachedInstrLimit = true;
+                cs->nr_quantumHits++;
+            }
+
+        }
+        if (qr > 0){
+            if (!start_record){
+                start_time = ((double)clock())/ CLOCKS_PER_SEC;
+                start_record = true;
+                fprintf(qfile, "#Recording %iM instrcutions\n", (int)(qr/1e6) );
+                fprintf(qfile, "#Interval: %iM instrcution\n\n", (int)(qs/1e6) );
+                fprintf(qfile, "#index  speed  time\n");
+            } else {
+                if(*tni % qs == 0 && cont_record){
+                    diff_time = (((double)clock())/ CLOCKS_PER_SEC);
+                    tmp = diff_time;
+                    diff_time -= start_time;
+                    start_time = tmp;
+                    fprintf(qfile, " %i  %i  %f\n",++qidx, (int)((qs / diff_time)/1e6), diff_time);
+                    if (*tni == qr ){
+                        cont_record = false;
+                        fclose(qfile);
+                        fprintf(stdout, "'\e[1;31mDone writing a Quantum record file!\e[m");
+                    }
+                }
+            }
+        }
+        if (qn > 0){
+            if (*tni % qn== 0){
+                if (query_quantum_pause_state()){
+                    vm_stop(RUN_STATE_PAUSED);
+                }else{
+                    raise(SIGSTOP);
+                }
+            }
+        }
+    } else {
+        fprintf(stderr, "mttcg not supported with quantum");
+        assert(false);
+    }
+}
+#endif
+
 /* C2.4.7 Multiply and divide */
 /* special cases for 0 and LLONG_MIN are mandated by the standard */
 uint64_t HELPER(udiv64)(uint64_t num, uint64_t den)
