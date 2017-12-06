@@ -418,6 +418,8 @@ bogus_os="no"
 #**************************
 #PARSA START
 #**************************
+#quantum support
+quantum="no"
 # gnu pth support
 pth="no"
 #external snapshot support
@@ -938,6 +940,10 @@ for opt do
 #**************************
 #PARSA START
 #**************************
+  --disable-quantum) quantum="no"
+  ;;
+  --enable-quantum) quantum="yes"
+  ;;
   --disable-pth) pth="no"
   ;;
   --enable-pth) pth="yes"
@@ -1563,6 +1569,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   #**************************
   GNU Pth         support for GNU Pth - The GNU Portable Threads
   extsnap         external snapshots support
+  Quantum	      support for quantum value - no MTTCG at the moment
   #**************************
   #PARSA END
   #**************************
@@ -5269,6 +5276,9 @@ fi
 #**************************
 #PARSA START
 #**************************
+if test "$quantum" = "yes" ; then
+QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
+fi
 if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
   LIBS="-lpth $LIBS"
@@ -5473,6 +5483,7 @@ echo "#PARSA START"
 echo "#**************************"
 echo "GNU Pth           $pth"
 echo "external snapshots support $extsnap"
+echo "quantum support   $quantum"
 echo "#**************************"
 echo "#PARSA END"
 echo "#**************************"
@@ -6486,6 +6497,9 @@ if test "$pth" = "yes" ; then
 fi
 if test "$extsnap" = "yes" ; then
   echo "CONFIG_EXTSNAP=y" >> $config_host_mak
+fi
+if test "$quantum" = "yes" ; then
+echo "CONFIG_QUANTUM=y" >> $config_host_mak
 fi
 #**************************
 #PARSA END

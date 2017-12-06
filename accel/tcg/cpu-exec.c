@@ -36,6 +36,13 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_QUANTUM
+#define QUANTUM_LIMIT \
+    !cpu->hasReachedInstrLimit
+
+#else // CONFIG_QUANTUM
+#define QUANTUM_LIMIT 1
+#endif
 #ifdef CONFIG_PTH
 extern int iloop;
 bool bExit = false;

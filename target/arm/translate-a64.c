@@ -11189,6 +11189,10 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         break;
     }
 
+#ifdef CONFIG_QUANTUM
+    gen_helper_quantum(cpu_env);
+#endif
+
     /* if we allocated any temporaries, free them here */
     free_tmp_a64(s);
 }

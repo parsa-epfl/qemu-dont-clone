@@ -130,6 +130,56 @@ void qmp_cpu_add(int64_t id, Error **errp)
     }
 }
 
+QuantumInfo *qmp_quantum_get_all(Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    QuantumInfo *info = g_malloc0(sizeof(*info));
+    info->quantum_core = query_quantum_core_value();
+    info->quantum_record = query_quantum_core_value();
+    info->quantum_node= query_quantum_core_value();
+
+    return info;
+#else
+    return NULL;
+#endif
+}
+
+void qmp_quantum_core_set(uint64_t val, Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    set_quantum_value(val);
+#endif
+}
+void qmp_quantum_node_set(uint64_t val, Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    set_quantum_node_value(val);
+#endif
+}
+DbgDataAll *qmp_cpu_dbg(Error **errp)
+{
+//#ifdef CONFIG_QUANTUM
+//    DbgDataAll *info = g_malloc0(sizeof(*info));
+//    cpu_dbg(info);
+//    return info;
+//#else
+    return NULL;
+//#endif
+}
+void qmp_cpu_zero_all(Error **errp)
+{
+//#ifdef CONFIG_QUANTUM
+//    cpu_zero_all();
+//#endif
+}
+
+void qmp_quantum_pause(Error **errp)
+{
+#ifdef CONFIG_QUANTUM
+    quantum_pause();
+#endif
+}
+
 #ifndef CONFIG_VNC
 /* If VNC support is enabled, the "true" query-vnc command is
    defined in the VNC subsystem */

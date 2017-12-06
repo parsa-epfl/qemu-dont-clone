@@ -1327,6 +1327,10 @@ void hmp_savevm(Monitor *mon, const QDict *qdict)
 
     save_snapshot(qdict_get_try_str(qdict, "name"), &err);
     hmp_handle_error(mon, &err);
+#ifdef CONFIG_QUANTUM
+    if (query_quantum_pause_state())
+        quantum_unpause();
+#endif
 }
 
 void hmp_delvm(Monitor *mon, const QDict *qdict)
@@ -2225,7 +2229,64 @@ void hmp_cpu_add(Monitor *mon, const QDict *qdict)
     qmp_cpu_add(cpuid, &err);
     hmp_handle_error(mon, &err);
 }
+#ifdef CONFIG_QUANTUM
+void hmp_quantum_pause(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    qmp_quantum_pause(&err);
+    hmp_handle_error(mon, &err);
+}
 
+void hmp_quantum_get(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    QuantumInfo* info;
+
+
+    info = qmp_quantum_get_all(&err);
+    monitor_printf(mon, "Current Quantums are set to: core %lu record: %lu node: %lu:\n", info->quantum_core,
+                                                                                          info->quantum_record,
+                                                                                          info->quantum_node);
+
+    hmp_handle_error(mon, &err);
+}
+
+void hmp_quantum_set(Monitor *mon, const QDict *qdict)
+{
+    const char*  val = qdict_get_str(qdict, "value");
+    const char*  rec = qdict_get_str(qdict, "record");
+    const char*  no = qdict_get_str(qdict, "core");
+
+    Error *err = NULL;
+
+    uint64_t v,r,n;
+    processForOpts(&v,val,&err);
+    processForOpts(&r,rec,&err);
+    processForOpts(&n,no,&err);
+
+    set_quantum_value(v);
+    set_quantum_record_value(r);
+    set_quantum_node_value(n);
+}
+
+void hmp_cpu_dbg(Monitor *mon,  const QDict *qdict)
+{
+    Error *err = NULL;
+
+    DbgDataAll* dbg = qmp_cpu_dbg(&err);
+    for (int i = 0; i < dbg->size; i++)
+        monitor_printf(mon, "%lu\n%s", dbg->data[i].instr, dbg->data[i].data);
+
+}
+
+void hmp_cpu_zero_all(Monitor *mon,  const QDict *qdict)
+{
+    Error *err = NULL;
+    qmp_cpu_zero_all(&err);
+    monitor_printf(mon, "Zeroed out CPU instruction count and debug information.");
+
+}
+#endif
 void hmp_chardev_add(Monitor *mon, const QDict *qdict)
 {
     const char *args = qdict_get_str(qdict, "args");
