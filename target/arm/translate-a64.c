@@ -3652,6 +3652,15 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn)
         tcg_gen_and_i64(tcg_rd, tcg_rn, tcg_rm);
         break;
     case 1: /* ORR */
+#ifdef CONFIG_FLEXUS
+        if( rd == rn && rn == rm && rd == 30 ) {
+            printf("Detected magic instruction (64bit): %d\n", rd);
+            TCGv_i64 cmd_id = read_cpu_reg(s, 0, 0);
+            TCGv_i64 user_v1 = read_cpu_reg(s, 1, 0);
+            TCGv_i64 user_v2 = read_cpu_reg(s, 2, 0);
+            gen_helper_flexus_magic_ins( tcg_const_i32(rd), cmd_id, user_v1, user_v2);
+        }
+#endif
         tcg_gen_or_i64(tcg_rd, tcg_rn, tcg_rm);
         break;
     case 2: /* EOR */

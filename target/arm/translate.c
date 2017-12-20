@@ -8971,10 +8971,10 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             break;
         case 0x0c:
 #ifdef CONFIG_FLEXUS
-	    if( rd == rn && rn == rm && rd != 16 && rd != 1 ) {
-	      printf("Detected potential magic instructions: %d\n", rd);
-	      gen_helper_flexus_magic_ins( tcg_const_i32(rd) );
-	    }
+            if( rd == rn && rn == rm && rd < 15 && rd != 1 ) {
+                printf("Detected magic instruction (32bit): %d\n", rd);
+                gen_helper_flexus_magic_ins( tcg_const_i32(rd), 0, 0, 0);
+            }
 #endif
             tcg_gen_or_i32(tmp, tmp, tmp2);
             if (logic_cc) {

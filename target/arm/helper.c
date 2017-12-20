@@ -11292,24 +11292,20 @@ void flexus_transaction(CPUARMState *env, logical_address_t vaddr,
 #endif
 }
 
-void helper_flexus_magic_ins(int v){
-  switch(v) {
-    case 4:
-      printf("Toggling simulation on!\n");
-      QEMU_toggle_simulation(1);
-      break;
-    case 5:
-      printf("Toggling simulation off!\n");
-      QEMU_toggle_simulation(0);
-      break;
-    case 6:
-      QEMU_break_simulation("Magic instruction caused the end of the simulation.");
-      break;
-    default:
-      //printf("Received magic instruction: %d\n", v);
-      break;
-    };
+/*
+ * Arguments: magic instruction's reg id, params coming through GP regs:
+ * m0: cmd_id (pause QEMU is 999)
+ * m1, m2: user defined
+ */
+void helper_flexus_magic_ins(int trig_reg, uint64_t cmd_id, uint64_t user_v1, uint64_t user_v2){
+    printf("Received magic instruction: %d, and 0x%" PRId64 ", 0x%"
+            PRIx64 ", 0x%" PRIx64 "\n", trig_reg, cmd_id, user_v1, user_v2);
+
+    if ( cmd_id == 999 )
+        printf("QEMU stopped by a magic instruction\n");
+    vm_stop(RUN_STATE_PAUSED);
 }
+
 void finish_performance(void);
 
 void helper_flexus_periodic(CPUARMState *env, int isUser){
