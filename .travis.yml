@@ -46,6 +46,10 @@ branches:
   only:
     - master
     - dev
+notifications:
+  slack: parsa-epfl:ZdgQT9gHGnpcjeteoJuLWBXA
+    on_success: always
+    on_failure: always
 # We will get submodules ourselves
 git:
   submodules: false
