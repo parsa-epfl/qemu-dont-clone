@@ -29,6 +29,9 @@ DEF_HELPER_6(flexus_st_aa64, void, env, i64, int, int, tl, int)
 #ifdef CONFIG_QUANTUM
 DEF_HELPER_1(quantum, void, env)
 #endif
+#ifdef CONFIG_FLEXUS
+DEF_HELPER_1(phases, void, env)
+#endif
 DEF_HELPER_FLAGS_2(udiv64, TCG_CALL_NO_RWG_SE, i64, i64, i64)
 DEF_HELPER_FLAGS_2(sdiv64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
 DEF_HELPER_FLAGS_1(rbit64, TCG_CALL_NO_RWG_SE, i64, i64)

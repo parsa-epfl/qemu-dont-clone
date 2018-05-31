@@ -97,6 +97,40 @@ int incremental_load_vmstate_ext(const char *name, Monitor* mon);
 int create_tmp_overlay(void);
 int delete_tmp_overlay(void);
 #endif
+
+#ifdef CONFIG_FLEXUS
+void configure_flexus(QemuOpts *opts, Error **errp);
+//void configure_simulatefor(const char* opts, uint64_t * sim_length, Error **errp);
+#ifdef CONFIG_EXTSNAP
+
+
+void configure_phases(QemuOpts *opts, Error **errp);
+void configure_ckpt(QemuOpts *opts, Error **errp);
+uint64_t get_phase_value(void);
+bool is_phases_enabled(void);
+bool is_ckpt_enabled(void);
+void toggle_phases_creation(void);
+void toggle_ckpt_creation(void);
+bool phase_is_valid(void);
+void save_phase(void);
+void save_ckpt(void);
+void pop_phase(void);
+bool save_request_pending(void);
+bool cont_request_pending(void);
+void request_cont(void);
+void toggle_cont_request(void);
+void toggle_save_request(void);
+void set_base_ckpt_name(const char* str);
+const char* get_ckpt_name(void);
+int flexus_in_timing(void);
+int flexus_in_trace(void);
+uint64_t get_ckpt_interval(void);
+uint64_t get_ckpt_end(void);
+bool can_quit(void);
+void toggle_can_quit(void);
+#endif
+#endif
+
 #ifdef CONFIG_QUANTUM
 bool query_quantum_pause_state(void);
 void quantum_pause(void);
@@ -119,6 +153,8 @@ void set_quantum_node_value(uint64_t val);
 void cpu_dbg(DbgDataAll *info);
 void cpu_zero_all(void);
 void configure_quantum(QemuOpts *opts, Error **errp);
+#endif
+#if defined (CONFIG_QUANTUM) || defined(CONFIG_FLEXUS)
 void processForOpts(uint64_t *val, const char* qopt, Error **errp);
 void processLetterforExponent(uint64_t *val, char c, Error **errp);
 #endif

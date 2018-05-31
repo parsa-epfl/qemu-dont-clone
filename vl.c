@@ -30,11 +30,9 @@
 
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
-
-char* sim_path = NULL;
-bool timing_mode = false;
-extern int flexus_is_simulating;
-extern int64_t flexus_simulation_length;
+#ifdef CONFIG_EXTSNAP
+#include "include/sysemu/sysemu.h"
+#endif
 #endif 
 
 #ifdef CONFIG_SECCOMP
@@ -554,6 +552,64 @@ static QemuOptsList qemu_quantum_opts = {
     },
 };
 #endif
+
+#ifdef CONFIG_FLEXUS
+static QemuOptsList qemu_flexus_opts = {
+    .name = "flexus",
+    .implied_opt_name = "mode",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_flexus_opts.head),
+    .desc = {
+        {
+            .name = "mode",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "length",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "simulator",
+            .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+#ifdef CONFIG_EXTSNAP
+static QemuOptsList qemu_phases_opts = {
+    .name = "phases",
+    .implied_opt_name = "steps",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_phases_opts.head),
+    .desc = {
+        {
+            .name = "steps",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "name",
+            .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+
+static QemuOptsList qemu_ckpt_opts = {
+    .name = "ckpt",
+    .implied_opt_name = "every",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_ckpt_opts.head),
+    .desc = {
+        {
+            .name = "every",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "end",
+            .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+#endif
+#endif
+
 static QemuOptsList qemu_semihosting_config_opts = {
     .name = "semihosting-config",
     .implied_opt_name = "enable",
@@ -2043,6 +2099,23 @@ static void main_loop(void)
 #ifdef CONFIG_PROFILER
         dev_time += profile_getclock() - ti;
 #endif
+
+#if defined(CONFIG_FLEXUS) && defined(CONFIG_EXTSNAP)
+    if (is_phases_enabled() || is_ckpt_enabled()){
+        if ( save_request_pending() && !cont_request_pending()) {
+            save_vmstate_ext(NULL, get_ckpt_name());
+            toggle_save_request();
+            toggle_cont_request();
+        } else {
+            if(cont_request_pending()) {
+                qmp_cont(NULL);
+                toggle_cont_request();
+                toggle_can_quit();
+            }
+        }
+    }
+
+#endif
     } while (!main_loop_should_exit());
 }
 
@@ -3140,6 +3213,14 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_PTH
     initMainThread();
 #endif
+
+#ifdef CONFIG_FLEXUS
+     QemuOpts *flexus_opts = NULL;
+#ifdef CONFIG_EXTSNAP
+     QemuOpts *phases_opts = NULL;
+     QemuOpts *ckpt_opts = NULL;
+#endif
+#endif
     int i;
     int snapshot, linux_boot;
     const char *initrd_filename;
@@ -3233,6 +3314,13 @@ int main(int argc, char **argv, char **envp)
     qemu_add_opts(&qemu_icount_opts);
 #ifdef CONFIG_QUANTUM
     qemu_add_opts(&qemu_quantum_opts);
+#endif
+#ifdef CONFIG_FLEXUS
+    qemu_add_opts(&qemu_flexus_opts);
+#ifdef CONFIG_EXTSNAP
+    qemu_add_opts(&qemu_ckpt_opts);
+    qemu_add_opts(&qemu_phases_opts);
+#endif
 #endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
@@ -3819,27 +3907,36 @@ int main(int argc, char **argv, char **envp)
                 }
                 break;
 #ifdef CONFIG_FLEXUS
-        case QEMU_OPTION_simpath:
-          if( sim_path != NULL ) {
-        fprintf(stderr, "qemu: only one simulator can be loaded\n");
-        return 1;
-          }
-          sim_path = (char*)malloc(sizeof(char) * (strlen(optarg) + 1));
-          strcpy(sim_path, optarg);
-          break;
-        case QEMU_OPTION_timing:
-          timing_mode = true;
-          break;
-        case QEMU_OPTION_startsimulation:
-          flexus_is_simulating = 1;
-          break;
-        case QEMU_OPTION_simulatefor:
-          if( flexus_simulation_length != -1 ) {
-        fprintf(stderr, "qemu: the simulation length shoudl only be provided once\n");
-        return 1;
-          }
-          flexus_simulation_length = atol(optarg);
-          break;
+        case QEMU_OPTION_flexus:
+             flexus_opts = qemu_opts_parse_noisily(qemu_find_opts("flexus"),
+                                                      optarg, true);
+             if (!flexus_opts) {
+                 exit(1);
+             }
+             break;
+#ifdef CONFIG_EXTSNAP
+        case QEMU_OPTION_phases:
+                if (is_ckpt_enabled())
+                    fprintf(stderr, "cant use phases and ckpt together");
+            phases_opts = qemu_opts_parse_noisily(qemu_find_opts("phases"),
+                                                  optarg, true);
+            if (!phases_opts) {
+                exit(1);
+            }
+            toggle_phases_creation();
+            break;
+
+        case QEMU_OPTION_ckpt:
+                if (is_phases_enabled())
+                    fprintf(stderr, "cant use phase and ckpt together");
+                ckpt_opts = qemu_opts_parse_noisily(qemu_find_opts("ckpt"),
+                                                      optarg, true);
+            if (!ckpt_opts) {
+                exit(1);
+            }
+            toggle_ckpt_creation();
+            break;
+#endif
 #endif // CONFIG_FLEXUS
             case QEMU_OPTION_watchdog:
                 if (watchdog) {
@@ -4987,7 +5084,20 @@ int main(int argc, char **argv, char **envp)
         configure_quantum(quantum_opts, &error_abort);
 #endif
 
+#ifdef CONFIG_FLEXUS
+    if (flexus_opts) {
+        configure_flexus(flexus_opts, &error_abort);
+    }
+#endif
 #ifdef CONFIG_EXTSNAP
+#ifdef CONFIG_FLEXUS
+
+    if (phases_opts)
+        configure_phases(phases_opts, &error_abort);
+
+    if (ckpt_opts)
+        configure_ckpt(ckpt_opts, &error_abort);
+#endif
     if (exton) {
         if(create_tmp_overlay() < 0){
             fprintf(stdout, "External snapshots subsystem can not be loaded\n");
@@ -4995,10 +5105,15 @@ int main(int argc, char **argv, char **envp)
 	}
     }
     if (loadext) {
+        set_base_ckpt_name(loadext);
         if(incremental_load_vmstate_ext(loadext, NULL) < 0){
             fprintf(stdout, "External snapshot with args: %s, can not be loaded\n", loadext);
             exit(1);
 	}
+    }
+    else
+    {
+        set_base_ckpt_name("");
     }
 #endif
 
@@ -5021,29 +5136,6 @@ int main(int argc, char **argv, char **envp)
     }
 
     os_setup_post();
-
-#ifdef CONFIG_FLEXUS	//Start flexus
-    QEMU_initialize(timing_mode);
-
-    simulator_obj_t* simulator = NULL;
-
-    if( sim_path != NULL )
-      simulator = simulator_load( sim_path );
-
-    if(simulator)
-        printf("Flexus Simulator set!.\n");
-
-    QFLEX_API_Interface_Hooks_t* hooks = (QFLEX_API_Interface_Hooks_t*)malloc(sizeof(QFLEX_API_Interface_Hooks_t));
-    QFLEX_API_get_interface_hooks(hooks);
-
-    if( simulator_init != NULL )
-      simulator_init(hooks);
-
-    free(hooks);
-
-    // trigger the periodic event
-    QEMU_execute_callbacks(-1, 0, 0);
-#endif //CONFIG_FLEXUS
 
     main_loop();
     replay_disable_events();

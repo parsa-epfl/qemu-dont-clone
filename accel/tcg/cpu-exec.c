@@ -72,12 +72,11 @@ static int iExit;
 #define TB_CMP(tb, last_tb) 
 #endif
 #ifdef CONFIG_FLEXUS
-extern bool timing_mode;
 static bool timing_once = false;
 
 static bool check_timing_loop_limit(void)
 {
-    if (timing_mode)
+    if (flexus_in_timing())
         return timing_once;
     else
         return false;
@@ -88,13 +87,13 @@ static bool check_timing_loop_limit(void)
 
 #define FLEXUS_TIMING_LOOP_INIT() \
     do{                           \
-        if (timing_mode)          \
+        if (flexus_in_timing())          \
             timing_once = false;  \
     }while(0)                     \
 
 #define FLEXUS_TIMING_LOOP_FLIP() \
     do{                           \
-        if (timing_mode)          \
+        if (flexus_in_timing())          \
             timing_once = true;   \
     }while(0)                     \
 

@@ -38,11 +38,12 @@
 
 
 #ifdef CONFIG_FLEXUS
+#include "include/sysemu/sysemu.h"
 #include "../libqflex/api.h"
 static target_ulong flexus_ins_pc = -1;
 
 #define FLEXUS_IF_IN_SIMULATION( a ) do {	\
-  if( QEMU_is_in_simulation() != 0 ) {		\
+  if( flexus_in_trace() ) {		\
     (a) ;					\
   }						\
 } while(0)
@@ -11359,6 +11360,10 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
  #endif
 #ifdef CONFIG_QUANTUM
     gen_helper_quantum(cpu_env);
+#endif
+
+#ifdef CONFIG_FLEXUS
+        gen_helper_phases(cpu_env);
 #endif
 
     /* if we allocated any temporaries, free them here */

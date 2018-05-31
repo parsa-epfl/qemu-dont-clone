@@ -55,7 +55,184 @@
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
 #include "../libqflex/api.h"
-extern bool timing_mode;
+
+typedef enum simulation_mode{
+    NONE,
+    TRACE,
+    TIMING,
+    LASTMODE,
+}simulation_mode;
+
+typedef struct flexus_state_t
+{
+    simulation_mode mode;
+    uint64_t length;
+    const char * simulator;
+    simulator_obj_t* simulator_obj;
+
+}flexus_state_t;
+static flexus_state_t flexus_state;
+
+int flexus_in_timing(void){
+    return flexus_state.mode == TIMING;
+}
+
+int flexus_in_trace(void){
+    return flexus_state.mode == TRACE;
+}
+
+#ifdef CONFIG_EXTSNAP
+
+typedef struct phases_state_t
+{
+    uint64_t val;
+    int id;
+    QLIST_ENTRY(phases_state_t) next;
+
+}phases_state_t;
+
+typedef struct ckpt_state_t{
+    uint64_t ckpt_interval;
+    uint64_t ckpt_end;
+    char * base_snap_name;
+    int ckpt_id;
+}ckpt_state_t;
+
+static ckpt_state_t ckpt_state;
+static bool using_phases;
+static bool using_ckpt;
+static char * phases_prefix;
+static char* snap_name;
+bool cont_requested, save_requested, qemu_can_quit;
+static QLIST_HEAD(, phases_state_t) phases_head = QLIST_HEAD_INITIALIZER(phases_head);
+
+
+static int get_phase_id(void)
+{
+    if (QLIST_EMPTY(&phases_head))
+        assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    return p->id;
+}
+
+uint64_t get_phase_value(void){
+    if (QLIST_EMPTY(&phases_head))
+        assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    return p->val;
+}
+
+static const char* get_phases_prefix(void)
+{
+    return phases_prefix;
+}
+
+bool is_phases_enabled(void){
+    return using_phases;
+}
+bool is_ckpt_enabled(void){
+    return using_ckpt;
+}
+bool phase_is_valid(void){
+    if (!QLIST_EMPTY(&phases_head))
+        return true;
+    return false;
+}
+
+void set_base_ckpt_name(const char* str){
+
+    if (strcmp(str,"")==0) {
+        ckpt_state.base_snap_name = (char*)malloc(6*sizeof(char));
+        for (int i =0; i<6;++i){
+            char randomletter = 'A' + (random() % 26);
+            ckpt_state.base_snap_name[i] = randomletter;
+        }
+    } else {
+        ckpt_state.base_snap_name = strdup(str);
+    }
+}
+
+static const char* get_base_ckpt_name(void){
+    return ckpt_state.base_snap_name;
+}
+static void set_snap_name(const char* str){
+    snap_name = strdup(str);
+}
+static void request_save(const char*str)
+{
+    set_snap_name(str);
+    save_requested = true;
+}
+
+bool can_quit(void){
+    return qemu_can_quit;
+}
+
+void toggle_can_quit(void){
+    qemu_can_quit = !qemu_can_quit;
+}
+void save_ckpt(void){
+
+    char* name = (char*)malloc(strlen(get_base_ckpt_name())+5*sizeof(char));
+    sprintf(name, "%s_ckpt_%03d", get_base_ckpt_name(), ckpt_state.ckpt_id++);
+    request_save(name);
+    toggle_can_quit();
+}
+
+void toggle_phases_creation(void){
+    using_phases = !using_phases;
+}
+void toggle_ckpt_creation(void){
+    using_ckpt = !using_ckpt;
+}
+
+void save_phase(void){
+
+    char* name = (char*)malloc(strlen(get_phases_prefix())+4*sizeof(char));
+    sprintf(name, "%s_%03d", get_phases_prefix(), get_phase_id());
+    request_save(name);
+}
+uint64_t get_ckpt_interval(void){
+    return ckpt_state.ckpt_interval;
+}
+uint64_t get_ckpt_end(void){
+    return ckpt_state.ckpt_end;
+}
+const char* get_ckpt_name(void){
+    return snap_name;
+}
+
+
+
+
+bool save_request_pending(void)
+{
+    return save_requested;
+}
+
+void request_cont(void)
+{
+    cont_requested = true;
+}
+
+bool cont_request_pending(void)
+{
+    return cont_requested;
+}
+
+void toggle_save_request(void)
+{
+    save_requested = !save_requested;
+}
+
+void toggle_cont_request(void)
+{
+    cont_requested = !cont_requested;
+}
+
+
+
+#endif
 #endif
 
 #ifdef CONFIG_QUANTUM
@@ -756,7 +933,7 @@ void cpu_ticks_init(void)
                                            cpu_throttle_timer_tick, NULL);
 }
 
-#ifdef CONFIG_QUANTUM
+#if defined(CONFIG_QUANTUM) || defined(CONFIG_FLEXUS)
 
 #define KIL 1E3
 #define MIL 1E6
@@ -805,6 +982,10 @@ void processForOpts(uint64_t *val, const char* qopt, Error **errp)
     }
 }
 
+
+#endif
+
+#if defined(CONFIG_QUANTUM)
 void configure_quantum(QemuOpts *opts, Error **errp)
 {
     const char* qopt, *qopt_record, *qopt_node, *qopt_step, *qopt_file;
@@ -857,6 +1038,146 @@ void configure_quantum(QemuOpts *opts, Error **errp)
 }
 #endif
 
+#ifdef CONFIG_FLEXUS
+//void configure_simulatefor(const char* opts, uint64_t * sim_length, Error **errp)
+//{
+//    if (!opts){
+//        error_setg(errp, "no simulation length defined");
+//    }
+
+//    processForOpts(sim_length, opts, errp);
+//}
+
+void configure_flexus(QemuOpts *opts, Error **errp)
+{
+    const char* mode_opt, *length_opt, *simulator_opt;
+    mode_opt = qemu_opt_get(opts, "mode");
+    length_opt = qemu_opt_get(opts, "length");
+    simulator_opt = qemu_opt_get(opts, "simulator");
+
+    if (!mode_opt || !length_opt || !simulator_opt){
+        error_setg(errp, "all flexus option need to be defined");
+    }
+
+    char* temp = (char*)malloc(sizeof(strlen(mode_opt)));
+    for (int i=0; i<strlen(mode_opt); i++)
+        temp[i]=tolower(mode_opt[i]);
+
+    if (strcmp(temp, "timing")){
+        flexus_state.mode = TIMING;
+    } else if (strcmp(temp, "trace")) {
+        flexus_state.mode = TRACE;
+    } else {
+        error_setg(errp, "undefined simulation mode. currently only trace and timing are supported.");
+    }
+
+    flexus_state.mode = strcmp(temp, "timing")==0 ? TIMING : TRACE;
+    QEMU_initialize((flexus_state.mode == TIMING) ? true : false);
+    free(temp);
+
+    processForOpts(&flexus_state.length, length_opt, errp);
+    if (flexus_state.length == 0) {
+        error_setg(errp, "undefined simulation length.");
+    }
+
+    flexus_state.simulator = strdup(simulator_opt);
+    if( access( flexus_state.simulator, F_OK ) != -1 ) {
+        flexus_state.simulator_obj = simulator_load( flexus_state.simulator );
+        if (flexus_state.simulator_obj){
+            fprintf(stderr, "Flexus Simulator set!.\n");
+        } else {
+            error_setg(errp, "simulator could not be set.!.\n");
+        }
+    } else {
+        error_setg(errp, "simulator path contains no simulator!.\n");
+    }
+
+    QFLEX_API_Interface_Hooks_t* hooks = (QFLEX_API_Interface_Hooks_t*)malloc(sizeof(QFLEX_API_Interface_Hooks_t));
+    QFLEX_API_get_interface_hooks(hooks);
+
+    if( simulator_init != NULL ){
+      simulator_init(hooks);
+    }
+    free(hooks);
+
+    // trigger the periodic event
+    QEMU_execute_callbacks(-1, 0, 0);
+
+}
+
+#endif
+#ifdef CONFIG_EXTSNAP
+
+void pop_phase(void)
+{
+    if (QLIST_EMPTY(&phases_head))
+        assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    QLIST_REMOVE(p, next);
+
+}
+void configure_phases(QemuOpts *opts, Error **errp)
+{
+    const char* step_opt, *name_opt;
+    step_opt = qemu_opt_get(opts, "steps");
+    name_opt = qemu_opt_get(opts, "name");
+
+    int id = 0;
+    if (!step_opt ){
+        error_setg(errp, "no distances for phases defined");
+    }
+    if (!name_opt ){
+        fprintf(stderr, "no naming prefix  given for phases option. will use prefix phase_00X");
+        phases_prefix = strdup("phase");
+    } else {
+        phases_prefix = strdup(name_opt);
+    }
+
+
+    phases_state_t * head = calloc(1, sizeof(phases_state_t));
+
+    char* token = strtok((char*) step_opt, ":");
+    processForOpts(&head->val, token, errp);
+    head->id = id++;
+    QLIST_INSERT_HEAD(&phases_head, head, next);
+
+    while (token) {
+        token = strtok(NULL, ":");
+
+        if (token){
+            phases_state_t* phase = calloc(1, sizeof(phases_state_t));
+            processForOpts(&phase->val, token, errp);
+            phase->id= id++;
+            QLIST_INSERT_AFTER(head, phase, next);
+            head = phase;
+        }
+    }
+}
+
+void configure_ckpt(QemuOpts *opts, Error **errp)
+{
+    const char* every_opt, *end_opt;
+    every_opt = qemu_opt_get(opts, "every");
+    end_opt = qemu_opt_get(opts, "end");
+
+    if (!every_opt ){
+        error_setg(errp, "no interval given for ckpt option. cant continue");
+    }
+    if (!end_opt ){
+        error_setg(errp, "no end given for ckpt option. cant continue");
+    }
+
+    processForOpts(&ckpt_state.ckpt_interval, every_opt, errp);
+    processForOpts(&ckpt_state.ckpt_end, end_opt, errp);
+
+    if (ckpt_state.ckpt_end < ckpt_state.ckpt_interval){
+        error_setg(errp, "ckpt end cant be smaller than ckpt interval");
+    }
+
+    toggle_can_quit();
+
+}
+#endif
 
 void configure_icount(QemuOpts *opts, Error **errp)
 {
@@ -1537,7 +1858,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     /* process any pending work */
     cpu->exit_request = 1;
 #ifdef CONFIG_FLEXUS
-    if (timing_mode){
+    if (flexus_state.mode == TIMING){
         printf("QEMU: Starting timing simulation. Passing control to Flexus.\n");
         simulator_start();
         return NULL;

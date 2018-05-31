@@ -73,12 +73,13 @@ static TCGv_i64 cpu_F0d, cpu_F1d;
 #include "exec/gen-icount.h"
 
 #ifdef CONFIG_FLEXUS
+#include "include/sysemu/sysemu.h"
 #include "../libqflex/api.h"
 static target_ulong flexus_ins_pc = -1;
 
 #define FLEXUS_IF_IN_SIMULATION( a ) do {	\
   printf(" Entering the flexus function \n") ;   \
-  if( QEMU_is_in_simulation() != 0 ) {		\
+  if( flexus_in_trace() ) {		\
     (a) ;					\
   }						\
   printf(" Exiting the flexus function \n") ;   \

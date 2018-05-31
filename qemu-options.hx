@@ -3696,6 +3696,17 @@ ETEXI
 #endif
 
 #ifdef CONFIG_FLEXUS
+
+DEF("flexus", HAS_ARG, QEMU_OPTION_flexus,"-flexus [mode=@var{N}][,length=@var{V}][,simulator=@var{S}]", QEMU_ARCH_ALL)
+STEXI
+@item -flexus [mode=@var{N}][,length=@var{V}][,simulator=@var{S}]
+@findex -flexus
+run flexus in timing or trace mode with given duration and simulator
+ETEXI
+
+
+
+
 DEF("simpath", HAS_ARG, QEMU_OPTION_simpath, \
         "-simpath <path>    specify the path to the simulator to load\n",
         QEMU_ARCH_ALL)
@@ -3732,6 +3743,23 @@ STEXI
 Specify the number of instructions to execute during the simulation, then exits. Must be used in conjunction with
 the @code{-startsimulation} option, or the simulation must be trigerred by magic instructions or another way.
 ETEXI
+
+DEF("phases", HAS_ARG, QEMU_OPTION_phases, \
+        "-phases [steps=@var{V}][,name=@var{E}]\n",
+        QEMU_ARCH_ALL)
+STEXI
+@item -phases [steps=@var{V}][,name=@var{E}]
+@findex -phases
+specify the values for phase generation. also optionally specify a name for prefixing the phases.
+ETEXI
+
+DEF("ckpt", HAS_ARG, QEMU_OPTION_ckpt,"aaa", QEMU_ARCH_ALL)
+STEXI
+@item -ckpt [every=@var{V}][,end=@var{E}]
+@findex -ckpt
+specify the checkpoint intervals @var{V} and an interuction for end @var{E}
+ETEXI
+
 #endif
 
 DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \

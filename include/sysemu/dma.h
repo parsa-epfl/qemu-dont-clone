@@ -18,6 +18,7 @@
 
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/api.h"
+#include "include/sysemu/sysemu.h"
 #endif
 
 typedef struct ScatterGatherEntry ScatterGatherEntry;
@@ -108,7 +109,8 @@ static inline int dma_memory_rw_relaxed(AddressSpace *as, dma_addr_t addr,
 #ifdef CONFIG_DEBUG_LIBQFLEX
   QEMU_increment_debug_stat(NUM_DMA_ALL);
 #endif
-  QEMU_execute_callbacks(QEMUFLEX_GENERIC_CALLBACK, QEMU_dma_mem_trans, event_data);
+  if (flexus_in_trace())
+      QEMU_execute_callbacks(QEMUFLEX_GENERIC_CALLBACK, QEMU_dma_mem_trans, event_data);
   free(mem_trans);
   free(event_data->ncm);
   free(event_data);
