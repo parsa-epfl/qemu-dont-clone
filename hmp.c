@@ -2229,6 +2229,330 @@ void hmp_cpu_add(Monitor *mon, const QDict *qdict)
     qmp_cpu_add(cpuid, &err);
     hmp_handle_error(mon, &err);
 }
+
+#ifdef CONFIG_FLEXUS
+
+void hmp_flexus_setDebug(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    const char *severity = qdict_get_str(qdict, "severity");
+
+    qmp_flexus_setDebug(severity, &err);
+    hmp_handle_error(mon,&err);
+}
+void hmp_flexus_setStatInterval(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    const char *value = qdict_get_str(qdict, "value");
+
+    qmp_flexus_setDebug(value, &err);
+    hmp_handle_error(mon,&err);
+}
+void hmp_flexus_setProfileInterval(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    const char *value = qdict_get_str(qdict, "value");
+
+    qmp_flexus_setDebug(value, &err);
+    hmp_handle_error(mon,&err);
+}
+void hmp_flexus_setRegionInterval(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    const char *value = qdict_get_str(qdict, "value");
+
+    qmp_flexus_setDebug(value, &err);
+    hmp_handle_error(mon,&err);
+}
+void hmp_flexus_setTimestampInterval(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+    const char *value = qdict_get_str(qdict, "value");
+
+    qmp_flexus_setDebug(value, &err);
+    hmp_handle_error(mon,&err);
+}
+
+void hmp_flexus_printCycleCount(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_printCycleCount(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_setStopCycle(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *value = qdict_get_str(qdict, "value");
+        qmp_flexus_setStopCycle(value, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_setBreakCPU(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *value = qdict_get_str(qdict, "value");
+
+        qmp_flexus_setBreakCPU(value, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_setBreakInsn(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *value = qdict_get_str(qdict, "value");
+
+        qmp_flexus_setBreakInsn(value, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_printProfile(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_printProfile(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_resetProfile(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_resetProfile(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_writeProfile(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_writeProfile(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_printConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_printConfiguration(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_writeConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_writeConfiguration(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_parseConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_parseConfiguration(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_setConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *name = qdict_get_str(qdict, "name");
+        const char *value = qdict_get_str(qdict, "value");
+
+        qmp_flexus_setConfiguration(name, value, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_printMeasurement(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *measurement = qdict_get_str(qdict, "measurement");
+
+        qmp_flexus_printMeasurement(measurement, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_listMeasurements(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_listMeasurements(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_writeMeasurement(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *measurement = qdict_get_str(qdict, "measurement");
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_writeMeasurement(measurement, filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_enterFastMode(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_enterFastMode(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_leaveFastMode(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_leaveFastMode(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_backupStats(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_backupStats(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_saveStats(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_saveStats(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_reloadDebugCfg(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_reloadDebugCfg(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_addDebugCfg(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *filename = qdict_get_str(qdict, "filename");
+
+        qmp_flexus_addDebugCfg(filename, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_enableCategory(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *component = qdict_get_str(qdict, "component");
+
+        qmp_flexus_enableCategory(component, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_disableCategory(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *component = qdict_get_str(qdict, "component");
+
+        qmp_flexus_disableCategory(component, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_listCategories(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_listCategories(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_enableComponent(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *component = qdict_get_str(qdict, "component");
+        const char *index = qdict_get_str(qdict, "index");
+
+        qmp_flexus_enableComponent(component, index, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_disableComponent(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *component = qdict_get_str(qdict, "component");
+        const char *index = qdict_get_str(qdict, "index");
+
+        qmp_flexus_disableComponent(component, index, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_listComponents(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_listComponents(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_printDebugConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_printDebugConfiguration(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_writeDebugConfiguration(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        qmp_flexus_writeDebugConfiguration(&err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_log(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *name = qdict_get_str(qdict, "name");
+        const char *interval = qdict_get_str(qdict, "interval");
+        const char *regex = qdict_get_str(qdict, "regex");
+
+        qmp_flexus_log(name, interval, regex, &err);
+        hmp_handle_error(mon,&err);
+}
+
+
+void hmp_flexus_printMMU(Monitor *mon, const QDict *qdict)
+{
+        Error *err = NULL;
+        const char *cpu = qdict_get_str(qdict, "cpu");
+
+        qmp_flexus_printMMU(cpu, &err);
+        hmp_handle_error(mon,&err);
+}
+#endif
 #ifdef CONFIG_QUANTUM
 void hmp_quantum_pause(Monitor *mon, const QDict *qdict)
 {

@@ -51,10 +51,10 @@ void helper_phases(CPUARMState *env)
                 pop_phase();
                 num_inst = 0;
             }
-        } else {
+        } else if (!save_request_pending()) {
             fprintf(stderr, "done creating phases.");
             toggle_phases_creation();
-            qmp_quit(NULL);
+            request_quit();
         }
     } else if (is_ckpt_enabled()) {
         if (++num_inst % get_ckpt_interval() == 0) {
@@ -62,10 +62,10 @@ void helper_phases(CPUARMState *env)
             save_ckpt();
         }
 
-        if (num_inst >= get_ckpt_end() && can_quit()) {
+        if (num_inst >= get_ckpt_end()) {
             toggle_ckpt_creation();
             fprintf(stderr, "done creating checkpoints.");
-            qmp_quit(NULL);
+            request_quit();
         }
 
 

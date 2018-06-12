@@ -12,6 +12,11 @@
 #include "qemu/uuid.h"
 #include "qom/object.h"
 
+
+#ifdef CONFIG_FLEXUS
+#include "../libqflex/api.h"
+#endif
+
 /* vl.c */
 
 extern const char *bios_name;
@@ -96,13 +101,61 @@ int save_vmstate_ext_test(Monitor *mon, const char *name);
 int incremental_load_vmstate_ext(const char *name, Monitor* mon);
 int create_tmp_overlay(void);
 int delete_tmp_overlay(void);
+void set_flexus_load_dir(const char* dir_name);
 #endif
 
 #ifdef CONFIG_FLEXUS
 void configure_flexus(QemuOpts *opts, Error **errp);
-//void configure_simulatefor(const char* opts, uint64_t * sim_length, Error **errp);
-#ifdef CONFIG_EXTSNAP
+const char* flexus_simulation_status(void);
+bool hasSimulator(void);
+void quitFlexus(void);
+void prepareFlexus(void);
+void initFlexus(void);
+void startFlexus(void);
+bool flexus_in_simulation(void);
+void flexus_qmp(qmp_flexus_cmd_t cmd, const char* args, Error **errp);
+void flexus_addDebugCfg(const char *filename, Error **errp);
+void flexus_setBreakCPU(const char * value, Error **errp);
+void flexus_backupStats(const char *filename, Error **errp);
+void flexus_disableCategory(const char *component, Error **errp);
+void flexus_disableComponent(const char *component, const char *index, Error **errp);
+void flexus_enableCategory(const char *component, Error **errp);
+void flexus_enableComponent(const char *component, const char *index, Error **errp);
+void flexus_enterFastMode(Error **errp);
+void flexus_leaveFastMode(Error **errp);
+void flexus_listCategories(Error **errp);
+void flexus_listComponents(Error **errp);
+void flexus_listMeasurements(Error **errp);
+void flexus_log(const char *name, const char *interval, const char *regex, Error **errp);
+void flexus_parseConfiguration(const char *filename, Error **errp);
+void flexus_printConfiguration(Error **errp);
+void flexus_printCycleCount(Error **errp);
+void flexus_printDebugConfiguration(Error **errp);
+void flexus_printMMU(const char * cpu, Error **errp);
+void flexus_printMeasurement(const char *measurement, Error **errp);
+void flexus_printProfile(Error **errp);
+void flexus_quiesce(Error **errp);
+void flexus_reloadDebugCfg(Error **errp);
+void flexus_resetProfile(Error **errp);
+void flexus_saveStats(const char *filename, Error **errp);
+void flexus_setBreakInsn(const char *value, Error **errp);
+void flexus_setConfiguration(const char *name, const char *value, Error **errp);
+void flexus_setDebug(const char *debugseverity, Error **errp);
+void flexus_setProfileInterval(const char *value, Error **errp);
+void flexus_setRegionInterval(const char *value, Error **errp);
+void flexus_setStatInterval(const char *value, Error **errp);
+void flexus_setStopCycle(const char *value, Error **errp);
+void flexus_setTimestampInterval(const char *value, Error **errp);
+void flexus_status(Error **errp);
+void flexus_terminateSimulation(Error **errp);
+void flexus_writeConfiguration(const char *filename, Error **errp);
+void flexus_writeDebugConfiguration(Error **errp);
+void flexus_writeMeasurement(const char *measurement, const char *filename, Error **errp);
+void flexus_writeProfile(const char *filename, Error **errp);
 
+#ifdef CONFIG_EXTSNAP
+void flexus_doSave(const char* dir_name, Error **errp);
+void flexus_doLoad(const char* dir_name, Error **errp);
 
 void configure_phases(QemuOpts *opts, Error **errp);
 void configure_ckpt(QemuOpts *opts, Error **errp);
@@ -117,7 +170,9 @@ void save_ckpt(void);
 void pop_phase(void);
 bool save_request_pending(void);
 bool cont_request_pending(void);
+bool quit_request_pending(void);
 void request_cont(void);
+void request_quit(void);
 void toggle_cont_request(void);
 void toggle_save_request(void);
 void set_base_ckpt_name(const char* str);

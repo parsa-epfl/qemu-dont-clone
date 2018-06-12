@@ -11405,7 +11405,7 @@ physical_address_t mmu_logical_to_physical(void *cs_, logical_address_t va) {
   ARMMMUIdx mmu_idx = ARMMMUIdx_S1E3;
 
 
-  bool ret = get_phys_addr(cs->env_ptr, va, access_type, mmu_idx,
+  /*bool ret = */get_phys_addr(cs->env_ptr, va, access_type, mmu_idx,
                       &phys_addr, &attrs, &prot, &page_size, &fsr, &fi);
 
 

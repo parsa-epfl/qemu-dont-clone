@@ -28,12 +28,6 @@
 #include "qemu/uuid.h"
 
 
-#ifdef CONFIG_FLEXUS
-#include "../libqflex/flexus_proxy.h"
-#ifdef CONFIG_EXTSNAP
-#include "include/sysemu/sysemu.h"
-#endif
-#endif 
 
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
@@ -568,6 +562,9 @@ static QemuOptsList qemu_flexus_opts = {
             .type = QEMU_OPT_STRING,
         }, {
             .name = "simulator",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "config",
             .type = QEMU_OPT_STRING,
         },
         { /* end of list */ }
@@ -2084,8 +2081,7 @@ static bool main_loop_should_exit(void)
 static void main_loop(void)
 {
 #ifdef CONFIG_FLEXUS
-  if( simulator_prepare != NULL )
-    simulator_prepare();
+    prepareFlexus();
 #endif
 
 #ifdef CONFIG_PROFILER
@@ -2110,9 +2106,10 @@ static void main_loop(void)
             if(cont_request_pending()) {
                 qmp_cont(NULL);
                 toggle_cont_request();
-                toggle_can_quit();
             }
         }
+    } else if (quit_request_pending()){
+        qmp_quit(NULL);
     }
 
 #endif

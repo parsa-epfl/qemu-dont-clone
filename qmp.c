@@ -83,6 +83,9 @@ UuidInfo *qmp_query_uuid(Error **errp)
 
 void qmp_quit(Error **errp)
 {
+#ifdef CONFIG_FLEXUS
+        quitFlexus();
+#endif
     no_shutdown = 0;
     qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_QMP);
 }
@@ -128,6 +131,264 @@ void qmp_cpu_add(int64_t id, Error **errp)
     } else {
         error_setg(errp, "Not supported");
     }
+}
+
+
+void qmp_flexus_addDebugCfg(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_addDebugCfg(filename, errp);
+#endif
+}
+void qmp_flexus_setBreakCPU(const char* value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setBreakCPU(value, errp);
+#endif
+}
+void qmp_flexus_backupStats(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_backupStats(filename, errp);
+#endif
+}
+
+void qmp_flexus_disableCategory(const char *component, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_disableCategory(component, errp);
+#endif
+}
+
+void qmp_flexus_disableComponent(const char *component, const char *index, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_disableComponent(component, index, errp);
+#endif
+}
+
+void qmp_flexus_enableCategory(const char *component, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_enableCategory(component, errp);
+#endif
+}
+
+void qmp_flexus_enableComponent(const char *component, const char *index, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_enableComponent(component, index, errp);
+#endif
+}
+
+void qmp_flexus_enterFastMode(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_enterFastMode(errp);
+#endif
+}
+
+void qmp_flexus_leaveFastMode(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_leaveFastMode(errp);
+#endif
+}
+
+void qmp_flexus_listCategories(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_listCategories(errp);
+#endif
+}
+
+void qmp_flexus_listComponents(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_listComponents(errp);
+#endif
+}
+
+void qmp_flexus_listMeasurements(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_listMeasurements(errp);
+#endif
+}
+
+void qmp_flexus_log(const char *name, const char *interval, const char *regex, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_log(name, interval, regex, errp);
+#endif
+}
+
+void qmp_flexus_parseConfiguration(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_parseConfiguration(filename, errp);
+#endif
+}
+
+void qmp_flexus_printConfiguration(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printConfiguration(errp);
+#endif
+}
+
+void qmp_flexus_printCycleCount(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printCycleCount(errp);
+#endif
+}
+
+void qmp_flexus_printDebugConfiguration(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printDebugConfiguration(errp);
+#endif
+}
+
+void qmp_flexus_printMMU(const char* cpu, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printMMU(cpu, errp);
+#endif
+}
+
+void qmp_flexus_printMeasurement(const char *measurement, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printMeasurement(measurement, errp);
+#endif
+}
+
+void qmp_flexus_printProfile(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_printProfile(errp);
+#endif
+}
+
+void qmp_flexus_quiesce(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_quiesce(errp);
+#endif
+}
+
+void qmp_flexus_reloadDebugCfg(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_reloadDebugCfg(errp);
+#endif
+}
+
+void qmp_flexus_resetProfile(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_resetProfile(errp);
+#endif
+}
+
+void qmp_flexus_saveStats(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_saveStats(filename, errp);
+#endif
+}
+
+void qmp_flexus_setBreakInsn(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setBreakInsn(value, errp);
+#endif
+}
+
+void qmp_flexus_setConfiguration(const char *name, const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setConfiguration(name, value, errp);
+#endif
+}
+
+void qmp_flexus_setDebug(const char *debugseverity, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setDebug(debugseverity, errp);
+#endif
+}
+
+void qmp_flexus_setProfileInterval(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setProfileInterval(value, errp);
+#endif
+}
+
+void qmp_flexus_setRegionInterval(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setRegionInterval(value, errp);
+#endif
+}
+
+void qmp_flexus_setStatInterval(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setStatInterval(value, errp);
+#endif
+}
+
+void qmp_flexus_setStopCycle(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setStopCycle(value, errp);
+#endif
+}
+
+void qmp_flexus_setTimestampInterval(const char *value, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_setTimestampInterval(value, errp);
+#endif
+}
+
+void qmp_flexus_terminateSimulation(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_terminateSimulation(errp);
+#endif
+}
+
+void qmp_flexus_writeConfiguration(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_writeConfiguration(filename, errp);
+#endif
+}
+
+void qmp_flexus_writeDebugConfiguration(Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_writeDebugConfiguration(errp);
+#endif
+}
+
+void qmp_flexus_writeMeasurement(const char *measurement, const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_writeMeasurement(measurement, filename, errp);
+#endif
+}
+
+void qmp_flexus_writeProfile(const char *filename, Error **errp)
+{
+#ifdef CONFIG_FLEXUS
+    flexus_writeProfile(filename, errp);
+#endif
 }
 
 QuantumInfo *qmp_quantum_get_all(Error **errp)
