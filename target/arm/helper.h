@@ -1,6 +1,6 @@
 #ifdef CONFIG_FLEXUS
-// maginc instruction operand
-DEF_HELPER_1(flexus_magic_ins, void, int)
+// maginc instruction operand (reg number), three values from r0,1,2
+DEF_HELPER_4(flexus_magic_ins, void, int, i64, i64, i64)
 // No operands
 DEF_HELPER_2(flexus_periodic, void, env, int)
 // env, pc, target address, ins_size, is user, conditional or not, annulation or not (execute delay slot or not)
