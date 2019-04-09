@@ -63,13 +63,17 @@
 #include "qemu-file-channel.h"
 #include "qemu-file.h"
 
-#include "benchmark.h"
 
+const char *input_command = "gunzip -c";
+const char *output_command = "gzip -c";
+/*
+#include "benchmark.h"
 const char *input_command = "cat";
 const char *output_command = "cat";
 
 FILE *savedump = NULL;
 FILE *loaddump = NULL;
+*/
 
 static int qemu_savevm_state(QEMUFile *f, Error **errp)
 {
@@ -518,23 +522,7 @@ static int load_state_ext(QString *dir_path)
     Error *local_err = NULL;
     MigrationIncomingState *mis = migration_incoming_get_current();
 
-    time_in_channel = 0;
-
-    struct timespec begin;
-    struct timespec end;
-    double res;
-
-    clock_gettime(CLOCK_REALTIME, &begin);
-
-    BlockDriverState *base = find_active();
-    if (base == NULL) {
-        error_report("There is no base image");
-        return ret;
-    }
-
-    dir_path = get_dir_path();
-
-    //sprintf(command, "%s %s/%s/mem", input_command, dir_path->string, name);
+    sprintf(command, "%s %s/mem", input_command, dir_path->string);
     const char *argv[] = { "/bin/sh", "-c", command, NULL };
 
     QIOChannel *ioc;
@@ -552,7 +540,6 @@ static int load_state_ext(QString *dir_path)
         error_report("Cannot run a command %s\n", command);
         goto end;
     }
-    input_channel = ioc;
 
     mis->from_src_file = f;
 
@@ -563,11 +550,12 @@ static int load_state_ext(QString *dir_path)
         error_report("Error %d while loading vm state", ret);
         goto end;
     }
-
+/*
     clock_gettime(CLOCK_REALTIME, &end);
     res = get_result(begin, end);
     fprintf(loaddump, "%lg, %lg\n", res, time_in_channel);
     fflush(loaddump);
+*/
     return 0;
 end:
     return ret;
@@ -577,11 +565,13 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     int saved_vm_running  = runstate_is_running();
     int ret = -EINVAL;
 
+    /*
     struct timespec begin;
     struct timespec end;
     double res;
 
     loaddump = fopen("loaddump.txt", "w");
+    */
 
 
     if (saved_vm_running) {
@@ -597,7 +587,7 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     }
     QDECREF(dir_path);
 
-    clock_gettime(CLOCK_REALTIME, &begin);
+    //clock_gettime(CLOCK_REALTIME, &begin);
 
     ret = goto_snap(name);
 
@@ -617,11 +607,13 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     // Make QList of QStrings with backtracking of snapshot directories
     QList *snap_chain = get_snap_chain(bs);
 
+    /*
     clock_gettime(CLOCK_REALTIME, &end);
     res = get_result(begin, end);
 
     fprintf(loaddump, "Getting chain time: %lg\n", res);
     fflush(loaddump);
+    */
 
     if (bs == NULL) {
         monitor_printf(mon, "Cannot build snapshot chain on current VM\n");
