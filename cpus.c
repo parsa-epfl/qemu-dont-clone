@@ -57,6 +57,11 @@ extern bool executed_once;
 #ifdef CONFIG_EXTSNAP
 #include <dirent.h>
 #endif
+/* Msutherl:
+ * - added for qflex rmc
+ */
+#include "hw/misc/RMC.h"
+#include "include/exec/memory.h"
 
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
@@ -663,7 +668,7 @@ void cpu_update_icount(CPUState *cpu)
 
 int64_t cpu_get_icount_raw(void)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
     CPUState *cpu = PTH(current_cpu);
 
     if (cpu && cpu->running) {
@@ -2096,8 +2101,11 @@ const char* advance_qemu(void * obj){
     }
     executed_once = false;
     return rstr;
-}
 #endif
+
+static hwaddr RMC_guest_phys_cq_cpu, RMC_guest_phys_wq_cpu;
+static hwaddr RMC_guest_phys_ctx;
+static void *RMC_host_addr_cq_cpu, *RMC_host_addr_wq_cpu, *RMC_host_addr_ctx;
 
 /* Single-threaded TCG
  *
@@ -2107,7 +2115,6 @@ const char* advance_qemu(void * obj){
  * This is done explicitly rather than relying on side-effects
  * elsewhere.
  */
-
 static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 {
     PTH_UPDATE_CONTEXT
@@ -2181,11 +2188,11 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 process_icount_data(cpu);
 
 #ifdef CONFIG_QUANTUM
-                if ( quantum_state.quantum_value > 0){
-                     if(cpu->hasReachedInstrLimit){
-                         cpu->hasReachedInstrLimit = false;
-                     }
-		 }
+                if ( quantum_state.quantum_value > 0 ){
+                    if(cpu->hasReachedInstrLimit){
+                        cpu->hasReachedInstrLimit = false;
+                    }
+                }
 
                 // for debugging purposes
                 if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG|| r == EXCP_HALTED || r == EXCP_YIELD || r ==EXCP_ATOMIC)
@@ -2209,6 +2216,69 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 }
                 break;
             }
+            /* Inserted code for RMC initialization in cpu loop.
+             * - this will not work with mttcg as there is nothing to stop the 
+             *   multiple vcpus from accessing the RMC
+             * - would be easy to protect it to make the function only run once
+             */
+            if(RMC_does_exist() == 1) {
+                if (RMC_initialised == 0) {
+                    RMC_guest_phys_wq_cpu = RMC_get_phys_wq(0);
+                    RMC_guest_phys_cq_cpu = RMC_get_phys_cq(0); // FIXME: add qpids
+                    RMC_guest_phys_ctx = RMC_get_phys_ctx();
+                    if (RMC_guest_phys_wq_cpu != 0
+                            && RMC_guest_phys_cq_cpu != 0
+                            && RMC_guest_phys_ctx != 0) {
+                        RMC_initialize_cpu();
+                        /* Try to get the ram_addr_t of the guest-physical addr for wq
+                         * - use the MemoryRegion abstraction
+                         */
+                        hwaddr xlat, plen;
+                        rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                        MemoryRegion* mr = address_space_translate(cpu->as,
+                                RMC_guest_phys_wq_cpu,
+                                &xlat,
+                                &plen,
+                                false // not a write
+                                );
+                        rcu_read_unlock();
+                        xlat += memory_region_get_ram_addr(mr);
+                        RMC_host_addr_wq_cpu = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+                        rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                        mr = address_space_translate(cpu->as,
+                                RMC_guest_phys_cq_cpu,
+                                &xlat,
+                                &plen,
+                                false // not a write
+                                );
+                        rcu_read_unlock();
+                        xlat += memory_region_get_ram_addr(mr);
+                        RMC_host_addr_cq_cpu = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+                        rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                        mr = address_space_translate(cpu->as,
+                                RMC_guest_phys_ctx,
+                                &xlat,
+                                &plen,
+                                false // not a write
+                                );
+                        rcu_read_unlock();
+                        xlat += memory_region_get_ram_addr(mr);
+                        RMC_host_addr_ctx = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+                        RMC_cq_init(0,RMC_host_addr_cq_cpu);
+                        RMC_wq_init(0,RMC_host_addr_wq_cpu);
+                        printf("Got here, translated successfully all pointers for WQ, CQ, and ctx.\n");
+                        RMC_initialised = 1;
+                    }
+                } else {
+                    RMC_advance_pipelines();
+                } // endif rmc is initialised
+            } // endif rmc exists
 
             cpu = CPU_NEXT(cpu);
 

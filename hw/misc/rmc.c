@@ -37,6 +37,7 @@
 // Msutherl: QFlex Includes/headers
 #include "target/arm/cpu.h"
 #include "target/arm/cpu-qom.h"
+#include "qemu/thread.h" // if running in deterministic PTH, need macros
 
 #define PCI_BAR 0
 #define RMC(obj)        OBJECT_CHECK(RMCState, obj, "rmc")
@@ -424,6 +425,8 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
         case 0xF4: /* 4 bytes */
             printf("\nRMC is now configured and reachable under the destination nid %u and with the cid %u\n", local_nid, local_cid);
 
+            PTH_UPDATE_CONTEXT;
+
             RMC_buffer_init(&RCP_buffer, 1000);
             RMC_buffer_init(&RRPP_buffer, 1000);
             RCP_current_state = RCP_Decode;
@@ -437,7 +440,7 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
              * - translate all of the control path according to the process
              *   that passed the addresses
              * - restore the state */
-            ARMCPU* cpu = ARM_CPU(current_cpu);
+            ARMCPU* cpu = ARM_CPU(PTH(current_cpu));
             CPUArchState* arm_cpu_state = &(cpu->env);
 
             uint8_t current_el = arm_current_el(arm_cpu_state) & 0x3;
@@ -463,18 +466,18 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 
             for( i = 0; i < RMC_MAX_NUM_QPS; ++i ) { 
                 if( my_qps.wq_arr_used[i] ) {
-                    xlat = cpu_get_phys_page_debug( current_cpu, my_qps.wq_arr_gvas[i] & TARGET_PAGE_MASK );
+                    xlat = cpu_get_phys_page_debug( PTH(current_cpu), my_qps.wq_arr_gvas[i] & TARGET_PAGE_MASK );
                     my_qps.wq_arr_gpas[i] = xlat | (my_qps.wq_arr_gvas[i] & ~TARGET_PAGE_MASK);
                     my_qps.wq_arr_translated[i] = true;
                 }
                 if( my_qps.cq_arr_used[i] ) {
-                    xlat = cpu_get_phys_page_debug( current_cpu, my_qps.cq_arr_gvas[i] & TARGET_PAGE_MASK );
+                    xlat = cpu_get_phys_page_debug( PTH(current_cpu), my_qps.cq_arr_gvas[i] & TARGET_PAGE_MASK );
                     my_qps.cq_arr_gpas[i] = xlat | (my_qps.cq_arr_gvas[i] & ~TARGET_PAGE_MASK);
                     my_qps.cq_arr_translated[i] = true;
                 }
             }
 
-            xlat = cpu_get_phys_page_debug( current_cpu, gVA_ctx & TARGET_PAGE_MASK );
+            xlat = cpu_get_phys_page_debug( PTH(current_cpu), gVA_ctx & TARGET_PAGE_MASK );
             gPA_ctx = xlat | (gVA_ctx & ~TARGET_PAGE_MASK);
 
             /* restore processor state */
@@ -820,7 +823,8 @@ void RMC_initialize_MACAddr(MACAddr macaddr) {
 /* Called during initialization to store an image of a cpu, so the RMC
  * can translate addresses without a guest CPU currently being active */
 void RMC_initialize_cpu(void) {
-	RMC_private_cpu = current_cpu;
+    PTH_UPDATE_CONTEXT;
+	RMC_private_cpu = PTH(current_cpu);
 }
 
 /* Store the guest physical address of the shared space that the RMC can 
