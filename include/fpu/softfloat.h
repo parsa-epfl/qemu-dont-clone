@@ -81,6 +81,8 @@ this code that are retained.
 
 #ifndef SOFTFLOAT_H
 #define SOFTFLOAT_H
+#include <stdint.h>
+#include <stdbool.h>
 
 /* This 'flag' type must be able to hold at least 0 and 1. It should
  * probably be replaced with 'bool' but the uses would need to be audited

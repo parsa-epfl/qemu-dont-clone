@@ -2,6 +2,7 @@
 #define BSWAP_H
 
 #include "fpu/softfloat.h"
+#include "qemu/osdep.h"
 
 #ifdef CONFIG_MACHINE_BSWAP_H
 # include <sys/endian.h>
