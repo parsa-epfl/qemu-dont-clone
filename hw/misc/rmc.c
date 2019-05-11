@@ -144,7 +144,6 @@ typedef struct {
 
     /* QFlex/AARCH64 required state:
      * - ttbrs (replaces CR3)
-     * - 
      */
     uint64_t proc_ttbr0;
     uint64_t proc_ttbr1;
@@ -345,6 +344,14 @@ static uint64_t write_qp_vaddr_lobits(bool is_wq, uint8_t qp_id, uint64_t val) {
     }
 }
 
+static inline void write_hibits(uint64_t* dst, uint64_t val) {
+    *dst = ((val & 0xFFFFFFFF) << 32);
+}
+
+static inline void write_lobits(uint64_t* dst, uint64_t val) {
+    *dst |= (val & 0xFFFFFFFF);
+}
+
 static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
                 unsigned size)
 {
@@ -355,29 +362,23 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
     hwaddr xlat;
 
     switch(addr) {
-        /* Msutherl: removed old log_addr
         case 0x04: 
-            DRMC_Print("Written into 0x04 (low virt addr): %016lX\n", val);
-            rmc->logical_address = val;
+            DRMC_Print("Written into 0x04 (LO ttbr0): %016lX\n", val);
+            write_lobits(&(rmc->proc_ttbr0),val);
             return ;
         case 0x08: 
-            DRMC_Print("Written into 0x08 (high virt addr): %016lX\n", val);
-            rmc->logical_address |= (val << 32);
+            DRMC_Print("Written into 0x08 (HI ttbr0): %016lX\n", val);
+            write_hibits(&(rmc->proc_ttbr0),val);
+            DRMC_Print("RMC TTBR0 %#018lX\n", rmc->proc_ttbr0);
             return ;
-        */
-        // TODO: change this for TTBR0 and TTBR1 in ARM64
         case 0x0C: /* 4 bytes */
-            /*
-            DRMC_Print("Written into 0x0C (cr3): %#010lx\n", val);
-            rmc->cr3 = val;
-            */
+            DRMC_Print("Written into 0x0C (LO ttbr1): %#010lx\n", val);
+            write_lobits(&(rmc->proc_ttbr1),val);
             return ;
         case 0x10: /* 4 bytes */
-            /*
-            DRMC_Print("Written into 0xF1 (cr3 high): %#010lx\n", val);
-            rmc->cr3 |= (val << 32);
-            DRMC_Print("CR3 %#018lX\n", rmc->cr3);
-            */
+            DRMC_Print("Written into 0x10 (HI ttbr1): %#010lx\n", val);
+            write_hibits(&(rmc->proc_ttbr1),val);
+            DRMC_Print("RMC TTBR1 %#018lX\n", rmc->proc_ttbr1);
             return ;
         case 0x14: /* 4 bytes, WQ low virt addr */
             DRMC_Print("Written into 0x14 (WQ low): %#010lx\n", val);
