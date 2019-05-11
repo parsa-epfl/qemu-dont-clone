@@ -345,11 +345,11 @@ static uint64_t write_qp_vaddr_lobits(bool is_wq, uint8_t qp_id, uint64_t val) {
 }
 
 static inline void write_hibits(uint64_t* dst, uint64_t val) {
-    *dst = ((val & 0xFFFFFFFF) << 32);
+    *dst |= ((val & 0xFFFFFFFF) << 32);
 }
 
 static inline void write_lobits(uint64_t* dst, uint64_t val) {
-    *dst |= (val & 0xFFFFFFFF);
+    *dst = (val & 0xFFFFFFFF);
 }
 
 static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
@@ -446,16 +446,10 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 
             uint8_t current_el = arm_current_el(arm_cpu_state) & 0x3;
             target_ulong saved_ttbr0 = arm_cpu_state->cp15.ttbr0_el[current_el];
-            target_ulong saved_ttbr1 = arm_cpu_state->cp15.ttbr1_el[current_el];
+            //target_ulong saved_ttbr1 = arm_cpu_state->cp15.ttbr1_el[current_el];
 
             arm_cpu_state->cp15.ttbr0_el[current_el] = rmc->proc_ttbr0;
-            arm_cpu_state->cp15.ttbr1_el[current_el] = rmc->proc_ttbr1;
-            //X86CPU *cpu = X86_CPU(current_cpu);
-            //CPUX86State *env = &cpu->env;
-            //target_ulong temp_cr3 = env->cr[3];
-            //target_ulong temp_hflags = env->hflags;
-            //env->cr[3] = rmc->cr3;
-            //env->hflags = 0x40f2b7;
+            //arm_cpu_state->cp15.ttbr1_el[current_el] = rmc->proc_ttbr1;
 
             /* 
              * - Traverse all of rmc qp/lbuf/etc. and do translations
@@ -483,11 +477,8 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 
             /* restore processor state */
             arm_cpu_state->cp15.ttbr0_el[current_el] = saved_ttbr0;
-            arm_cpu_state->cp15.ttbr1_el[current_el] = saved_ttbr1;
-            //env->cr[3] = temp_cr3;
-            //env->hflags = temp_hflags;
+            //arm_cpu_state->cp15.ttbr1_el[current_el] = saved_ttbr1;
 
-            //cr3value = rmc->cr3;
             RMC_initialised = 0;
             local_tid = 0;
             return;

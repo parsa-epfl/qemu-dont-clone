@@ -1,10 +1,10 @@
 #!/bin/sh
 # Run to redirect the serial port to pty on the host
-sudo aarch64-softmmu/qemu-system-aarch64 -M virt -m 16G -cpu cortex-a57 -smp 4 -nographic \
+sudo aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 16G -cpu host -smp 4 -nographic \
     -global virtio-blk-device.scsi=off -device virtio-scsi-device,id=scsi -rtc driftfix=slew \
-    -pflash $HOME/qflex/images/ubuntu-arm/flash0.img \
-    -pflash $HOME/qflex/images/ubuntu-arm/flash1.img \
-    -drive if=none,file=$HOME/qflex/images/ubuntu-arm/ubuntu.qcow2,id=hd0 \
+    -pflash $HOME/images/ubuntu-arm/flash0.img \
+    -pflash $HOME/images/ubuntu-arm/flash1.img \
+    -drive if=none,file=$MYIMG,id=hd0 \
     -device scsi-hd,drive=hd0 -device virtio-scsi-device \
     -netdev user,id=net1,hostfwd=tcp::5555-:22 -device virtio-net-device,mac=52:54:00:00:02:12,netdev=net1 \
     -device rmc,nid=2,cid=0
