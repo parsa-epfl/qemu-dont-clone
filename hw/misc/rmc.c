@@ -97,8 +97,6 @@ long long int ITT[MAX_NUM_WQ][4];
 char *prevaddr, *curraddr;
 uint64_t cr3value;
 uint8_t cq_head, cq_SR, wq_tail, wq_SR; // TODO: these need to be qp-private
-//rmc_cq_t cq;
-//rmc_wq_t wq;
 void *RMC_NICState;
 MACAddr RMC_macaddr;
 MACAddr MAC_basis = {{0xff,0xff,0xff,0xff,0xff,0xff}};
@@ -144,9 +142,11 @@ typedef struct {
 
     /* QFlex/AARCH64 required state:
      * - ttbrs (replaces CR3)
+     * - TCR (translation control register, also per-proc)
      */
-    uint64_t proc_ttbr0;
-    uint64_t proc_ttbr1;
+    target_ulong proc_ttbr0;
+    target_ulong proc_ttbr1;
+    target_ulong proc_tcr;
 
     //uint64_t cr3;
     uint64_t logical_address;
@@ -423,6 +423,15 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
             gVA_ctx |= (val << 32);
             DRMC_Print("CTX Base address (gVA) %#018lX\n", gVA_ctx);
             return ;
+        case 0x3c: /* 4B: TCR Low-order bits */
+            DRMC_Print("Written into 0x3c (tcr lo): %#010lx\n", val);
+            rmc->proc_tcr = val;
+            return;
+        case 0x40: /* 4B: TCR Hi-order bits */
+            DRMC_Print("Written into 0x40 (tcr hi): %#010lx\n", val);
+            rmc->proc_tcr |= (val << 32);
+            DRMC_Print("TCR full value: %#018lX\n", rmc->proc_tcr);
+            return;
         case 0xF4: /* 4 bytes */
             printf("\nRMC is now configured and reachable under the destination nid %u and with the cid %u\n", local_nid, local_cid);
 
@@ -446,9 +455,11 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 
             uint8_t current_el = arm_current_el(arm_cpu_state) & 0x3;
             target_ulong saved_ttbr0 = arm_cpu_state->cp15.ttbr0_el[current_el];
+            target_ulong saved_tcr = arm_cpu_state->cp15.tcr_el[current_el].raw_tcr;
             //target_ulong saved_ttbr1 = arm_cpu_state->cp15.ttbr1_el[current_el];
 
             arm_cpu_state->cp15.ttbr0_el[current_el] = rmc->proc_ttbr0;
+            arm_cpu_state->cp15.tcr_el[current_el].raw_tcr = rmc->proc_tcr;
             //arm_cpu_state->cp15.ttbr1_el[current_el] = rmc->proc_ttbr1;
 
             /* 
@@ -477,6 +488,7 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 
             /* restore processor state */
             arm_cpu_state->cp15.ttbr0_el[current_el] = saved_ttbr0;
+            arm_cpu_state->cp15.tcr_el[current_el].raw_tcr = saved_tcr;
             //arm_cpu_state->cp15.ttbr1_el[current_el] = saved_ttbr1;
 
             RMC_initialised = 0;

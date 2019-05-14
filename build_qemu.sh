@@ -45,9 +45,9 @@ set -x
 set -e
 
 # Check for test
-export IS_EXTSNAP=`grep enable-extsnap configure`
-export IS_QUANTUM=`grep enable-quantum configure`
-export IS_PTH=`grep enable-pth configure`
+#export IS_EXTSNAP=`grep enable-extsnap configure`
+#export IS_QUANTUM=`grep enable-quantum configure`
+#export IS_PTH=`grep enable-pth configure`
 
 if [[ "$IS_EXTSNAP" == "" ]] && [[ "$TEST_EXTSNAP" == "yes" ]]; then
     exit 0
@@ -63,38 +63,42 @@ fi
 
 sudo apt-get update -qq
 sudo apt-get install -y build-essential checkinstall wget python-dev \
-    software-properties-common pkg-config zip zlib1g-dev unzip curl
+    software-properties-common pkg-config zip zlib1g-dev unzip curl gcc g++ \
+    libjemalloc-dev
+
 # Install dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential checkinstall git-core libbz2-dev libtool expect bridge-utils uml-utilities
 sudo apt-get --no-install-recommends -y build-dep qemu
-# Install a compatible version of GCC
-sudo apt-get install python-software-properties
-sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-sudo apt-get update
-sudo apt-get -y install gcc-${GCC_VERSION}
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 20
 # Install pth
-wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
-tar -xvf pth-2.0.7.tar.gz
-cd pth-2.0.7
-sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
-sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
-sudo make
-sudo make test
-sudo make install
-cd ..
+#wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
+#tar -xvf pth-2.0.7.tar.gz
+#cd pth-2.0.7
+#sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
+#sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
+#sudo make
+#sudo make test
+#sudo make install
+#cd ..
 # Get images
-mkdir images
-cd images
-mkdir ubuntu-16.04-blank
-cd ubuntu-16.04-blank
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true -O ubuntu-stripped-comp3.qcow2
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true -O initrd.img-4.4.0-83-generic
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true -O vmlinuz-4.4.0-83-generic
-cd ../..
+if [ ! -d "$HOME/images" ]
+then
+    mkdir images
+    cd images
+    wget https://github.com/parsa-epfl/images/blob/arm/ubuntu-arm/flash0.img?raw=true -O flash0.img
+    wget https://github.com/parsa-epfl/images/blob/arm/ubuntu-arm/flash0.img?raw=true -O flash1.img
+fi
+#mkdir ubuntu-16.04-blank
+#cd ubuntu-16.04-blank
+#wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true -O ubuntu-stripped-comp3.qcow2
+#wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true -O initrd.img-4.4.0-83-generic
+#wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true -O vmlinuz-4.4.0-83-generic
+cd $HOME/qemu
 git submodule update --init dtc
 # Build Qemu
 export CFLAGS="-fPIC"
-./configure --target-list=$TARGET_LIST $CONFIG --disable-werror --disable-tpm
-make -j4
+TARGET_LIST="aarch64-softmmu"
+#CONFIG_PTH="--enable-extsnap --disable-werror --enable-jemalloc --disable-tpm --enable-sdl --disable-vnc --enable-debug --enable-pth --pth-path=/home/msutherl/qflex/3rdparty/pth/"
+CONFIG="--enable-extsnap --disable-werror --enable-jemalloc --disable-tpm --enable-sdl --disable-vnc --enable-debug"
+./configure --target-list=$TARGET_LIST $CONFIG
+make -j

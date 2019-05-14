@@ -1,13 +1,16 @@
 #!/bin/sh
-#sudo aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 16G -cpu host -smp 4 -nographic \
-sudo aarch64-softmmu/qemu-system-aarch64 -M virt -m 1G -cpu cortex-a57 -nographic \
+# Run to redirect the serial port to pty on the host
+#sudo gdb --args aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 16G -cpu host -smp 4 -nographic \
+sudo gdb --args aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 1G -cpu host -nographic \
     -global virtio-blk-device.scsi=off -device virtio-scsi-device,id=scsi -rtc driftfix=slew \
     -pflash $HOME/images/flash0.img \
     -pflash $HOME/images/flash1.img \
     -drive if=none,file=/proj/cloudsuite3-PG0/images/ubuntu-kvm-sonuma.qcow2,id=hd0 \
     -device scsi-hd,drive=hd0 -device virtio-scsi-device \
     -netdev user,id=net1,hostfwd=tcp::5555-:22 -device virtio-net-device,mac=52:54:00:00:02:12,netdev=net1 \
-    -device rmc,nid=2,cid=0
+    -device rmc,nid=2,cid=0 \
+    -monitor /dev/pts/3 \
+    -serial pty
 
 #-hda /home/msutherl/qflex/images/ubuntu18-x86_64-sonuma/ubuntu18-sonuma-x86_64.qcow2 -nographic -serial pty -monitor stdio -device e1000,netdev=net0 -netdev user,id=net0,hostfwd=tcp::5555-:22 -device rmc,nid=2,cid=0 -net nic,model=ne2k_pci -net tap,ifname=tap1L,script=no,downscript=no
 

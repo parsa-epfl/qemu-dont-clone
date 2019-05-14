@@ -40,6 +40,7 @@
 #include "hw/irq.h"
 
 #include "hw/boards.h"
+#include "hw/misc/RMC.h"
 
 /* This check must be after config-host.h is included */
 #ifdef CONFIG_EVENTFD
@@ -1856,6 +1857,9 @@ static void kvm_eat_signals(CPUState *cpu)
     } while (sigismember(&chkset, SIG_IPI));
 }
 
+static hwaddr RMC_guest_phys_cq, RMC_guest_phys_wq, RMC_guest_phys_ctx;
+static void *RMC_host_addr_cq, *RMC_host_addr_wq, *RMC_host_addr_ctx;
+
 int kvm_cpu_exec(CPUState *cpu)
 {
     struct kvm_run *run = cpu->kvm_run;
@@ -1997,6 +2001,67 @@ int kvm_cpu_exec(CPUState *cpu)
             ret = kvm_arch_handle_exit(cpu, run);
             break;
         }
+
+        /* QFlex initialize RMC */
+        if(RMC_does_exist() == 1) {
+	        if (RMC_initialised == 0) {
+				RMC_guest_phys_wq = RMC_get_phys_wq(0);
+                RMC_guest_phys_cq = RMC_get_phys_cq(0); // FIXME: add qpids
+                RMC_guest_phys_ctx = RMC_get_phys_ctx();
+				if (RMC_guest_phys_wq != 0
+                 && RMC_guest_phys_cq != 0
+                 && RMC_guest_phys_ctx != 0) {
+
+					RMC_initialize_cpu();
+                    /* Try to get the ram_addr_t of the guest-physical addr for wq
+                     * - use the MemoryRegion abstraction
+                     */
+                    hwaddr xlat, plen;
+                    rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                    MemoryRegion* mr = address_space_translate(cpu->as,
+                            RMC_guest_phys_wq,
+                            &xlat,
+                            &plen,
+                            false // not a write
+                            );
+                    rcu_read_unlock();
+                    xlat += memory_region_get_ram_addr(mr);
+                    RMC_host_addr_wq = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+                    rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                    mr = address_space_translate(cpu->as,
+                            RMC_guest_phys_cq,
+                            &xlat,
+                            &plen,
+                            false // not a write
+                            );
+                    rcu_read_unlock();
+                    xlat += memory_region_get_ram_addr(mr);
+                    RMC_host_addr_cq = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+                    rcu_read_lock();
+                        // address_space_translate called from RCU critical section
+                    mr = address_space_translate(cpu->as,
+                            RMC_guest_phys_ctx,
+                            &xlat,
+                            &plen,
+                            false // not a write
+                            );
+                    rcu_read_unlock();
+                    xlat += memory_region_get_ram_addr(mr);
+					RMC_host_addr_ctx = (void *)qemu_map_ram_ptr(NULL,xlat);
+
+					RMC_cq_init(0,RMC_host_addr_cq);
+					RMC_wq_init(0,RMC_host_addr_wq);
+                    printf("Got here, translated successfully all pointers for WQ, CQ, and ctx.\n");
+                    RMC_initialised = 1;
+				}
+			} else {
+				RMC_advance_pipelines();
+			} // if rmc_nitialized == 0?
+		} // if rmc does exist
     } while (ret == 0);
 
     cpu_exec_end(cpu);
