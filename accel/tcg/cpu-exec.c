@@ -762,7 +762,7 @@ int cpu_exec(CPUState *cpu)
 
 
 
-#if defined(CONFIG_FA-QFLEX) || defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
 static int qflex_keep_looping = false;
 static int qflex_executed_once = false;
 
@@ -912,4 +912,4 @@ int qflex_cpu_exec(CPUState *cpu)
 
     return ret;
 }
-#endif
+#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */

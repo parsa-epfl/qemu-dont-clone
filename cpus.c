@@ -1859,7 +1859,7 @@ static void process_icount_data(CPUState *cpu)
 }
 
 
-#if defined(CONFIG_FA-QFLEX) || defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
 static int qflex_tcg_cpu_exec(CPUState *cpu)
 {
     int ret;
@@ -1920,7 +1920,7 @@ static int qflex_cpu_step(CPUState *cpu)
     qemu_tcg_wait_io_event(cpu);
     return r;
 }
-#endif /* CONFIG_FA-QFLEX */ /* CONFIG_FLEXUS */
+#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_FLEXUS
 int advance_qemu(void * obj){
