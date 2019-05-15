@@ -361,7 +361,7 @@ static const char* get_base_ckpt_name(void) { return ckpt_state.base_snap_name; 
 uint64_t get_ckpt_interval(void){ return ckpt_state.ckpt_interval; }
 uint64_t get_ckpt_end(void)     { return ckpt_state.ckpt_end; }
 const char* get_ckpt_name(void) { return snap_name; }
-bool phase_is_valid(void)   { return !QLIST_EMPTY(&phases_head); }
+bool phase_is_valid(void)   { return (QLIST_EMPTY(&phases_head) ? false : true); }
 bool is_phases_enabled(void){ return using_phases; }
 bool is_ckpt_enabled(void)  { return using_ckpt; }
 void toggle_phases_creation(void) { using_phases = !using_phases; }
