@@ -11946,3 +11946,12 @@ void helper_flexus_st_aa32(
 }
 
 #endif /* CONFIG_FLEXUS */
+
+#if defined(CONFIG_FA-QFLEX) || config(CONFIG_FLEXUS)
+void helper_qflex_magic_ins(int v) {
+//    qflex_log_mask(ARMFLEX_LOG_MAGIC,"MAGIC_INST:%u\n", v);
+    switch(v) {
+    default: break;
+    }
+}
+#endif /* CONFIG_FA-QFLEX */ /* CONFIG_FLEXUS */
