@@ -36,6 +36,26 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#ifdef CONFIG_PTH
+extern int iloop;
+static int iExit;
+
+#define PTH_INIT_LOOP() do {    \
+    iExit = 0                   \
+    } while(0)
+
+#define PTH_CHECK_LOOP(cpu, limit) do { \
+    if (limit > 0) {                    \
+        if (++iExit > limit) {          \
+            iExit = 0;                  \
+            qemu_cpu_kick(cpu);         \
+        }}                              \
+    } while(0)
+#else
+#define PTH_INIT_LOOP()
+#define PTH_CHECK_LOOP(cpu, limit)
+#endif
+
 #ifdef CONFIG_QUANTUM
 #define QUANTUM_LIMIT \
     !cpu->hasReachedInstrLimit
@@ -668,12 +688,14 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
 
 int cpu_exec(CPUState *cpu)
 {
+    PTH_UPDATE_CONTEXT;
+
     CPUClass *cc = CPU_GET_CLASS(cpu);
     int ret;
     SyncClocks sc = { 0 };
 
     /* replay_interrupt may need current_cpu */
-    current_cpu = cpu;
+    PTH(current_cpu) = cpu;
 
     if (cpu_handle_halt(cpu)) {
         return EXCP_HALTED;
@@ -712,6 +734,7 @@ int cpu_exec(CPUState *cpu)
         }
         assert_no_pages_locked();
     }
+    PTH_INIT_LOOP();
 
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret)) {
@@ -720,6 +743,8 @@ int cpu_exec(CPUState *cpu)
 
         while (!cpu_handle_interrupt(cpu, &last_tb)) {
             TranslationBlock *tb;
+
+            PTH_CHECK_LOOP(cpu, iloop);
 
             tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
@@ -735,25 +760,7 @@ int cpu_exec(CPUState *cpu)
     return ret;
 }
 
-#ifdef CONFIG_PTH
-extern int iloop;
-static int iExit;
 
-#define PTH_INIT_LOOP() do {    \
-    iExit = 0                   \
-    } while(0)
-
-#define PTH_CHECK_LOOP(cpu, limit) do { \
-    if (limit > 0) {                    \
-        if (++iExit > limit) {          \
-            iExit = 0;                  \
-            qemu_cpu_kick(cpu);         \
-        }}                              \
-    } while(0)
-#else
-#define PTH_INIT_LOOP()
-#define PTH_CHECK_LOOP(cpu, limit)
-#endif
 
 #if defined(CONFIG_FA-QFLEX) || defined(CONFIG_FLEXUS)
 static int qflex_keep_looping = false;
