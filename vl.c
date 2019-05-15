@@ -27,8 +27,6 @@
 #include "qemu/help_option.h"
 #include "qemu/uuid.h"
 
-
-
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
 #include "sys/prctl.h"
@@ -55,7 +53,6 @@ int main(int argc, char **argv)
 #undef main
 #define main qemu_main
 #endif /* CONFIG_COCOA */
-
 
 #include "qemu/error-report.h"
 #include "qemu/sockets.h"
@@ -115,7 +112,6 @@ int main(int argc, char **argv)
 #include "sysemu/qtest.h"
 
 #include "disas/disas.h"
-
 
 #include "slirp/libslirp.h"
 

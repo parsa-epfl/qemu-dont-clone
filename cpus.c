@@ -52,31 +52,23 @@
 #include "sysemu/replay.h"
 #include "hw/boards.h"
 
-extern bool executed_once;
-
-#ifdef CONFIG_EXTSNAP
-#include <dirent.h>
-#endif
-
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
 #include "../libqflex/api.h"
 
-typedef enum simulation_mode{
+typedef enum simulation_mode {
     NONE,
     TRACE,
     TIMING,
     LASTMODE,
 }simulation_mode;
-static const char* simulation_mode_strings[] =
-{
-"NONE",
-"TRACE",
-"TIMING",
-"LAST"
+static const char* simulation_mode_strings[] = {
+    "NONE",
+    "TRACE",
+    "TIMING",
+    "LASTMODE"
 };
-typedef struct flexus_state_t
-{
+typedef struct flexus_state_t {
     simulation_mode mode;
     uint64_t length;
     const char * simulator;
@@ -86,19 +78,22 @@ typedef struct flexus_state_t
     const char* debug_mode;
 
 }flexus_state_t;
+
 static flexus_state_t flexus_state;
-static void flexus_setUserPostLoadFile ( const char *file_name){
+extern bool executed_once;
+
+int flexus_in_timing(void){ return flexus_state.mode == TIMING; }
+int flexus_in_trace(void) { return flexus_state.mode == TRACE; }
+bool flexus_in_simulation(void){ return flexus_in_timing() | flexus_in_trace(); }
+bool hasSimulator(void){ return flexus_state.simulator_obj != NULL; }
+
+static void flexus_setUserPostLoadFile (const char *file_name){
     simulator_config(file_name);
 }
 const char* flexus_simulation_status(void){
     return simulation_mode_strings[flexus_state.mode];
 }
-bool flexus_in_simulation(void){
-    return flexus_in_timing() | flexus_in_trace();
-}
-bool hasSimulator(void){
-    return flexus_state.simulator_obj != NULL;
-}
+
 void quitFlexus(void){
     if (flexus_in_simulation()) {
         if(hasSimulator())
@@ -111,7 +106,6 @@ void quitFlexus(void){
 }
 void prepareFlexus(void){
     if (flexus_in_simulation()) {
-
         if(hasSimulator()){
             if (flexus_state.config_file){
                 flexus_setUserPostLoadFile(flexus_state.config_file);
@@ -131,7 +125,6 @@ void prepareFlexus(void){
 }
 void initFlexus(void){
     if (flexus_in_simulation()) {
-
         if( hasSimulator()) {
             QFLEX_API_Interface_Hooks_t* hooks = (QFLEX_API_Interface_Hooks_t*)malloc(sizeof(QFLEX_API_Interface_Hooks_t));
             QFLEX_API_get_Interface_Hooks (hooks);
@@ -145,9 +138,9 @@ void initFlexus(void){
 }
 void startFlexus(void){
     if (flexus_in_timing()) {
-        if(hasSimulator())
+        if(hasSimulator()) {
             simulator_start();
-        else {
+        } else {
             fprintf(stderr, "no simulator object found!");
             exit(1);
         }
@@ -162,19 +155,11 @@ void flexus_qmp(qmp_flexus_cmd_t cmd, const char* args, Error **errp){
             fprintf(stderr, "no simulator object found!");
             exit(1);
         }
-    }
-    else
-    {
+    } else {
         error_setg(errp, "flexus is not running");
-
     }
 }
-int flexus_in_timing(void){
-    return flexus_state.mode == TIMING;
-}
-int flexus_in_trace(void){
-    return flexus_state.mode == TRACE;
-}
+
 void flexus_addDebugCfg(const char *filename, Error **errp){
     flexus_qmp(QMP_FLEXUS_ADDDEBUGCFG, filename, errp);
 }
@@ -191,7 +176,6 @@ void flexus_disableComponent(const char *component, const char *index, Error **e
     char* args = malloc((strlen(component)+strlen(index)*sizeof(char)));
     sprintf(args, "%s:%s",component, index);
     flexus_qmp(QMP_FLEXUS_DISABLECOMPONENT, args, errp);
-
 }
 void flexus_enableCategory(const char *component, Error **errp){
     flexus_qmp(QMP_FLEXUS_ENABLECATEGORY, component, errp);
@@ -317,141 +301,10 @@ void flexus_doLoad(const char *dir_name, Error **errp){
     if (file_count > 2) // might not be best
         flexus_qmp(QMP_FLEXUS_DOLOAD, dir_name, errp);
 }
-#endif
 
-#ifdef CONFIG_EXTSNAP
-typedef struct phases_state_t
-{
-    uint64_t val;
-    int id;
-    QLIST_ENTRY(phases_state_t) next;
-
-}phases_state_t;
-typedef struct ckpt_state_t{
-    uint64_t ckpt_interval;
-    uint64_t ckpt_end;
-    char * base_snap_name;
-    int ckpt_id;
-}ckpt_state_t;
-
-static ckpt_state_t ckpt_state;
-static bool using_phases;
-static bool using_ckpt;
-static char * phases_prefix;
-static char* snap_name;
-bool cont_requested, save_requested, quit_requested;
-static QLIST_HEAD(, phases_state_t) phases_head = QLIST_HEAD_INITIALIZER(phases_head);
-static int get_phase_id(void)
-{
-    if (QLIST_EMPTY(&phases_head))
-        assert(false);
-    phases_state_t *p = QLIST_FIRST(&phases_head);
-    return p->id;
-}
-uint64_t get_phase_value(void){
-    if (QLIST_EMPTY(&phases_head))
-        assert(false);
-    phases_state_t *p = QLIST_FIRST(&phases_head);
-    return p->val;
-}
-static const char* get_phases_prefix(void)
-{
-    return phases_prefix;
-}
-bool is_phases_enabled(void){
-    return using_phases;
-}
-bool is_ckpt_enabled(void){
-    return using_ckpt;
-}
-bool phase_is_valid(void){
-    if (!QLIST_EMPTY(&phases_head))
-        return true;
-    return false;
-}
-void set_base_ckpt_name(const char* str){
-
-    if (strcmp(str,"")==0) {
-        ckpt_state.base_snap_name = (char*)malloc(6*sizeof(char));
-        for (int i =0; i<6;++i){
-            char randomletter = 'A' + (random() % 26);
-            ckpt_state.base_snap_name[i] = randomletter;
-        }
-    } else {
-        ckpt_state.base_snap_name = strdup(str);
-    }
-}
-static const char* get_base_ckpt_name(void){
-    return ckpt_state.base_snap_name;
-}
-static void set_snap_name(const char* str){
-    snap_name = strdup(str);
-}
-static void request_save(const char*str)
-{
-    set_snap_name(str);
-    save_requested = true;
-}
-void save_ckpt(void){
-
-    char* name = (char*)malloc(strlen(get_base_ckpt_name())+5*sizeof(char));
-    sprintf(name, "%s_ckpt_%03d", get_base_ckpt_name(), ckpt_state.ckpt_id++);
-    request_save(name);
-}
-void toggle_phases_creation(void){
-    using_phases = !using_phases;
-}
-void toggle_ckpt_creation(void){
-    using_ckpt = !using_ckpt;
-}
-void save_phase(void){
-
-    char* name = (char*)malloc(strlen(get_phases_prefix())+4*sizeof(char));
-    sprintf(name, "%s_%03d", get_phases_prefix(), get_phase_id());
-    request_save(name);
-}
-uint64_t get_ckpt_interval(void){
-    return ckpt_state.ckpt_interval;
-}
-uint64_t get_ckpt_end(void){
-    return ckpt_state.ckpt_end;
-}
-const char* get_ckpt_name(void){
-    return snap_name;
-}
-bool save_request_pending(void)
-{
-    return save_requested;
-}
-void request_cont(void)
-{
-    cont_requested = true;
-}
-void request_quit(void)
-{
-    quit_requested = true;
-}
-bool quit_request_pending(void)
-{
-    return quit_requested;
-}
-bool cont_request_pending(void)
-{
-    return cont_requested;
-}
-void toggle_save_request(void)
-{
-    save_requested = !save_requested;
-}
-void toggle_cont_request(void)
-{
-    cont_requested = !cont_requested;
-}
-#endif
-
+#endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_QUANTUM
-
 typedef struct {
     uint64_t quantum_value, quantum_record_value, quantum_node_value,quantum_step_value;
     char* quantum_file_value;
@@ -460,7 +313,165 @@ typedef struct {
 } quantum_state_t;
 
 static quantum_state_t quantum_state;
-#endif
+
+bool query_quantum_pause_state(void) { return quantum_state.quantum_pause; }
+void quantum_pause(void)    { quantum_state.quantum_pause = true; }
+void quantum_unpause(void)  { quantum_state.quantum_pause = false; qmp_cont(NULL); }
+uint64_t* increment_total_num_instr(void) {
+    quantum_state.total_num_instructions++;
+    return &(quantum_state.total_num_instructions);
+}
+uint64_t query_total_num_instr(void)        { return quantum_state.total_num_instructions; }
+uint64_t query_quantum_core_value(void)     { return quantum_state.quantum_value; }
+uint64_t query_quantum_record_value(void)   { return quantum_state.quantum_record_value; }
+uint64_t query_quantum_step_value(void)     { return quantum_state.quantum_step_value; }
+uint64_t query_quantum_node_value(void)     { return quantum_state.quantum_node_value; }
+const char* query_quantum_file_value(void)  { return quantum_state.quantum_file_value; }
+void set_total_num_instr(uint64_t val)      { quantum_state.total_num_instructions = val; }
+void set_quantum_value(uint64_t val)        { quantum_state.quantum_value = val; }
+void set_quantum_record_value(uint64_t val) { quantum_state.quantum_record_value = val; }
+void set_quantum_node_value(uint64_t val)   { quantum_state.quantum_node_value = val; }
+#endif /* CONFIG_QUANTUM */
+
+#ifdef CONFIG_EXTSNAP
+#include <dirent.h>
+
+typedef struct phases_state_t {
+    uint64_t val;
+    int id;
+    QLIST_ENTRY(phases_state_t) next;
+}phases_state_t;
+typedef struct ckpt_state_t {
+    uint64_t ckpt_interval;
+    uint64_t ckpt_end;
+    char* base_snap_name;
+    int ckpt_id;
+}ckpt_state_t;
+
+static ckpt_state_t ckpt_state;
+static bool using_phases;
+static bool using_ckpt;
+static char* phases_prefix;
+static char* snap_name;
+static QLIST_HEAD(, phases_state_t) phases_head = QLIST_HEAD_INITIALIZER(phases_head);
+static bool cont_requested, save_requested, quit_requested;
+
+static const char* get_phases_prefix(void) { return phases_prefix; }
+static const char* get_base_ckpt_name(void) { return ckpt_state.base_snap_name; }
+uint64_t get_ckpt_interval(void){ return ckpt_state.ckpt_interval; }
+uint64_t get_ckpt_end(void)     { return ckpt_state.ckpt_end; }
+const char* get_ckpt_name(void) { return snap_name; }
+bool phase_is_valid(void)   { return !QLIST_EMPTY(&phases_head); }
+bool is_phases_enabled(void){ return using_phases; }
+bool is_ckpt_enabled(void)  { return using_ckpt; }
+void toggle_phases_creation(void) { using_phases = !using_phases; }
+void toggle_ckpt_creation(void)   { using_ckpt   = !using_ckpt; }
+void toggle_save_request(void)  { save_requested = !save_requested; }
+void toggle_cont_request(void)  { cont_requested = !cont_requested; }
+void request_cont(void) { cont_requested = true; }
+void request_quit(void) { quit_requested = true; }
+bool save_request_pending(void) { return save_requested; }
+bool cont_request_pending(void) { return cont_requested; }
+bool quit_request_pending(void) { return quit_requested; }
+
+static int get_phase_id(void)
+{
+    if (QLIST_EMPTY(&phases_head)) assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    return p->id;
+}
+uint64_t get_phase_value(void){
+    if (QLIST_EMPTY(&phases_head)) assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    return p->val;
+}
+void set_base_ckpt_name(const char* str){
+    if (strcmp(str,"")==0) {
+        ckpt_state.base_snap_name = (char*)malloc(6*sizeof(char));
+        for (int i =0; i<6;++i) {
+            char randomletter = 'A' + (random() % 26);
+            ckpt_state.base_snap_name[i] = randomletter;
+        }
+    } else {
+        ckpt_state.base_snap_name = strdup(str);
+    }
+}
+static inline void request_save(const char*str) {
+    snap_name = strdup(str);
+    save_requested = true;
+}
+void save_ckpt(void) {
+    char* name = (char*)malloc(strlen(get_base_ckpt_name())+5*sizeof(char));
+    sprintf(name, "%s_ckpt_%03d", get_base_ckpt_name(), ckpt_state.ckpt_id++);
+    request_save(name);
+}
+void save_phase(void) {
+    char* name = (char*)malloc(strlen(get_phases_prefix())+4*sizeof(char));
+    sprintf(name, "%s_%03d", get_phases_prefix(), get_phase_id());
+    request_save(name);
+}
+void pop_phase(void) {
+    if (QLIST_EMPTY(&phases_head)) assert(false);
+    phases_state_t *p = QLIST_FIRST(&phases_head);
+    QLIST_REMOVE(p, next);
+
+}
+void configure_phases(QemuOpts *opts, Error **errp) {
+    const char* step_opt, *name_opt;
+    step_opt = qemu_opt_get(opts, "steps");
+    name_opt = qemu_opt_get(opts, "name");
+
+    int id = 0;
+    if (!step_opt) {
+        error_setg(errp, "no distances for phases defined");
+    }
+    if (!name_opt) {
+        fprintf(stderr, "no naming prefix  given for phases option. will use prefix phase_00X");
+        phases_prefix = strdup("phase");
+    } else {
+        phases_prefix = strdup(name_opt);
+    }
+
+    phases_state_t * head = calloc(1, sizeof(phases_state_t));
+
+    char* token = strtok((char*) step_opt, ":");
+    processForOpts(&head->val, token, errp);
+    head->id = id++;
+    QLIST_INSERT_HEAD(&phases_head, head, next);
+
+    while (token) {
+        token = strtok(NULL, ":");
+
+        if (token) {
+            phases_state_t* phase = calloc(1, sizeof(phases_state_t));
+            processForOpts(&phase->val, token, errp);
+            phase->id= id++;
+            QLIST_INSERT_AFTER(head, phase, next);
+            head = phase;
+        }
+    }
+}
+void configure_ckpt(QemuOpts *opts, Error **errp) {
+    const char* every_opt, *end_opt;
+    every_opt = qemu_opt_get(opts, "every");
+    end_opt = qemu_opt_get(opts, "end");
+
+    if (!every_opt) {
+        error_setg(errp, "no interval given for ckpt option. cant continue");
+    }
+    if (!end_opt) {
+        error_setg(errp, "no end given for ckpt option. cant continue");
+    }
+
+    processForOpts(&ckpt_state.ckpt_interval, every_opt, errp);
+    processForOpts(&ckpt_state.ckpt_end, end_opt, errp);
+
+    if (ckpt_state.ckpt_end < ckpt_state.ckpt_interval) {
+        error_setg(errp, "ckpt end cant be smaller than ckpt interval");
+    }
+}
+#endif /* CONFIG_EXTSNAP */
+
 #ifdef CONFIG_LINUX
 
 #include <sys/prctl.h>
@@ -1154,7 +1165,7 @@ void cpu_ticks_init(void)
 #define BIL 1E9
 void processLetterforExponent(uint64_t *val, char c, Error **errp)
 {
-    switch(c){
+    switch(c) {
         case 'K': case 'k' :
         *val *= KIL;
         break;
@@ -1175,8 +1186,7 @@ void processForOpts(uint64_t *val, const char* qopt, Error **errp)
     size_t s = strlen(qopt);
     char c = qopt[s-1];
 
-    if (isalpha(c)){
-
+    if (isalpha(c)) {
         char* temp= strndup(qopt,  strlen(qopt)-1);
         *val = atoi(temp);
         free(temp);
@@ -1186,14 +1196,13 @@ void processForOpts(uint64_t *val, const char* qopt, Error **errp)
         }
 
         processLetterforExponent(&(*val), c, errp);
-    }
-    else{
+    } else {
         *val = atoi(qopt);
     }
 }
 #endif
 
-#if defined(CONFIG_QUANTUM)
+#ifdef CONFIG_QUANTUM
 void configure_quantum(QemuOpts *opts, Error **errp)
 {
     const char* qopt, *qopt_record, *qopt_node, *qopt_step, *qopt_file;
@@ -1203,48 +1212,46 @@ void configure_quantum(QemuOpts *opts, Error **errp)
     qopt_file = qemu_opt_get(opts, "file");
     qopt_node = qemu_opt_get(opts, "node");
 
-    if (!qopt_file && qopt_record){
+    if (!qopt_file && qopt_record) {
         fprintf(stderr, "no file defined for quantum record output - using current directory and will save to quantum_file.dat");
         quantum_state.quantum_file_value = strdup("quantum_file.dat"); // defaulting to current directory
-    }else if (qopt_file && !qopt_record) {
+    } else if (qopt_file && !qopt_record) {
         error_setg(errp, "quantum step can only be used with record");
-    }else if (qopt_file && qopt_record)
+    } else if (qopt_file && qopt_record) {
         quantum_state.quantum_file_value = strdup(qopt_file);
+    }
 
-    if (!qopt_step && qopt_record){
+    if (!qopt_step && qopt_record) {
         fprintf(stderr, "no quantum step defined for quantum record. - will use a default value of 100M");
         quantum_state.quantum_step_value = 1e8; // 100 MIPS by default
-    } else if (qopt_step && !qopt_record){
+    } else if (qopt_step && !qopt_record) {
         error_setg(errp, "quantum step can only be used with record");
-    } else if (qopt_step && qopt_record)
+    } else if (qopt_step && qopt_record) {
         processForOpts(&quantum_state.quantum_step_value, qopt_step, errp);
+    }
 
-
-
-    if(!qopt && !qopt_record && !qopt_node){
+    if (!qopt && !qopt_record && !qopt_node) {
         error_setg(errp, "quantum option is not valid");
         exit(1);
     }
-    if(qopt && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN))
+    if (qopt && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
         processForOpts(&quantum_state.quantum_value, qopt, errp);
-    else if (qopt && !qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN))
+    } else if (qopt && !qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
         processForOpts(&quantum_state.quantum_value, qopt, errp);
         printf("quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
-//        error_setg(errp, "quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
-
-
-    if(qopt_record)
+        //error_setg(errp, "quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
+    }
+    if (qopt_record) {
         processForOpts(&quantum_state.quantum_record_value, qopt_record, errp);
-
-    if(qopt_node){
+    }
+    if (qopt_node) {
         processForOpts(&quantum_state.quantum_node_value, qopt_node, errp);
-        if (quantum_state.quantum_node_value > 0)
-        {
+        if (quantum_state.quantum_node_value > 0) {
            raise(SIGSTOP);
         }
     }
 }
-#endif
+#endif /* CONFIG_QUANTUM */
 
 #ifdef CONFIG_FLEXUS
 void configure_flexus(QemuOpts *opts, Error **errp)
@@ -1261,9 +1268,9 @@ void configure_flexus(QemuOpts *opts, Error **errp)
     }
     char* temp = strdup(mode_opt);
 
-    if (strcmp(temp, "timing") == 0){
+    if (strcmp(temp, "timing") == 0) {
         flexus_state.mode = TIMING;
-        if (!length_opt || !simulator_opt || !config_opt){
+        if (!length_opt || !simulator_opt || !config_opt) {
             error_setg(errp, "all flexus option need to be defined");
         }
         processForOpts(&flexus_state.length, length_opt, errp);
@@ -1271,11 +1278,9 @@ void configure_flexus(QemuOpts *opts, Error **errp)
             error_setg(errp, "undefined simulation length.");
         }
         QEMU_setSimulationTime(flexus_state.length);
-
-
     } else if (strcmp(temp, "trace")== 0) {
         flexus_state.mode = TRACE;
-        if (!simulator_opt || !config_opt){
+        if (!simulator_opt || !config_opt) {
             error_setg(errp, "all flexus option need to be defined");
         }
     } else {
@@ -1285,9 +1290,6 @@ void configure_flexus(QemuOpts *opts, Error **errp)
     flexus_state.mode = strcmp(temp, "timing")==0 ? TIMING : TRACE;
     QEMU_initialize((flexus_state.mode == TIMING) ? true : false);
     free(temp);
-
-
-
 
     flexus_state.simulator = strdup(simulator_opt);
     if( access( flexus_state.simulator, F_OK ) != -1 ) {
@@ -1306,7 +1308,7 @@ void configure_flexus(QemuOpts *opts, Error **errp)
         error_setg(errp, "no config file (user_postload) at this path %s\n", config_opt);
     }
 
-    if (debug_opt){
+    if (debug_opt) {
         char* tmp = strdup(debug_opt);
         for (int i = 0; i < strlen(debug_opt); i++){
             tmp[i] = tolower(debug_opt[i]);
@@ -1322,93 +1324,19 @@ void configure_flexus(QemuOpts *opts, Error **errp)
     // trigger the periodic event
     QEMU_execute_callbacks(-1, 0, 0);
 }
-void set_flexus_load_dir(const char* dir_name){
+void set_flexus_load_dir(const char* dir_name) {
     DIR* dir = opendir(dir_name);
-    if (dir)
-    {
+    if (dir) {
         /* Directory exists. */
         flexus_state.load_dir = strdup(dir_name);
         closedir(dir);
-    }
-    else if (ENOENT == errno)
-    {
+    } else if (ENOENT == errno) {
         /* Directory does not exist. */
-    }
-    else
-    {
+    } else {
         /* opendir() failed for some other reason. */
     }
 }
-#endif
-
-#ifdef CONFIG_EXTSNAP
-void pop_phase(void)
-{
-    if (QLIST_EMPTY(&phases_head))
-        assert(false);
-    phases_state_t *p = QLIST_FIRST(&phases_head);
-    QLIST_REMOVE(p, next);
-
-}
-void configure_phases(QemuOpts *opts, Error **errp)
-{
-    const char* step_opt, *name_opt;
-    step_opt = qemu_opt_get(opts, "steps");
-    name_opt = qemu_opt_get(opts, "name");
-
-    int id = 0;
-    if (!step_opt ){
-        error_setg(errp, "no distances for phases defined");
-    }
-    if (!name_opt ){
-        fprintf(stderr, "no naming prefix  given for phases option. will use prefix phase_00X");
-        phases_prefix = strdup("phase");
-    } else {
-        phases_prefix = strdup(name_opt);
-    }
-
-
-    phases_state_t * head = calloc(1, sizeof(phases_state_t));
-
-    char* token = strtok((char*) step_opt, ":");
-    processForOpts(&head->val, token, errp);
-    head->id = id++;
-    QLIST_INSERT_HEAD(&phases_head, head, next);
-
-    while (token) {
-        token = strtok(NULL, ":");
-
-        if (token){
-            phases_state_t* phase = calloc(1, sizeof(phases_state_t));
-            processForOpts(&phase->val, token, errp);
-            phase->id= id++;
-            QLIST_INSERT_AFTER(head, phase, next);
-            head = phase;
-        }
-    }
-}
-void configure_ckpt(QemuOpts *opts, Error **errp)
-{
-    const char* every_opt, *end_opt;
-    every_opt = qemu_opt_get(opts, "every");
-    end_opt = qemu_opt_get(opts, "end");
-
-    if (!every_opt ){
-        error_setg(errp, "no interval given for ckpt option. cant continue");
-    }
-    if (!end_opt ){
-        error_setg(errp, "no end given for ckpt option. cant continue");
-    }
-
-    processForOpts(&ckpt_state.ckpt_interval, every_opt, errp);
-    processForOpts(&ckpt_state.ckpt_end, end_opt, errp);
-
-    if (ckpt_state.ckpt_end < ckpt_state.ckpt_interval){
-        error_setg(errp, "ckpt end cant be smaller than ckpt interval");
-    }
-
-}
-#endif
+#endif /* CONFIG_FLEXUS */
 
 void configure_icount(QemuOpts *opts, Error **errp)
 {
@@ -1929,84 +1857,13 @@ static void process_icount_data(CPUState *cpu)
         replay_account_executed_instructions();
     }
 }
-#ifdef CONFIG_QUANTUM
-bool query_quantum_pause_state(void)
-{
-    return quantum_state.quantum_pause;
-}
 
-void quantum_unpause(void)
-{
-    quantum_state.quantum_pause = false;
-    qmp_cont(NULL);
-}
-
-void quantum_pause(void)
-{
-    quantum_state.quantum_pause = true;
-}
-
-uint64_t* increment_total_num_instr(void)
-{
-      quantum_state.total_num_instructions++;
-      return &(quantum_state.total_num_instructions);
-}
-uint64_t query_total_num_instr(void)
-{
-    return quantum_state.total_num_instructions;
-}
-void set_total_num_instr(uint64_t val)
-{
-    quantum_state.total_num_instructions = val;
-}
-uint64_t query_quantum_core_value(void)
-{
-    return quantum_state.quantum_value;
-}
-uint64_t query_quantum_record_value(void)
-{
-    return quantum_state.quantum_record_value;
-}
-
-uint64_t query_quantum_step_value(void)
-{
-    return quantum_state.quantum_step_value;
-}
-
-const char* query_quantum_file_value(void)
-{
-    return quantum_state.quantum_file_value;
-}
-
-uint64_t query_quantum_node_value(void)
-{
-    return quantum_state.quantum_node_value;
-}
-
-void set_quantum_value(uint64_t val)
-{
-    quantum_state.quantum_value = val;
-}
-
-void set_quantum_record_value(uint64_t val)
-{
-    quantum_state.quantum_record_value = val;
-}
-
-void set_quantum_node_value(uint64_t val)
-{
-    quantum_state.quantum_node_value = val;
-}
-#endif
 
 static int tcg_cpu_exec(CPUState *cpu)
 {
     int ret;
 #ifdef CONFIG_PROFILER
     int64_t ti;
-#endif
-
-#ifdef CONFIG_PROFILER
     ti = profile_getclock();
 #endif
     qemu_mutex_unlock_iothread();
@@ -2097,7 +1954,7 @@ const char* advance_qemu(void * obj){
     executed_once = false;
     return rstr;
 }
-#endif
+#endif /* CONFIG_FLEXUS */
 
 /* Single-threaded TCG
  *
@@ -2149,7 +2006,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         startFlexus();
         return NULL;
     }
-#endif
+#endif /* CONFIG_FLEXUS */
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
         qemu_account_warp_timer();
@@ -2185,15 +2042,13 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                      if(cpu->hasReachedInstrLimit){
                          cpu->hasReachedInstrLimit = false;
                      }
-		 }
-
-                // for debugging purposes
-                if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG|| r == EXCP_HALTED || r == EXCP_YIELD || r ==EXCP_ATOMIC)
-                {
-                    cpu->nr_exp[r-EXCP_INTERRUPT]++;
-
                 }
-#endif
+                // for debugging purposes
+                if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG
+                        || r == EXCP_HALTED || r == EXCP_YIELD || r == EXCP_ATOMIC) {
+                    cpu->nr_exp[r-EXCP_INTERRUPT]++;
+                }
+#endif /* CONFIG_QUANTUM */
                 if (r == EXCP_DEBUG) {
                     cpu_handle_guest_debug(cpu);
                     break;
@@ -2304,7 +2159,7 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
     cpu->nr_exp[3] = 0;
     cpu->nr_exp[4] = 0;
     cpu->nr_exp[5] = 0;
-#endif
+#endif /* CONFIG_QUANTUM */
     PTH(current_cpu) = cpu;
     qemu_cond_signal(&qemu_cpu_cond);
 
@@ -2900,19 +2755,19 @@ void dump_drift_info(FILE *f, fprintf_function cpu_fprintf)
         cpu_fprintf(f, "Max guest advance   NA\n");
     }
 }
-#if defined (CONFIG_FLEXUS)
+#ifdef CONFIG_FLEXUS
 //NOOSHIN: test begin
 int get_info(void *opaque){
-  CPUState* cpu = (CPUState*)opaque;
+    CPUState* cpu = (CPUState*)opaque;
 
-  int r = 0;
-  printf("QEMU: in get_info\n");
+    int r = 0;
+    printf("QEMU: in get_info\n");
 
-  /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
+    /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
     qemu_account_warp_timer();
 
     qemu_clock_enable(QEMU_CLOCK_VIRTUAL,
-                          (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
+                      (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
 
     if (cpu_can_run(cpu)) {
         r = tcg_cpu_exec(cpu);
@@ -2922,7 +2777,7 @@ int get_info(void *opaque){
         }
     }
     /* Pairs with smp_wmb in qemu_cpu_kick.  */
-   // atomic_mb_set(&exit_request, 0);
+    // atomic_mb_set(&exit_request, 0);
 
     if (use_icount) {
         int64_t deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL);
@@ -2936,4 +2791,4 @@ int get_info(void *opaque){
     return 0;
 }
 //NOOSHIN: test end
-#endif
+#endif /* CONFIG_FLEXUS */

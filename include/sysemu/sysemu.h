@@ -160,30 +160,29 @@ void flexus_doLoad(const char* dir_name, Error **errp);
 #endif
 
 #ifdef CONFIG_EXTSNAP
-void configure_phases(QemuOpts *opts, Error **errp);
-void configure_ckpt(QemuOpts *opts, Error **errp);
-uint64_t get_phase_value(void);
+uint64_t get_ckpt_interval(void);
+uint64_t get_ckpt_end(void);
+const char* get_ckpt_name(void);
+bool phase_is_valid(void);
 bool is_phases_enabled(void);
 bool is_ckpt_enabled(void);
 void toggle_phases_creation(void);
 void toggle_ckpt_creation(void);
-bool phase_is_valid(void);
-void save_phase(void);
-void save_ckpt(void);
-void pop_phase(void);
+void toggle_save_request(void);
+void toggle_cont_request(void);
+void request_cont(void);
+void request_quit(void);
 bool save_request_pending(void);
 bool cont_request_pending(void);
 bool quit_request_pending(void);
-void request_cont(void);
-void request_quit(void);
-void toggle_cont_request(void);
-void toggle_save_request(void);
+uint64_t get_phase_value(void);
 void set_base_ckpt_name(const char* str);
-const char* get_ckpt_name(void);
-uint64_t get_ckpt_interval(void);
-uint64_t get_ckpt_end(void);
-bool can_quit(void);
-void toggle_can_quit(void);
+void save_ckpt(void);
+void save_phase(void);
+
+void pop_phase(void);
+void configure_phases(QemuOpts *opts, Error **errp);
+void configure_ckpt(QemuOpts *opts, Error **errp);
 #endif
 
 #ifdef CONFIG_QUANTUM
@@ -192,12 +191,12 @@ void quantum_pause(void);
 void quantum_unpause(void);
 uint64_t* increment_total_num_instr(void);
 uint64_t query_total_num_instr(void);
-void set_total_num_instr(uint64_t val);
 uint64_t query_quantum_core_value(void);
 uint64_t query_quantum_record_value(void);
 uint64_t query_quantum_step_value(void);
 uint64_t query_quantum_node_value(void);
 const char* query_quantum_file_value(void);
+void set_total_num_instr(uint64_t val);
 void set_quantum_value(uint64_t val);
 void set_quantum_record_value(uint64_t val);
 void set_quantum_node_value(uint64_t val);
@@ -207,7 +206,7 @@ void configure_quantum(QemuOpts *opts, Error **errp);
 #endif
 
 #if defined(CONFIG_QUANTUM) || defined(CONFIG_FLEXUS) || defined(CONFIG_EXTSNAP)
- void processForOpts(uint64_t *val, const char* qopt, Error **errp);
+void processForOpts(uint64_t *val, const char* qopt, Error **errp);
 void processLetterforExponent(uint64_t *val, char c, Error **errp);
 #endif
 
