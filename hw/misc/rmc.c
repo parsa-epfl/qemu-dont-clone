@@ -474,20 +474,20 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
                 if( my_qps.wq_arr_used[i] ) {
                     xlat = cpu_get_phys_page_debug( PTH(current_cpu), my_qps.wq_arr_gvas[i] & TARGET_PAGE_MASK );
                     my_qps.wq_arr_gpas[i] = xlat | (my_qps.wq_arr_gvas[i] & ~TARGET_PAGE_MASK);
-                    DRMC_Print("WQ[%d] gPA value: %#018lX\n",i,my_qps.wq_arr_gpas[i]);
+                    DRMC_Print("WQ[%d] gPA value: %#018lx, xlat %#lx\n",i,my_qps.wq_arr_gpas[i],xlat);
                     my_qps.wq_arr_translated[i] = true;
                 }
                 if( my_qps.cq_arr_used[i] ) {
                     xlat = cpu_get_phys_page_debug( PTH(current_cpu), my_qps.cq_arr_gvas[i] & TARGET_PAGE_MASK );
                     my_qps.cq_arr_gpas[i] = xlat | (my_qps.cq_arr_gvas[i] & ~TARGET_PAGE_MASK);
-                    DRMC_Print("CQ[%d] gPA value: %#018lX\n",i,my_qps.cq_arr_gpas[i]);
+                    DRMC_Print("CQ[%d] gPA value: %#018lX, xlat %#lx\n",i,my_qps.cq_arr_gpas[i],xlat);
                     my_qps.cq_arr_translated[i] = true;
                 }
             }
 
             xlat = cpu_get_phys_page_debug( PTH(current_cpu), gVA_ctx & TARGET_PAGE_MASK );
             gPA_ctx = xlat | (gVA_ctx & ~TARGET_PAGE_MASK);
-            DRMC_Print("cTX ptr gPA value: %#018lX\n",gPA_ctx);
+            DRMC_Print("cTX ptr gPA value: %#018lX, xlat %#lx\n",xlat,gPA_ctx);
 
             /* restore processor state */
             arm_cpu_state->cp15.ttbr0_el[current_el] = saved_ttbr0;

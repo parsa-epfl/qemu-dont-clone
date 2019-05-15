@@ -1,11 +1,11 @@
 #!/bin/sh
-#sudo aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 16G -cpu host -smp 4 -nographic \
-sudo aarch64-softmmu/qemu-system-aarch64 -M virt -m 1G -cpu cortex-a57 -nographic \
+#sudo aarch64-softmmu/qemu-system-aarch64 -M virt -m 1G -cpu cortex-a57 -nographic \
+sudo aarch64-softmmu/qemu-system-aarch64 -enable-kvm -M virt -m 16G -cpu host -smp 4 -nographic \
     -global virtio-blk-device.scsi=off -device virtio-scsi-device,id=scsi -rtc driftfix=slew \
-    -pflash $HOME/images/flash0.img \
-    -pflash $HOME/images/flash1.img \
     -drive if=none,file=/proj/cloudsuite3-PG0/images/ubuntu-kvm-sonuma.qcow2,id=hd0 \
     -device scsi-hd,drive=hd0 -device virtio-scsi-device \
+    -pflash $HOME/images/flash0.img \
+    -pflash $HOME/images/flash1.img \
     -netdev user,id=net1,hostfwd=tcp::5555-:22 -device virtio-net-device,mac=52:54:00:00:02:12,netdev=net1 \
     -device rmc,nid=2,cid=0
 
