@@ -346,5 +346,8 @@ int cpu_memory_rw_debug(CPUState *cpu, target_ulong addr,
                         uint8_t *buf, int len, int is_write);
 
 int cpu_exec(CPUState *cpu);
+#if defined(CONFIG_FA-QFLEX) || defined(CONFIG_FLEXUS)
+int qflex_cpu_exec(CPUState *cpu);
+#endif /* CONFIG_FA-QFLEX */ /* CONFIG_FLEXUS */
 
 #endif /* CPU_ALL_H */
