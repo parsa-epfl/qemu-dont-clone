@@ -2060,8 +2060,8 @@ int kvm_cpu_exec(CPUState *cpu)
 				}
 			} else {
 				RMC_advance_pipelines();
-			} // if rmc_nitialized == 0?
-		} // if rmc does exist
+			} // endif rmc_initialized == 0
+		} // endif rmc does exist
     } while (ret == 0);
 
     cpu_exec_end(cpu);

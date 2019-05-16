@@ -95,7 +95,6 @@ int RMC_initialised = 0;
 int local_tid = 0;
 long long int ITT[MAX_NUM_WQ][4];
 char *prevaddr, *curraddr;
-uint64_t cr3value;
 uint8_t cq_head, cq_SR, wq_tail, wq_SR; // TODO: these need to be qp-private
 void *RMC_NICState;
 MACAddr RMC_macaddr;
@@ -106,6 +105,7 @@ hwaddr      gPA_ctx;
 uint8_t RMC_protocol_definition[] = {0x08, 0x00};
 uint8_t RMC_ip_protocol_definition = 200;
 CPUState *RMC_private_cpu;
+static target_ulong static_proc_ttbr0, static_proc_tcr;
 uint16_t local_nid;
 uint8_t local_cid;
 
@@ -365,10 +365,12 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
         case 0x04: 
             DRMC_Print("Written into 0x04 (LO ttbr0): %016lX\n", val);
             write_lobits(&(rmc->proc_ttbr0),val);
+            write_lobits(&(static_proc_ttbr0),val);
             return ;
         case 0x08: 
             DRMC_Print("Written into 0x08 (HI ttbr0): %016lX\n", val);
             write_hibits(&(rmc->proc_ttbr0),val);
+            write_hibits(&(static_proc_ttbr0),val);
             DRMC_Print("RMC TTBR0 %#018lX\n", rmc->proc_ttbr0);
             return ;
         case 0x0C: /* 4 bytes */
@@ -426,10 +428,12 @@ static void rmc_mmio_write(void *opaque, hwaddr addr, uint64_t val,
         case 0x3c: /* 4B: TCR Low-order bits */
             DRMC_Print("Written into 0x3c (tcr lo): %#010lx\n", val);
             rmc->proc_tcr = val;
+            static_proc_tcr = val;
             return;
         case 0x40: /* 4B: TCR Hi-order bits */
             DRMC_Print("Written into 0x40 (tcr hi): %#010lx\n", val);
             rmc->proc_tcr |= (val << 32);
+            static_proc_tcr |= (val << 32);
             DRMC_Print("TCR full value: %#018lX\n", rmc->proc_tcr);
             return;
         case 0xF4: /* 4 bytes */
@@ -643,23 +647,20 @@ int RMC_does_exist(void) {
 hwaddr RMC_translate(vaddr guest_virt) {
 	target_ulong vaddr_page = guest_virt & TARGET_PAGE_MASK;
 
-    /* set registers so that the translation can be done */
-    /* TODO: Use ARM64 state here after I get the control path running */
-    /*
-    X86CPU *cpu = X86_CPU(RMC_private_cpu);
-    CPUX86State *env = &cpu->env;
-    target_ulong temp_cr3 = env->cr[3];
-    target_ulong temp_hflags = env->hflags;
-    env->cr[3] = cr3value;
-    env->hflags = 0x40f2b7;
-    hwaddr paddr_page = cpu_get_phys_page_debug( RMC_private_cpu, vaddr_page );
-    hwaddr phys_addr = paddr_page | (guest_virt & ~TARGET_PAGE_MASK);
- 
-    env->cr[3] = temp_cr3;
-    env->hflags = temp_hflags;
-    */
-    
-    return 0x0; // FIXME
+    ARMCPU* cpu = ARM_CPU(PTH(RMC_private_cpu));
+    CPUArchState* arm_cpu_state = &(cpu->env);
+
+    uint8_t current_el = arm_current_el(arm_cpu_state) & 0x3;
+    target_ulong saved_ttbr0 = arm_cpu_state->cp15.ttbr0_el[current_el];
+    target_ulong saved_tcr = arm_cpu_state->cp15.tcr_el[current_el].raw_tcr;
+    arm_cpu_state->cp15.ttbr0_el[current_el] = static_proc_ttbr0;
+    arm_cpu_state->cp15.tcr_el[current_el].raw_tcr = static_proc_tcr;
+
+    target_ulong xlat = cpu_get_phys_page_debug( PTH(RMC_private_cpu), vaddr_page );
+
+    arm_cpu_state->cp15.ttbr0_el[current_el] = saved_ttbr0;
+    arm_cpu_state->cp15.tcr_el[current_el].raw_tcr = saved_tcr;
+    return (xlat | (guest_virt & ~TARGET_PAGE_MASK));
 }
 
 /* Takes the guest physical address of a guest buffer, reads the guest
@@ -711,16 +712,19 @@ void RMC_cq_init(size_t qp_id, void *RMC_host_virt_cq) {
 
     rmc_cq_t* cq = &(my_qps.cq_arr[qp_id]);
 	
+    char* running_ptr = (char*) RMC_host_virt_cq;
 	//set location of cq members and some init values
-	(cq->tail) = RMC_host_virt_cq;
-	(cq->SR) = RMC_host_virt_cq + 1;
-	*(cq->tail) = 0;
-	*(cq->SR) = 1;
 	int i;
 	for (i=0; i<MAX_NUM_WQ; i++) {
-		(cq->q[i]) = RMC_host_virt_cq + 2 + i;
+		(cq->q[i]) = (cq_entry_t*) running_ptr;
 		(cq->q[i])->SR = 0;
+		(cq->q[i])->success = 0;
+        running_ptr += sizeof(cq_entry_t);
 	}
+	(cq->tail) = (uint8_t*)running_ptr;
+	(cq->SR) = (uint8_t*)running_ptr + 1;
+	*(cq->tail) = 0;
+	*(cq->SR) = 1;
 }
 
 /* Sets init values of all variables for the work queue. It's passed
@@ -734,12 +738,14 @@ void RMC_wq_init(size_t qp_id, void *RMC_host_virt_wq) {
     rmc_wq_t* wq = &(my_qps.wq_arr[qp_id]);
 
 	//set location of wq members
-	(wq->head) = RMC_host_virt_wq;
-	(wq->SR) = RMC_host_virt_wq + 1;
 	int i;
+    char* running_ptr = (char*) RMC_host_virt_wq;
 	for (i = 0; i < MAX_NUM_WQ; i++) {
-		(wq->q[i]) = RMC_host_virt_wq + 2 + i * 16;
+		(wq->q[i]) = (wq_entry_t*)running_ptr;
+        running_ptr += sizeof(wq_entry_t);
 	}
+	(wq->head) = (uint8_t*)running_ptr;
+	(wq->SR) = (uint8_t*) running_ptr + 1;
 }
 
 /* All pipeline functions are called and advanced. The pipelines
@@ -1053,7 +1059,7 @@ void RMC_RGP_pipeline (void) {
 			break;
 		case RGP_Fetch:
 			/* read the new entry */
-			RGP_buf_addr = (uint64_t) (wq->q[wq_tail])->buf_addr;
+			RGP_buf_addr = (uint64_t) ((wq->q[wq_tail])->buf_addr) << 6;
 			RGP_offset = (uint64_t) (wq->q[wq_tail])->offset;
 			RGP_op = (wq->q[wq_tail])->op;
 			RGP_dest_nid = (wq->q[wq_tail])->nid;

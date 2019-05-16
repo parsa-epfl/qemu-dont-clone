@@ -29,7 +29,7 @@ typedef struct wq_entry {
 	unsigned char op : 6;
 	unsigned char SR : 1;
 	unsigned char valid : 1;
-	unsigned long buf_addr : 42;
+	unsigned long buf_addr : 42; 
 	unsigned char cid : 4;
 	unsigned short nid : 10;
 	
@@ -39,7 +39,10 @@ typedef struct wq_entry {
 
 typedef struct cq_entry {
 	volatile unsigned char SR : 1;
-	volatile unsigned char tid : 7;
+	volatile unsigned char success : 7;
+    volatile uint8_t tid;
+    volatile uint64_t recv_buf_addr : 48; // protocol v2.3, rpcvalet
+    volatile uint16_t __padding : 16;
 } cq_entry_t;
 
 typedef struct rmc_wq {
