@@ -534,7 +534,7 @@ static int load_state_ext(QString *dir_path)
 
     dir_path = get_dir_path();
 
-    sprintf(command, "%s %s/%s/mem", input_command, dir_path->string, name);
+    //sprintf(command, "%s %s/%s/mem", input_command, dir_path->string, name);
     const char *argv[] = { "/bin/sh", "-c", command, NULL };
 
     QIOChannel *ioc;
