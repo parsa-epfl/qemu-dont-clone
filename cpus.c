@@ -63,6 +63,10 @@ extern bool executed_once;
 #include "hw/misc/RMC.h"
 #include "include/exec/memory.h"
 
+static hwaddr RMC_guest_phys_cq_cpu, RMC_guest_phys_wq_cpu;
+static hwaddr RMC_guest_phys_ctx;
+static void *RMC_host_addr_cq_cpu, *RMC_host_addr_wq_cpu, *RMC_host_addr_ctx;
+
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
 #include "../libqflex/api.h"
@@ -2101,11 +2105,8 @@ const char* advance_qemu(void * obj){
     }
     executed_once = false;
     return rstr;
+}
 #endif
-
-static hwaddr RMC_guest_phys_cq_cpu, RMC_guest_phys_wq_cpu;
-static hwaddr RMC_guest_phys_ctx;
-static void *RMC_host_addr_cq_cpu, *RMC_host_addr_wq_cpu, *RMC_host_addr_ctx;
 
 /* Single-threaded TCG
  *
