@@ -11939,6 +11939,7 @@ void helper_flexus_st_aa32(
 #endif /* CONFIG_FLEXUS */
 
 #if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
+#include "qflex/log.h"
 void helper_qflex_magic_ins(int v) {
     qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"MAGIC_INST:%u\n", v);
     switch(v) {
