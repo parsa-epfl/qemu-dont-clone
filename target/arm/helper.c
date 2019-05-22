@@ -11938,14 +11938,5 @@ void helper_flexus_st_aa32(
 }
 #endif /* CONFIG_FLEXUS */
 
-#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
-#include "qflex/log.h"
-void helper_qflex_magic_ins(int v) {
-    qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"MAGIC_INST:%u\n", v);
-    switch(v) {
-    case 100: qflex_log_mask_enable(QFLEX_LOG_MAGIC_INSN); break;
-    case 101: qflex_log_mask_disable(QFLEX_LOG_MAGIC_INSN); break;
-    default: break;
-    }
-}
-#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
+
+
