@@ -732,7 +732,6 @@ int cpu_exec(CPUState *cpu)
         if (qemu_mutex_iothread_locked()) {
             qemu_mutex_unlock_iothread();
         }
-        assert_no_pages_locked();
     }
     PTH_INIT_LOOP();
 
@@ -877,32 +876,22 @@ int qflex_cpu_exec(CPUState *cpu)
         ret = cpu->interrupt_request;
     }
 
-    while ((!cpu_handle_exception(cpu, &ret) && !qflex_executed_once) || qflex_keep_looping) {
-        TranslationBlock *tb = NULL; // no last_tb, because we should have '-singlestep' and '-d nochain' enabled
+    while ((!cpu_handle_exception(cpu, &ret))) {// && !qflex_executed_once) || qflex_keep_looping) {
+        TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
-        while ((!cpu_handle_interrupt(cpu, &tb) && !qflex_executed_once) || qflex_keep_looping) {
+
+        while ((!cpu_handle_interrupt(cpu, &last_tb))) { // && !qflex_executed_once) || qflex_keep_looping) {
+            TranslationBlock *tb;
 
             PTH_CHECK_LOOP(cpu, iloop);
 
-            CPUArchState *env = (CPUArchState *)cpu->env_ptr;
-            target_ulong cs_base, pc;
-            uint32_t flags;
-            cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
-
-            mmap_lock();
-            tb_lock();
-            // Do not use TB block caching nor chaining (tb_find)
-            tb = tb_gen_code(cpu, pc, cs_base, flags, 0);
-            tb_unlock();
-            mmap_unlock();
-
-            // execute the generated code
-            qflex_cpu_loop_exec_tb(cpu, tb, &tb, &tb_exit);
+            tb = tb_find(cpu, last_tb, tb_exit);
+            qflex_cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
 
             align_clocks(&sc, cpu);
 \
             qflex_executed_once = true;
-            break;
+            //break;
         }
     }
     qflex_keep_looping = false;
