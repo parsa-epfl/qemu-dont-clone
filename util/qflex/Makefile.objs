@@ -1,0 +1,2 @@
+util-obj-y = qflex-log.o
+util-obj-y += fa-qflex-api.o
