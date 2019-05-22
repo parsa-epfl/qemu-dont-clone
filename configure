@@ -420,6 +420,7 @@ bogus_os="no"
 #**************************
 extsnap="no"
 flexus="no"
+fa_qflex="no"
 quantum="no"
 pth="no"
 pth_path=""
@@ -1297,11 +1298,6 @@ for opt do
           error_exit "vhost-user isn't available on win32"
       fi
   ;;
-  *)
-      echo "ERROR: unknown option $opt"
-      echo "Try '$0 --help' for more information"
-      exit 1
-  ;;
   #**************************
   # QFLEX START
   #**************************
@@ -1312,6 +1308,10 @@ for opt do
   --disable-flexus) flexus="no"
   ;;
   --enable-flexus) flexus="yes"
+  ;;
+  --disable-fa-qflex) fa_qflex="no"
+  ;;
+  --enable-fa-qflex) fa_qflex="yes"
   ;;
   --disable-quantum) quantum="no"
   ;;
@@ -1326,6 +1326,11 @@ for opt do
   #**************************
   # QFLEX END
   #**************************
+  *)
+      echo "ERROR: unknown option $opt"
+      echo "Try '$0 --help' for more information"
+      exit 1
+  ;;
   esac
 done
 
@@ -1574,6 +1579,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   #**************************
   extsnap         support for external snapshots
   flexus          support for the Flexus simulator
+  fa_qflex        support for FPGA Accelerated QFlex (FA-QFlex)
   quantum	        support for quantum value - no MTTCG at the moment
   pth             support for GNU Pth - The GNU Portable Threads
   #**************************
@@ -5290,6 +5296,9 @@ if test "$flexus" = "yes" ; then
   QEMU_CFLAGS=" -ldl -DCONFIG_FLEXUS $QEMU_CFLAGS"
   LIBS="-ldl $LIBS" 
 fi
+if test "$fa_qflex" = "yes" ; then
+  QEMU_CFLAGS="-DCONFIG_FA_QFLEX $QEMU_CFLAGS"
+fi
 if test "$quantum" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
 fi
@@ -5495,6 +5504,7 @@ echo "# QFLEX START"
 echo "#**************************"
 echo "external snapshots $extsnap"
 echo "Flexus support     $flexus"
+echo "FA-QFlex support   $fa_qflex"
 echo "Quantum support    $quantum"
 echo "GNU Pth            $pth"
 echo "GNU Pth lib path   $pth_path"
@@ -6511,6 +6521,9 @@ if test "$extsnap" = "yes" ; then
 fi
 if test "$flexus" = "yes" ; then
   echo "CONFIG_FLEXUS=y" >> $config_host_mak
+fi
+if test "$fa_qflex" = "yes" ; then
+    echo "CONFIG_FA_QFLEX=y" >> $config_host_mak
 fi
 if test "$quantum" = "yes" ; then
   echo "CONFIG_QUANTUM=y" >> $config_host_mak
