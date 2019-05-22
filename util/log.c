@@ -32,10 +32,6 @@ int qemu_loglevel;
 static int log_append = 0;
 static GArray *debug_regions;
 
-#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
-int qflex_loglevel = 0;
-#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
-
 /* Return the number of characters emitted.  */
 int qemu_log(const char *fmt, ...)
 {

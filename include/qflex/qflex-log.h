@@ -1,9 +1,16 @@
 #ifndef QEMU_QFLEX_LOG_H
 #define QEMU_QFLEX_LOG_H
 
+#include "qemu/osdep.h"
+#include "qemu/log.h"
+
+
 extern int qflex_loglevel;
 
-#define QFLEX_LOG_MAGIC_INSN (1 << 0)
+#define QFLEX_LOG_MAGIC_INSN    (1 << 0)
+#define QFLEX_LOG_INT           (1 << 1)
+#define QFLEX_LOG_USER_EXEC     (1 << 2)
+#define QFLEX_LOG_KERNEL_EXEC   (1 << 3)
 
 /* Returns true if a bit is set in the current loglevel mask
  */
@@ -16,8 +23,7 @@ static inline bool qflex_loglevel_mask(int mask)
 
 /* log only if a bit is set on the current loglevel mask:
  * @mask: bit to check in the mask
- * @fmt: printf-style format string
- * @args: optional arguments for format string
+ * @fmt: printf-style format string * @args: optional arguments for format string
  */
 #define qflex_log_mask(MASK, FMT, ...)                  \
     do {                                                \
