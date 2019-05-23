@@ -56,6 +56,67 @@ static int iExit;
 #define PTH_CHECK_LOOP(cpu, limit)
 #endif
 
+#ifdef CONFIG_FLEXUS
+static bool timing_once = false;
+static bool timing_exec = false;
+static bool check_timing_loop_limit(void)
+{
+    if (flexus_in_timing())
+        return timing_once;
+    else
+        return false;
+}
+
+static bool check_timing_exec(void)
+{
+    if (flexus_in_timing())
+        return !timing_exec;
+    else
+        return false;
+}
+#define FLEXUS_TIMING_TOGGLE_EXEC() do {if (flexus_in_timing()) timing_exec = false;} while(0)
+#define FLEXUS_TIMING_UPDATE_EXEC(word) \
+    do{                                 \
+        if (flexus_in_timing()){        \
+            timing_exec = word;         \
+        } else {                        \
+            word;                       \
+        }                               \
+    } while(0)
+
+#define FLEXUS_IN_TIMING(word) if (flexus_in_timing()) word;
+
+//do {if (flexus_in_timing()) word;} while(0)
+
+#define FLEXUS_TIMING_EXEC_CHECK() \
+        check_timing_exec()
+#define FLEXUS_TIMING_LOOP_CHECK() \
+        !check_timing_loop_limit()
+
+#define FLEXUS_TIMING_LOOP_INIT() \
+    do{                           \
+        if (flexus_in_timing())          \
+            timing_once = false;  \
+    }while(0)                     \
+
+#define FLEXUS_TIMING_LOOP_FLIP() \
+    do{                           \
+        if (flexus_in_timing())          \
+            timing_once = true;   \
+    }while(0)                     \
+
+#else
+#define FLEXUS_TIMING_LOOP_CHECK() 1
+#define FLEXUS_TIMING_LOOP_FLIP()
+#define FLEXUS_TIMING_LOOP_INIT()
+
+#define FLEXUS_TIMING_EXEC_CHECK() 0
+#define FLEXUS_TIMING_UPDATE_EXEC(word) word
+#define FLEXUS_TIMING_TOGGLE_EXEC()
+#define FLEXUS_IN_TIMING(word)
+#endif
+
+
 #ifdef CONFIG_QUANTUM
 #define QUANTUM_LIMIT \
     !cpu->hasReachedInstrLimit
@@ -735,6 +796,12 @@ int cpu_exec(CPUState *cpu)
     }
     PTH_INIT_LOOP();
 
+    if (cpu->exception_index >= 0 ){
+        ret = cpu->exception_index;
+    } else if(cpu->interrupt_request > 0){
+        ret = cpu->interrupt_request;
+    }
+
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret)) {
         TranslationBlock *last_tb = NULL;
@@ -765,7 +832,7 @@ int cpu_exec(CPUState *cpu)
 static int qflex_keep_looping = false;
 static int qflex_executed_once = false;
 
-static inline void qflex_cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
+static inline int qflex_cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
                                     TranslationBlock **last_tb, int *tb_exit)
 {
 
@@ -817,14 +884,14 @@ static inline void qflex_cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
 #endif
 executed_correctly:
     qflex_keep_looping = false;
-    return;
+    return true;
 
 not_executed_correctly:
     qflex_keep_looping = true;
-    return;
+    return false;
 }
 
-int qflex_cpu_exec(CPUState *cpu)
+int qflex_cpu_exec2(CPUState *cpu)
 {
     PTH_UPDATE_CONTEXT;
 
@@ -848,6 +915,7 @@ int qflex_cpu_exec(CPUState *cpu)
      */
     init_delay_params(&sc, cpu);
 
+    /* prepare setjmp context for exception handling */
     if (sigsetjmp(cpu->jmp_env, 0) != 0) { // Jump point in case of FAULT
 #if defined(__clang__) || !QEMU_GNUC_PREREQ(4, 6)
         /* Some compilers wrongly smash all local variables after
@@ -861,6 +929,7 @@ int qflex_cpu_exec(CPUState *cpu)
         g_assert(cpu == current_cpu);
         g_assert(cc == CPU_GET_CLASS(cpu));
 #endif /* buggy compiler */
+        cpu->can_do_io = 1;
         tb_lock_reset();
         if (qemu_mutex_iothread_locked()) {
             qemu_mutex_unlock_iothread();
@@ -871,16 +940,15 @@ int qflex_cpu_exec(CPUState *cpu)
 
     if (cpu->exception_index >= 0 ){
         ret = cpu->exception_index;
-    }
-    else if(cpu->interrupt_request > 0){
+    } else if(cpu->interrupt_request > 0){
         ret = cpu->interrupt_request;
     }
 
-    while ((!cpu_handle_exception(cpu, &ret))) {// && !qflex_executed_once) || qflex_keep_looping) {
+    while ((!cpu_handle_exception(cpu, &ret) && !qflex_executed_once) || qflex_keep_looping) {
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
 
-        while ((!cpu_handle_interrupt(cpu, &last_tb))) { // && !qflex_executed_once) || qflex_keep_looping) {
+        while ((!cpu_handle_interrupt(cpu, &last_tb) && !qflex_executed_once) || qflex_keep_looping) {
             TranslationBlock *tb;
 
             PTH_CHECK_LOOP(cpu, iloop);
@@ -891,7 +959,7 @@ int qflex_cpu_exec(CPUState *cpu)
             align_clocks(&sc, cpu);
 \
             qflex_executed_once = true;
-            //break;
+            break;
         }
     }
     qflex_keep_looping = false;
@@ -901,4 +969,89 @@ int qflex_cpu_exec(CPUState *cpu)
 
     return ret;
 }
+
+int qflex_cpu_exec(CPUState *cpu)
+{
+    PTH_UPDATE_CONTEXT
+
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+    int ret;
+    SyncClocks sc = { 0 };
+
+    /* replay_interrupt may need current_cpu */
+    PTH(current_cpu) = cpu;
+    if (cpu_handle_halt(cpu)) {
+        return EXCP_HALTED;
+    }
+
+    rcu_read_lock();
+
+    cc->cpu_exec_enter(cpu);
+
+    /* Calculate difference between guest clock and host clock.
+     * This delay includes the delay of the last cycle, so
+     * what we have to do is sleep until it is 0. As for the
+     * advance/delay we gain here, we try to fix it next time.
+     */
+    init_delay_params(&sc, cpu);
+
+    /* prepare setjmp context for exception handling */
+    if (sigsetjmp(cpu->jmp_env, 0) != 0) {
+#if defined(__clang__) || !QEMU_GNUC_PREREQ(4, 6)
+        /* Some compilers wrongly smash all local variables after
+         * siglongjmp. There were bug reports for gcc 4.5.0 and clang.
+         * Reload essential local variables here for those compilers.
+         * Newer versions of gcc would complain about this code (-Wclobbered). */
+        cpu = current_cpu;
+        cc = CPU_GET_CLASS(cpu);
+#else /* buggy compiler */
+        /* Assert that the compiler does not smash local variables. */
+        g_assert(cpu == PTH(current_cpu));
+        g_assert(cc == CPU_GET_CLASS(cpu));
+#endif /* buggy compiler */
+        cpu->can_do_io = 1;
+        tb_lock_reset();
+        if (qemu_mutex_iothread_locked()) {
+            qemu_mutex_unlock_iothread();
+        }
+    }
+    FLEXUS_TIMING_LOOP_INIT();
+    PTH_INIT_LOOP();
+
+    if (cpu->exception_index >= 0 ){
+        ret = cpu->exception_index;
+    }
+    else if(cpu->interrupt_request > 0){
+        ret = cpu->interrupt_request;
+    }
+    /* if an exception is pending, we execute it here */
+    while ((!cpu_handle_exception(cpu, &ret) && FLEXUS_TIMING_LOOP_CHECK()) || FLEXUS_TIMING_EXEC_CHECK()) {
+        TranslationBlock *last_tb = NULL;
+        int tb_exit = 0;
+
+
+
+        while ((!cpu_handle_interrupt(cpu, &last_tb) && FLEXUS_TIMING_LOOP_CHECK()) || FLEXUS_TIMING_EXEC_CHECK() ) {
+            PTH_CHECK_LOOP(cpu, iloop)
+                    TranslationBlock *tb;
+
+            tb = tb_find(cpu, last_tb, tb_exit);
+            FLEXUS_TIMING_UPDATE_EXEC(qflex_cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit));
+            /* Try to align the host and virtual clocks
+               if the guest is in advance */
+            align_clocks(&sc, cpu);
+            FLEXUS_TIMING_LOOP_FLIP();
+            FLEXUS_IN_TIMING(break);
+        }
+        //assert(flexus_in_timing());
+    }
+    FLEXUS_TIMING_TOGGLE_EXEC();
+
+
+    cc->cpu_exec_exit(cpu);
+    rcu_read_unlock();
+
+    return ret;
+}
+
 #endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
