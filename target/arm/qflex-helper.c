@@ -10,16 +10,32 @@
    This one expands prototypes for the helper functions.  */
 
 #if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
-void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags) {
+/**
+ * @brief HELPER(qflex_executed_instruction)
+ * location: location of the gen_helper_ in the transalation.
+ */
+void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags, int location) {
     CPUState *cs = CPU(arm_env_get_cpu(env));
     int cur_el = arm_current_el(env);
 
-    if(unlikely(qflex_loglevel_mask(QFLEX_LOG_KERNEL_EXEC)) && cur_el != 0) {
-        log_target_disas(cs, pc, 4, flags);
-        assert(pc);
-    } else if(unlikely(qflex_loglevel_mask(QFLEX_LOG_USER_EXEC)) && fa_qflex_is_user_mode()) {
-        log_target_disas(cs, pc, 4, flags);
-        assert(pc);
+    switch(location) {
+    case QFLEX_EXEC_IN:
+        if((unlikely(qflex_loglevel_mask(QFLEX_LOG_KERNEL_EXEC)) && cur_el != 0)
+                || (unlikely(qflex_loglevel_mask(QFLEX_LOG_USER_EXEC)) && fa_qflex_is_user_mode())) {
+            qemu_log_lock();
+            qemu_log("IN  :");
+            log_target_disas(cs, pc, 4, flags);
+            qemu_log_unlock();
+        }
+        break;
+    case QFLEX_EXEC_OUT:
+        if((unlikely(qflex_loglevel_mask(QFLEX_LOG_KERNEL_EXEC)) && cur_el != 0)
+                || (unlikely(qflex_loglevel_mask(QFLEX_LOG_USER_EXEC)) && fa_qflex_is_user_mode())) {
+            qemu_log_lock();
+            qemu_log("OUT :0x%016lx\n", pc);
+            qemu_log_unlock();        }
+        qflex_update_inst_done(true); break;
+    default: break;
     }
 }
 
