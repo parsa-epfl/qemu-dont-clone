@@ -52,6 +52,10 @@
 #include "sysemu/replay.h"
 #include "hw/boards.h"
 
+#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
+#include "qflex/fa-qflex-api.h"
+#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
+
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"
 #include "../libqflex/api.h"
@@ -1858,6 +1862,23 @@ static void process_icount_data(CPUState *cpu)
     }
 }
 
+static int tcg_cpu_exec(CPUState *cpu)
+{
+    int ret;
+#ifdef CONFIG_PROFILER
+    int64_t ti;
+    ti = profile_getclock();
+#endif
+    qemu_mutex_unlock_iothread();
+    cpu_exec_start(cpu);
+    ret = cpu_exec(cpu);
+    cpu_exec_end(cpu);
+    qemu_mutex_lock_iothread();
+#ifdef CONFIG_PROFILER
+    tcg_time += profile_getclock() - ti;
+#endif
+    return ret;
+}
 
 #if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
 static int qflex_tcg_cpu_exec(CPUState *cpu)
@@ -1912,7 +1933,7 @@ static int qflex_cpu_step(CPUState *cpu)
         qemu_mutex_unlock_iothread();
         /* tcg_cpu_exec() output is defined in cpu-all.h
          * if qflex needs to check for unplugged cpu
-         * catch flexus defined number
+         * catch qflex defined number
          */
         r = 0x3F00D; // Random assigned number for now
     }
@@ -1922,37 +1943,97 @@ static int qflex_cpu_step(CPUState *cpu)
 }
 #endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
 
+#ifdef CONFIG_FA_QFLEX
+static void qemu_step(CPUState *cpu)
+{
+    /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
+    qemu_account_warp_timer();
+
+    /* Run the timers here.  This is much more efficient than
+     * waking up the I/O thread and waiting for completion.
+     */
+    handle_icount_deadline();
+
+    if (!cpu) {
+        cpu = first_cpu;
+    }
+
+    PTH(current_cpu) = cpu;
+
+    qemu_clock_enable(QEMU_CLOCK_VIRTUAL,
+                      (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
+
+    if (cpu_can_run(cpu)) {
+        int r;
+
+        prepare_icount_for_run(cpu);
+
+        r = tcg_cpu_exec(cpu);
+
+        process_icount_data(cpu);
+
+#ifdef CONFIG_QUANTUM
+        if ( quantum_state.quantum_value > 0){
+            if(cpu->hasReachedInstrLimit){
+                cpu->hasReachedInstrLimit = false;
+            }
+        }
+        // for debugging purposes
+        if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG
+                || r == EXCP_HALTED || r == EXCP_YIELD || r == EXCP_ATOMIC) {
+            cpu->nr_exp[r-EXCP_INTERRUPT]++;
+        }
+#endif /* CONFIG_QUANTUM */
+        if (r == EXCP_DEBUG) {
+            cpu_handle_guest_debug(cpu);
+        } else if (r == EXCP_ATOMIC) {
+            qemu_mutex_unlock_iothread();
+            cpu_exec_step_atomic(cpu);
+            qemu_mutex_lock_iothread();
+        }
+    } else if (cpu->stop) {
+        qemu_tcg_destroy_vcpu(cpu);
+        cpu->created = false;
+        qemu_cond_signal(&qemu_cpu_cond);
+        qemu_mutex_unlock_iothread();
+    }
+
+    PTH_YIELD;
+
+    atomic_mb_set(&cpu->exit_request, 0);
+    qemu_tcg_wait_io_event(cpu);
+}
+static bool fa_qflex_active = true;
+static void start_fa_qflex(void)
+{
+    CPUState *cpu = first_cpu;
+    //qemu_loglevel |= CPU_LOG_INT;
+    qflex_api_values_init();
+    while(1) {
+        if(fa_qflex_active) {
+            advance_qemu((void*) cpu);
+        } else {
+            qemu_step(cpu);
+        }
+    }
+}
+#endif /* CONFIG_FA_QFLEX */
+
 #ifdef CONFIG_FLEXUS
 int advance_qemu(void * obj){
     PTH_UPDATE_CONTEXT
     CPUState *cpu = PTH((CPUState *)obj);
     int ret = 0;
 
-    while(!executed_once){
+    //qemu_log("START_STEP##################################################\n");
+    while(!qflex_is_inst_done()){
         ret = qflex_cpu_step(cpu);
     }
-    executed_once = false;
+    qflex_update_inst_done(false);
+    //qemu_log("END_STEP##################################################\n");
     return ret;
 }
 #endif /* CONFIG_FLEXUS */
-
-static int tcg_cpu_exec(CPUState *cpu)
-{
-    int ret;
-#ifdef CONFIG_PROFILER
-    int64_t ti;
-    ti = profile_getclock();
-#endif
-    qemu_mutex_unlock_iothread();
-    cpu_exec_start(cpu);
-    ret = cpu_exec(cpu);
-    cpu_exec_end(cpu);
-    qemu_mutex_lock_iothread();
-#ifdef CONFIG_PROFILER
-    tcg_time += profile_getclock() - ti;
-#endif
-    return ret;
-}
 
 /* Destroy any remaining vCPUs which have been unplugged and have
  * finished running
@@ -2015,6 +2096,10 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
     /* process any pending work */
     cpu->exit_request = 1;
+#ifdef CONFIG_FA_QFLEX
+    start_fa_qflex();
+    return NULL;
+#endif /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FLEXUS
     if (flexus_state.mode == TIMING){
         printf("QEMU: Starting timing simulation. Passing control to Flexus.\n");
