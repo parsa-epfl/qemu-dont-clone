@@ -16,6 +16,10 @@
 #include "exec/semihost.h"
 #include "sysemu/kvm.h"
 
+#ifdef CONFIG_FA_QFLEX
+#include "qflex/fa-qflex-api.h"
+#endif /* CONFIG_FA_QFLEX */
+
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/api.h"
 #include "disas/disas.h"
@@ -7844,6 +7848,9 @@ void arm_cpu_do_interrupt(CPUState *cs)
     ARMCPU *cpu = ARM_CPU(cs);
     CPUARMState *env = &cpu->env;
     unsigned int new_el = env->exception.target_el;
+#ifdef CONFIG_FA_QFLEX
+    int old_el = arm_current_el(env);
+#endif /* CONFIG_FA_QFLEX */
 
     assert(!arm_feature(env, ARM_FEATURE_M));
 
@@ -7889,6 +7896,9 @@ void arm_cpu_do_interrupt(CPUState *cs)
     if (!kvm_enabled()) {
         cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
     }
+#ifdef CONFIG_FA_QFLEX
+    fa_qflex_update_excp_in(old_el, arm_current_el(env));
+#endif /* CONFIG_FA_QFLEX */
 }
 
 /* Return the exception level which controls this address translation regime */
