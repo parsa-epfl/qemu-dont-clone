@@ -1890,6 +1890,10 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
             return;
         }
         gen_helper_exception_return(cpu_env);
+#ifdef CONFIG_FA_QFLEX
+        gen_helper_fa_qflex_exception_return(cpu_env);
+#endif /* CONFIG_FA_QFLEX */
+
         /* Must exit loop to check un-masked IRQs */
         s->base.is_jmp = DISAS_EXIT;
         return;
@@ -11491,7 +11495,12 @@ static void aarch64_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
     CPUARMState *env = cpu->env_ptr;
-
+#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
+    uint64_t pc = dc->base.pc_first;
+    uint32_t flags = 4 | (bswap_code(dc->sctlr_b) ? 2 : 0);
+    gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+                                          tcg_const_i32(QFLEX_EXEC_IN));
+#endif
     if (dc->ss_active && !dc->pstate_ss) {
         /* Singlestep state is Active-pending.
          * If we're in this state at the start of a TB then either
@@ -11513,6 +11522,11 @@ static void aarch64_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 
     dc->base.pc_next = dc->pc;
     translator_loop_temp_check(&dc->base);
+
+#if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
+    gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+                                          tcg_const_i32(QFLEX_EXEC_OUT));
+#endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
 }
 
 static void aarch64_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
