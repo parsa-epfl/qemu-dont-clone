@@ -790,6 +790,7 @@ int cpu_exec(CPUState *cpu)
 #ifndef CONFIG_SOFTMMU
         tcg_debug_assert(!have_mmap_lock());
 #endif
+        tb_lock_reset();
         if (qemu_mutex_iothread_locked()) {
             qemu_mutex_unlock_iothread();
         }
