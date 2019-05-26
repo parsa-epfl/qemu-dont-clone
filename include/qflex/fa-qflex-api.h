@@ -7,13 +7,20 @@
 extern bool fa_qflex_user_mode;
 extern bool fa_qflex_running;
 extern bool qflex_inst_done;
+extern bool qflex_prologue_done;
+extern uint64_t qflex_prologue_pc;
 
-void qflex_api_values_init(void);
+void qflex_api_values_init(CPUState *cpu);
 
-static inline bool qflex_is_inst_done(void)    { return qflex_inst_done; }
-static inline bool fa_qflex_is_user_mode(void) { return fa_qflex_user_mode; }
-static inline bool fa_qflex_is_running(void)   { return fa_qflex_running;   }
+static inline bool qflex_is_inst_done(void)     { return qflex_inst_done; }
+static inline bool qflex_is_prologue_done(void) { return qflex_prologue_done; }
+static inline bool fa_qflex_is_user_mode(void)  { return fa_qflex_user_mode; }
+static inline bool fa_qflex_is_running(void)    { return fa_qflex_running;   }
 
+static inline bool qflex_update_prologue_done(uint64_t cur_pc) {
+    qflex_prologue_done = (cur_pc == qflex_prologue_pc);
+    return qflex_prologue_done;
+}
 static inline void qflex_update_inst_done(bool done) { qflex_inst_done = done; }
 static inline void fa_qflex_update_excp_in(int old_el, int new_el) {
     qflex_log_mask(QFLEX_LOG_INT, "EXCP IN  from EL%d to EL%d\n", old_el, new_el);

@@ -1902,44 +1902,95 @@ static int qflex_tcg_cpu_exec(CPUState *cpu)
 static int qflex_cpu_step(CPUState *cpu)
 {
     int r = 0;
-    if (cpu_can_run(cpu)) {
-        r = qflex_tcg_cpu_exec(cpu);
-        switch (r) {
-        case EXCP_DEBUG:
-            cpu_handle_guest_debug(cpu);
-            break;
-        case EXCP_HALTED:
-            /* during start-up the vCPU is reset and the thread is
+        if (cpu_can_run(cpu)) {
+            r = qflex_tcg_cpu_exec(cpu);
+            switch (r) {
+            case EXCP_DEBUG:
+                cpu_handle_guest_debug(cpu);
+                break;
+            case EXCP_HALTED:
+                /* during start-up the vCPU is reset and the thread is
              * kicked several times. If we don't ensure we go back
              * to sleep in the halted state we won't cleanly
              * start-up when the vCPU is enabled.
              *
              * cpu->halted should ensure we sleep in wait_io_event
              */
-            g_assert(cpu->halted);
-            break;
-        case EXCP_ATOMIC:
+                g_assert(cpu->halted);
+                break;
+            case EXCP_ATOMIC:
+                qemu_mutex_unlock_iothread();
+                cpu_exec_step_atomic(cpu);
+                qemu_mutex_lock_iothread();
+            default:
+                /* Ignore everything else? */
+                break;
+            }
+        } else if (cpu->unplug) {
+            qemu_tcg_destroy_vcpu(cpu);
+            cpu->created = false;
+            qemu_cond_signal(&qemu_cpu_cond);
             qemu_mutex_unlock_iothread();
-            cpu_exec_step_atomic(cpu);
-            qemu_mutex_lock_iothread();
-        default:
-            /* Ignore everything else? */
-            break;
-        }
-    } else if (cpu->unplug) {
-        qemu_tcg_destroy_vcpu(cpu);
-        cpu->created = false;
-        qemu_cond_signal(&qemu_cpu_cond);
-        qemu_mutex_unlock_iothread();
-        /* tcg_cpu_exec() output is defined in cpu-all.h
+            /* tcg_cpu_exec() output is defined in cpu-all.h
          * if qflex needs to check for unplugged cpu
          * catch qflex defined number
          */
-        r = 0x3F00D; // Random assigned number for now
-    }
-    atomic_mb_set(&cpu->exit_request, 0);
-    qemu_tcg_wait_io_event(cpu);
+            r = 0x3F00D; // Random assigned number for now
+        }
+        atomic_mb_set(&cpu->exit_request, 0);
+        qemu_tcg_wait_io_event(cpu);
+
     return r;
+}
+static void qflex_prologue(CPUState *cpu) {
+    int r = 0;
+    qflex_api_values_init(cpu);
+    qemu_log("PROLOGUE START\n");
+    while(!qflex_is_prologue_done()) {
+        if (cpu_can_run(cpu)) {
+            qemu_mutex_unlock_iothread();
+            cpu_exec_start(cpu);
+            r = qflex_cpu_exec_prologue(cpu);
+            cpu_exec_end(cpu);
+            qemu_mutex_lock_iothread();
+            switch (r) {
+            case EXCP_DEBUG:
+                cpu_handle_guest_debug(cpu);
+                break;
+            case EXCP_HALTED:
+                /* during start-up the vCPU is reset and the thread is
+             * kicked several times. If we don't ensure we go back
+             * to sleep in the halted state we won't cleanly
+             * start-up when the vCPU is enabled.j
+             *
+             * cpu->halted should ensure we sleep in wait_io_event
+             */
+                g_assert(cpu->halted);
+                break;
+            case EXCP_ATOMIC:
+                qemu_mutex_unlock_iothread();
+                cpu_exec_step_atomic(cpu);
+                qemu_mutex_lock_iothread();
+            default:
+                /* Ignore everything else? */
+                break;
+            }
+        } else if (cpu->unplug) {
+            qemu_tcg_destroy_vcpu(cpu);
+            cpu->created = false;
+            qemu_cond_signal(&qemu_cpu_cond);
+            qemu_mutex_unlock_iothread();
+            /* tcg_cpu_exec() output is defined in cpu-all.h
+         * if qflex needs to check for unplugged cpu
+         * catch qflex defined number
+         */
+            r = 0x3F00D; // Random assigned number for now
+        }
+        atomic_mb_set(&cpu->exit_request, 0);
+        qemu_tcg_wait_io_event(cpu);
+    }
+    qemu_log("PROLOGUE END\n");
+
 }
 #endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
 
@@ -2008,7 +2059,6 @@ static void start_fa_qflex(void)
 {
     CPUState *cpu = first_cpu;
     //qemu_loglevel |= CPU_LOG_INT;
-    qflex_api_values_init();
     while(1) {
         if(fa_qflex_active) {
             advance_qemu((void*) cpu);
@@ -2024,13 +2074,10 @@ int advance_qemu(void * obj){
     PTH_UPDATE_CONTEXT
     CPUState *cpu = PTH((CPUState *)obj);
     int ret = 0;
-
-    //qemu_log("START_STEP##################################################\n");
     while(!qflex_is_inst_done()){
         ret = qflex_cpu_step(cpu);
     }
     qflex_update_inst_done(false);
-    //qemu_log("END_STEP##################################################\n");
     return ret;
 }
 #endif /* CONFIG_FLEXUS */
@@ -2096,9 +2143,11 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
     /* process any pending work */
     cpu->exit_request = 1;
+
 #ifdef CONFIG_FA_QFLEX
-    start_fa_qflex();
-    return NULL;
+    qflex_prologue(cpu);
+    //start_fa_qflex();
+    //return NULL;
 #endif /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FLEXUS
     if (flexus_state.mode == TIMING){
