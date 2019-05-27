@@ -53,7 +53,7 @@
 #include "hw/boards.h"
 
 #if defined(CONFIG_FA_QFLEX) || defined(CONFIG_FLEXUS)
-#include "qflex/fa-qflex-api.h"
+#include "qflex/qflex-api.h"
 #endif /* CONFIG_FA_QFLEX */ /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_FLEXUS

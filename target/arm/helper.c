@@ -17,7 +17,7 @@
 #include "sysemu/kvm.h"
 
 #ifdef CONFIG_FA_QFLEX
-#include "qflex/fa-qflex-api.h"
+#include "qflex/qflex-api.h"
 #endif /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FLEXUS
