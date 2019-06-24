@@ -7,7 +7,7 @@ DEF_HELPER_1(qflex_exception_return, void, env)
 
 #ifdef CONFIG_FLEXUS
 // maginc instruction operand
-DEF_HELPER_1(flexus_magic_ins, void, int)
+DEF_HELPER_5(flexus_magic_ins, void, env, int, i64, i64, i64)
 // No operands
 DEF_HELPER_2(flexus_periodic, void, env, int)
 // env, pc, target address, ins_size, is user, conditional or not, annulation or not (execute delay slot or not)

@@ -3655,6 +3655,17 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn)
         tcg_gen_and_i64(tcg_rd, tcg_rn, tcg_rm);
         break;
     case 1: /* ORR */
+#ifdef CONFIG_FLEXUS
+        if( rd == rn && rn == rm && rd == 30 ) {
+            qemu_log_mask(LOG_MAGIC,"Detected magic instruction (64bit): %d\n", rd);
+            /* read_cpu_reg takes 3 args: ctx, register number, and 64/32bit mode.
+             * Register values go into r0,r1,r2 in advance of the <orr> execution. */
+            TCGv_i64 cmd_id = read_cpu_reg(s, 0, 1);
+            TCGv_i64 user_v1 = read_cpu_reg(s, 1, 1);
+            TCGv_i64 user_v2 = read_cpu_reg(s, 2, 1);
+            gen_helper_flexus_magic_ins( NULL/*FIXME: cpu state*/, tcg_const_i32(rd), cmd_id, user_v1, user_v2);
+        }
+#endif
         tcg_gen_or_i64(tcg_rd, tcg_rn, tcg_rm);
         break;
     case 2: /* EOR */

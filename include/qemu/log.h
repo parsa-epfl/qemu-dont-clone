@@ -46,6 +46,7 @@ static inline bool qemu_log_separate(void)
 #ifdef CONFIG_PTH
 #define LOOPLIMIT  (1 << 17)
 #endif
+#define LOG_MAGIC          (1 << 18)
 /* Returns true if a bit is set in the current loglevel mask
  */
 static inline bool qemu_loglevel_mask(int mask)
