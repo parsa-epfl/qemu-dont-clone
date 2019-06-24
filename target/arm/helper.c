@@ -11525,6 +11525,12 @@ void helper_flexus_magic_ins(CPUARMState* env, int trig_reg, uint64_t cmd_id, ui
     if( flexus_in_timing() || flexus_in_trace() ) {
         ARMCPU *arm_cpu = arm_env_get_cpu(env);
         CPUState *cpu = CPU(arm_cpu);
+        QEMU_callback_args_t* event_data = malloc(sizeof(QEMU_callback_args_t));
+        event_data->nocI = malloc(sizeof(QEMU_nocI));
+        event_data->nocI->bigint = cmd_id;
+        QEMU_execute_callbacks(cpu_proc_num(cpu), QEMU_magic_instruction, event_data);
+        free(event_data->nocI);
+        free(event_data);
     }
 
     if ( cmd_id == 999 ) {

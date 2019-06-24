@@ -3600,7 +3600,7 @@ static void shift_reg_imm(TCGv_i64 dst, TCGv_i64 src, int sf,
  * | sf | opc | 0 1 0 1 0 | shift | N |  Rm  |  imm6  |  Rn  |  Rd  |
  * +----+-----+-----------+-------+---+------+--------+------+------+
  */
-static void disas_logic_reg(DisasContext *s, uint32_t insn)
+static void disas_logic_reg(DisasContext *s, uint32_t insn,CPUARMState* env)
 {
     TCGv_i64 tcg_rd, tcg_rn, tcg_rm;
     unsigned int sf, opc, shift_type, invert, rm, shift_amount, rn, rd;
@@ -3663,7 +3663,7 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn)
             TCGv_i64 cmd_id = read_cpu_reg(s, 0, 1);
             TCGv_i64 user_v1 = read_cpu_reg(s, 1, 1);
             TCGv_i64 user_v2 = read_cpu_reg(s, 2, 1);
-            gen_helper_flexus_magic_ins( NULL/*FIXME: cpu state*/, tcg_const_i32(rd), cmd_id, user_v1, user_v2);
+            gen_helper_flexus_magic_ins((void*) env, tcg_const_i32(rd), cmd_id, user_v1, user_v2);
         }
 #endif
         tcg_gen_or_i64(tcg_rd, tcg_rn, tcg_rm);
@@ -4435,11 +4435,11 @@ static void disas_data_proc_2src(DisasContext *s, uint32_t insn)
 }
 
 /* Data processing - register */
-static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
+static void disas_data_proc_reg(DisasContext *s, uint32_t insn, CPUARMState* env)
 {
     switch (extract32(insn, 24, 5)) {
     case 0x0a: /* Logical (shifted register) */
-        disas_logic_reg(s, insn);
+        disas_logic_reg(s, insn,env);
         break;
     case 0x0b: /* Add/subtract */
         if (insn & (1 << 21)) { /* (extended register) */
@@ -11364,7 +11364,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         break;
     case 0x5:
     case 0xd:      /* Data processing - register */
-        disas_data_proc_reg(s, insn);
+        disas_data_proc_reg(s, insn,env);
         break;
     case 0x7:
     case 0xf:      /* Data processing - SIMD and floating point */
