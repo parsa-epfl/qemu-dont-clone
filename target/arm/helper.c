@@ -11517,18 +11517,15 @@ void flexus_transaction(CPUARMState *env, logical_address_t vaddr,
  * m0: cmd_id (pause QEMU is 999)
  * m1, m2: user defined
  */
-void helper_flexus_magic_ins(CPUARMState* env, int trig_reg, uint64_t cmd_id, uint64_t user_v1, uint64_t user_v2){
-    qemu_log_mask(LOG_MAGIC,"Received magic instruction: %d, and 0x%" PRId64 ", 0x%"
-            PRIx64 ", 0x%" PRIx64 "\n", trig_reg, cmd_id, user_v1, user_v2);
+void helper_flexus_magic_ins(int cpu_proc_num, int trig_reg, uint64_t cmd_id, uint64_t user_v1, uint64_t user_v2){
+    qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Received magic instruction: %d, and 0x%" PRId64 ", 0x%" PRIx64 ", 0x%" PRIx64 "\n", trig_reg, cmd_id, user_v1, user_v2);
 
     /* Msutherl: If in simulation mode, execute magic_insn callback types. */
     if( flexus_in_timing() || flexus_in_trace() ) {
-        ARMCPU *arm_cpu = arm_env_get_cpu(env);
-        CPUState *cpu = CPU(arm_cpu);
         QEMU_callback_args_t* event_data = malloc(sizeof(QEMU_callback_args_t));
         event_data->nocI = malloc(sizeof(QEMU_nocI));
         event_data->nocI->bigint = cmd_id;
-        QEMU_execute_callbacks(cpu_proc_num(cpu), QEMU_magic_instruction, event_data);
+        QEMU_execute_callbacks(cpu_proc_num, QEMU_magic_instruction, event_data);
         free(event_data->nocI);
         free(event_data);
     }

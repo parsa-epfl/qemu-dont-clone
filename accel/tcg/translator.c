@@ -26,12 +26,10 @@
    For most targets, (2) is at the end of translate_insn.  */
 void translator_loop_temp_check(DisasContextBase *db)
 {
-    tcg_check_temp_count();
-    /*if (tcg_check_temp_count()) {
+    if (tcg_check_temp_count()) {
         qemu_log("warning: TCG temporary leaks before "
                  TARGET_FMT_lx "\n", db->pc_next);
     }
-    */
 }
 
 void translator_loop(const TranslatorOps *ops, DisasContextBase *db,
