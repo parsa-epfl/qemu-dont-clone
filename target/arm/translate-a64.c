@@ -3664,12 +3664,8 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn,CPUARMState* env)
             TCGv_i64 user_v1 = read_cpu_reg(s, 1, 0);
             TCGv_i64 user_v2 = read_cpu_reg(s, 2, 0);
             TCGv_i32 rd_trigger = tcg_const_i32(rd);
-            ARMCPU *arm_cpu = arm_env_get_cpu(env);
-            CPUState *cpu = CPU(arm_cpu);
-            TCGv_i32 cpu_idx = tcg_const_i32(cpu_proc_num(cpu));
-            gen_helper_flexus_magic_ins(cpu_idx, rd_trigger, cmd_id, user_v1, user_v2);
+            gen_helper_flexus_magic_ins(cpu_env, rd_trigger, cmd_id, user_v1, user_v2);
             tcg_temp_free_i32(rd_trigger);
-            tcg_temp_free_i32(cpu_idx);
         }
 #endif
         tcg_gen_or_i64(tcg_rd, tcg_rn, tcg_rm);
