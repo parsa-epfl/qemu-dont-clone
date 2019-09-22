@@ -1,7 +1,5 @@
 #include "qflex/qflex-log.h"
 int qflex_loglevel = 0;
-int qflex_iloop = 0;
-int qflex_iExit = 0;
 
 const QEMULogItem qflex_log_items[] = {
     { QFLEX_LOG_GENERAL, "gen",
@@ -30,9 +28,6 @@ int qflex_str_to_log_mask(const char *str)
             for (item = qflex_log_items; item->mask != 0; item++) {
                 mask |= item->mask;
             }
-        } else if (g_str_has_prefix(*tmp, "loop=") && (*tmp)[5] != '\0') {
-            char* subs = strndup(&(*tmp)[5],  (strlen((*tmp))-5));
-            qflex_iloop = atoi(subs);
         } else {
             for (item = qflex_log_items; item->mask != 0; item++) {
                 if (g_str_equal(*tmp, item->name)) {

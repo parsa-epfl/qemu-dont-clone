@@ -4555,7 +4555,10 @@ contents of @code{iv.b64} to the second secret
 
 ETEXI
 
+
 #ifdef CONFIG_FLEXUS
+
+// QFLEX Debug
 DEF("qflex_d", HAS_ARG, QEMU_OPTION_qflex_d, \
     "-qflex_d item1,...    enable logging of specified items (use '-d help' for a list of log items)\n",
     QEMU_ARCH_ALL)
@@ -4564,7 +4567,22 @@ STEXI
 @findex -qflex_d
 Enable logging of specified items.
 ETEXI
-#endif
+
+// QFLEX extra commands
+DEF("qflex", HAS_ARG, QEMU_OPTION_qflex, \
+    "-qflex [pth_iloop=count]\n", QEMU_ARCH_ALL)
+STEXI
+@item -qflex [pth_iloop=count]
+@findex -qflex
+Enable QFLEX options
+
+@option{pth_iloop=count} will set iloop count for qflex PTH
+
+Note : None
+ETEXI
+
+#endif /* CONFIG_FLEXUS */
+
 
 HXCOMM This is the last statement. Insert new options before this line!
 STEXI

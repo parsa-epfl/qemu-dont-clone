@@ -136,6 +136,7 @@ int main(int argc, char **argv)
 #include "sysemu/iothread.h"
 
 #if defined(CONFIG_FLEXUS)
+#include "qflex/qflex.h"
 #include "qflex/qflex-log.h"
 #endif /* CONFIG_FLEXUS */
 
@@ -576,6 +577,18 @@ static QemuOptsList qemu_flexus_opts = {
         }, {
             .name = "debug",
             .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+static QemuOptsList qemu_qflex_opts = {
+    .name = "qflex",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_qflex_opts.head),
+    .desc = {
+        {
+            .name = "pth_iloop",
+            .type = QEMU_OPT_NUMBER,
         },
         { /* end of list */ }
     },
@@ -3274,6 +3287,7 @@ int main(int argc, char **argv, char **envp)
 #endif
 #if defined(CONFIG_FLEXUS)
     const char *qflex_log_opts = NULL;
+    QemuOpts *qflex_opts = NULL;
 #endif /* CONFIG_FLEXUS */
 
    char **dirs;
@@ -3331,6 +3345,7 @@ int main(int argc, char **argv, char **envp)
 #endif
 #ifdef CONFIG_FLEXUS
     qemu_add_opts(&qemu_flexus_opts);
+    qemu_add_opts(&qemu_qflex_opts);
 #ifdef CONFIG_EXTSNAP
     qemu_add_opts(&qemu_ckpt_opts);
     qemu_add_opts(&qemu_phases_opts);
@@ -4418,11 +4433,16 @@ int main(int argc, char **argv, char **envp)
                     exit(1);
                 }
                 break;
-#if defined(CONFIG_FLEXUS) ||defined(CONFIG_FA_QFLEX)
+#if defined(CONFIG_FLEXUS)
+            case QEMU_OPTION_qflex:
+                qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("qflex"),
+                                                        optarg, true);
+                if (!qflex_opts) { exit(1); }
+                break;
             case QEMU_OPTION_qflex_d:
-                    qflex_log_opts = optarg;
-                    break;
-#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
+                qflex_log_opts = optarg;
+                break;
+#endif /* CONFIG_FLEXUS */
             default:
                 os_parse_cmd_args(popt->index, optarg);
             }
@@ -5139,7 +5159,11 @@ int main(int argc, char **argv, char **envp)
     }
 #endif
 
-#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
+#if defined(CONFIG_FLEXUS)
+    if (qflex_opts) {
+        qflex_configure(qflex_opts, &error_abort);
+        qemu_opts_del(qflex_opts);
+    }
     if (qflex_log_opts) {
         int mask;
         mask = qflex_str_to_log_mask(qflex_log_opts);
@@ -5151,7 +5175,7 @@ int main(int argc, char **argv, char **envp)
     } else {
         qflex_set_log(0);
     }
-#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QLEX */
+#endif /* CONFIG_FLEXUS */
 
     qdev_prop_check_globals();
     if (vmstate_dump_file) {

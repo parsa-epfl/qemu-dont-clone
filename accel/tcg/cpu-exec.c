@@ -721,7 +721,7 @@ int cpu_exec(CPUState *cpu)
         }
     }
 #if defined(CONFIG_FLEXUS)
-    QFLEX_INIT_LOOP();
+    qflex_pth_loop_init();
 #endif
 
     if (cpu->exception_index >= 0 ){
@@ -739,7 +739,7 @@ int cpu_exec(CPUState *cpu)
             TranslationBlock *tb;
 
 #if defined(CONFIG_FLEXUS)
-            QFLEX_CHECK_LOOP(cpu);
+            if (qflex_pth_loop_check_done()) qemu_cpu_kick(cpu);
 #endif
 
             tb = tb_find(cpu, last_tb, tb_exit);

@@ -21,6 +21,7 @@
 #include "qflex/qflex.h"
 
 qflex_state_t qflexState;
+qflex_pth_t qflexPth;
 
 void qflex_api_values_init(CPUState *cpu) {
     qflexState.inst_done = false;
@@ -28,6 +29,15 @@ void qflex_api_values_init(CPUState *cpu) {
     qflexState.prologue_done = false;
     qflexState.prologue_pc = QFLEX_GET_ARCH(pc)(cpu);
     qflexState.exec_type = QEMU;
+
+    qflexPth.iloop = 0;
+    qflexPth.iexit = 0;
+}
+
+void qflex_configure(QemuOpts *opts, Error **errp) {
+    unsigned iloop = qemu_opt_get_number(opts, "pth_iloop", 0);
+
+    qflexPth.iloop = iloop;
 }
 
 int qflex_prologue(CPUState *cpu) {

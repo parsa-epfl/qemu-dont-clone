@@ -36,7 +36,13 @@ typedef struct qflex_state_t {
     bool flexus_control;
 } qflex_state_t;
 
+typedef struct qflex_pth_t {
+    int iexit;
+    int iloop;
+} qflex_pth_t;
+
 extern qflex_state_t qflexState;
+extern qflex_pth_t qflexPth;
 
 /** qflex_api_values_init
  * Inits extern flags and vals
@@ -96,6 +102,18 @@ static inline void qflex_update_flexus_control(bool control) {
     qflexState.flexus_control = control; }
 
 
+static inline qflex_pth_t qflex_get_pth(void) { return qflexPth; }
+static inline void qflex_pth_loop_init(void) {
+    qflexPth.iexit = 0;
+}
+static inline bool qflex_pth_loop_check_done(void) {
+    if(qflexPth.iloop > 0) {
+        if(++qflexPth.iexit > qflexPth.iloop) {
+            qflexPth.iexit = 0;
+            return true;
+        }
+    }
+    return false;
 }
 
 #endif /* QFLEX_H */
