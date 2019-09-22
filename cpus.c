@@ -1882,7 +1882,7 @@ static int tcg_cpu_exec(CPUState *cpu)
 
 #if defined(CONFIG_FLEXUS)
 
-static int qflex_tcg_cpu_exec(CPUState *cpu, QFlexExecType_t type)
+static int qflex_tcg_cpu_exec(CPUState *cpu)
 {
     int ret;
 #ifdef CONFIG_PROFILER
@@ -1891,7 +1891,7 @@ static int qflex_tcg_cpu_exec(CPUState *cpu, QFlexExecType_t type)
 #endif
     qemu_mutex_unlock_iothread();
     cpu_exec_start(cpu);
-    ret = qflex_cpu_exec(cpu,type);
+    ret = qflex_cpu_exec(cpu);
     cpu_exec_end(cpu);
     qemu_mutex_lock_iothread();
 #ifdef CONFIG_PROFILER
@@ -1900,10 +1900,11 @@ static int qflex_tcg_cpu_exec(CPUState *cpu, QFlexExecType_t type)
     return ret;
 }
 
-int qflex_cpu_step(CPUState *cpu, QFlexExecType_t type)
+int qflex_cpu_step(CPUState *cpu)
 {
     int r = 0;
 
+    if(qflex_is_broke_loop()) { goto skip; }
     /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
     qemu_account_warp_timer();
 
@@ -1923,7 +1924,11 @@ int qflex_cpu_step(CPUState *cpu, QFlexExecType_t type)
         if (cpu_can_run(cpu)) {
 
             prepare_icount_for_run(cpu);
-            r = qflex_tcg_cpu_exec(cpu, type);
+skip:
+            r = qflex_tcg_cpu_exec(cpu);
+            if(qflex_is_broke_loop()) {
+                return r;
+            }
             process_icount_data(cpu);
 
             switch (r) {
@@ -2148,7 +2153,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         // qflex_prologue(CPU_NEXT(cpu) ? CPU_NEXT(cpu) : cpu);
         qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TIMING START\n"
                                           "    -> Starting timing simulation. Passing control to Flexus.\n");
-        qflex_control_with_flexus = true;
+        qflex_update_flexus_control(true);
         startFlexus();
         return NULL;
     }

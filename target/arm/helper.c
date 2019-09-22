@@ -11522,7 +11522,7 @@ void helper_flexus_magic_ins(int cpu_proc_num, int trig_reg, uint64_t cmd_id, ui
     qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Received magic instruction: %d, and 0x%" PRId64 ", 0x%" PRIx64 ", 0x%" PRIx64 "\n", trig_reg, cmd_id, user_v1, user_v2);
 
     /* Msutherl: If in simulation mode, execute magic_insn callback types. */
-    if( (flexus_in_timing() && qflex_control_with_flexus) || flexus_in_trace() ) {
+    if( (flexus_in_timing() && qflex_is_flexus_control()) || flexus_in_trace() ) {
         QEMU_callback_args_t* event_data = malloc(sizeof(QEMU_callback_args_t));
         event_data->nocI = malloc(sizeof(QEMU_nocI));
         event_data->nocI->bigint = cmd_id;

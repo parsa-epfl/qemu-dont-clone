@@ -38,6 +38,7 @@
 
 #if defined(CONFIG_FLEXUS)
 #include "qflex/qflex.h"
+#include "qflex/qflex-arch.h"
 #endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_QUANTUM
@@ -758,8 +759,51 @@ int cpu_exec(CPUState *cpu)
 
 
 #if defined(CONFIG_FLEXUS)
-bool qflex_broke_loop = false;
-int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
+static inline void qflex_cpu_exec_loop(CPUState *cpu, SyncClocks *sc, int *ret) {
+    /* if we broke the loop in the past, return to the main loop by skipping
+     * the exception handler
+     */
+    while (qflex_is_broke_loop() || !cpu_handle_exception(cpu, ret)) {
+        static TranslationBlock *last_tb = NULL;
+        static int tb_exit = 0;
+        if(!qflex_is_broke_loop()){
+            last_tb = NULL;
+            tb_exit = 0;
+        }
+        qflex_update_broke_loop(false);
+
+        while (!cpu_handle_interrupt(cpu, &last_tb)) {
+
+            TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
+            cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
+
+            align_clocks(sc, cpu);
+
+            /* Depending on execution type, break the main execution loop */
+            switch(qflex_is_type()) {
+            case SINGLESTEP:
+                if(qflex_is_inst_done()) { goto break_loop; }
+                break;
+            case PROLOGUE:
+                qflex_update_prologue_done(QFLEX_GET_ARCH(pc)(cpu));
+                if(qflex_is_prologue_done()) { goto break_loop; }
+                break;
+            case EXCEPTION:
+                if(QFLEX_GET_ARCH(el)(cpu) == 0) { goto break_loop; }
+                break;
+            case QEMU: break;
+            default:
+                fprintf(stdout, "QFLEX execution loop type switch statement should be exaustive\n");
+                exit(1);
+            break_loop:
+                qflex_update_broke_loop(true);
+                return;
+            }
+        }
+    }
+}
+
+int qflex_cpu_exec(CPUState *cpu)
 {
     PTH_UPDATE_CONTEXT;
 
@@ -800,7 +844,6 @@ int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
 #ifndef CONFIG_SOFTMMU
         tcg_debug_assert(!have_mmap_lock());
 #endif
-        qflex_broke_loop = false;
         cpu->can_do_io = 1;
         tb_lock_reset();
         if (qemu_mutex_iothread_locked()) {
@@ -814,44 +857,7 @@ int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
         ret = cpu->interrupt_request;
     }
 
-    while (qflex_broke_loop || !cpu_handle_exception(cpu, &ret)) {
-        static TranslationBlock *last_tb = NULL;
-        static int tb_exit = 0;
-        if(qflex_broke_loop == false){
-            last_tb = NULL;
-            tb_exit = 0;
-        }
-        qflex_broke_loop = false;
-
-        while (!cpu_handle_interrupt(cpu, &last_tb)) {
-
-            TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
-            cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
-
-            align_clocks(&sc, cpu);
-            switch(type) {
-                case SINGLESTEP:
-                    if(qflex_is_inst_done()){
-                        qflex_broke_loop = true;
-                    }
-                    break;
-                case PROLOGUE:
-                    if(qflex_is_inst_done()){
-                        qflex_update_prologue_done(((CPUArchState *)(cpu->env_ptr))->pc);
-                        if(qflex_is_prologue_done()){
-                            qflex_broke_loop = true;
-                        }
-                    }
-                    break;
-                default:
-                    break;
-            }
-            if(qflex_broke_loop)
-                break;
-        }
-        if(qflex_broke_loop)
-            break;
-    }
+    qflex_cpu_exec_loop(cpu, &sc, &ret);
 
     cc->cpu_exec_exit(cpu);
     rcu_read_unlock();
