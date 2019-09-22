@@ -36,6 +36,10 @@
 
 #include "trace-tcg.h"
 
+#if defined(CONFIG_FLEXUS)
+#include "qflex/qflex.h"
+#include "qflex/qflex-profiling.h"
+#endif /* CONFIG_FLEXUS */
 
 #ifdef CONFIG_FLEXUS
 #include "include/sysemu/sysemu.h"
@@ -11342,11 +11346,13 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     s->pc += 4;
 
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
-    if( flexus_in_timing() || unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC))) {
-        uint64_t pc = s->base.pc_first;
-        uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
-        gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+    uint64_t pc = s->base.pc_first;
+    uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
+
+    GEN_HELPER(qflex_executed_instruction)(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
                                               tcg_const_i32(QFLEX_EXEC_IN));
+    if(qflex_is_profile_enabled()) {
+        qflex_profile_disas_a64_insn(env, pc, flags, insn);
     }
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 

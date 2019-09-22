@@ -4570,13 +4570,15 @@ ETEXI
 
 // QFLEX extra commands
 DEF("qflex", HAS_ARG, QEMU_OPTION_qflex, \
-    "-qflex [pth_iloop=count]\n", QEMU_ARCH_ALL)
+    "-qflex [profile=on|off][,pth_iloop=count]\n", QEMU_ARCH_ALL)
 STEXI
-@item -qflex [pth_iloop=count]
+@item -qflex [profile=on|off][,pth_iloop=count]
 @findex -qflex
 Enable QFLEX options
 
 @option{pth_iloop=count} will set iloop count for qflex PTH
+
+@option{profile=on} Enable profile helper generation of executed instructions.
 
 Note : None
 ETEXI

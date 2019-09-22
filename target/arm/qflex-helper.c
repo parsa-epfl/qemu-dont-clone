@@ -3,10 +3,9 @@
 #include "exec/helper-proto.h"
 #include "exec/log.h"
 
-#include "qflex/qflex-log.h"
 #include "qflex/qflex.h"
-
-#if defined(CONFIG_FLEXUS)
+#include "qflex/qflex-profiling.h"
+#include "qflex/qflex-helper.h"
 
 /* TCG helper functions. (See exec/helper-proto.h  and target/arch/helper.h)
  * This one expands prototypes for the helper functions.
@@ -27,7 +26,8 @@ void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags
 
     switch(location) {
     case QFLEX_EXEC_IN:
-        if(unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC))) {
+        if(unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC)) && // To not print twice, Profile has priority
+                unlikely(!qflex_loglevel_mask(QFLEX_LOG_PROFILE))) {
             qemu_log_lock();
             qemu_log("IN[%d]  :", cs->cpu_index);
             log_target_disas(cs, pc, 4, flags);
@@ -36,6 +36,27 @@ void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags
         qflex_update_inst_done(true);
         break;
     default: break;
+    }
+}
+
+void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, int l2h) {
+    if(!qflex_is_profiling()) return; // If not profiling, don't count statistics
+
+    int el = (arm_current_el(env) == 0) ? 0 : 1;
+    qflex_insn_profiles_l1h[el][l1h]++;
+    qflex_insn_profiles_l2h[el][l1h][l2h]++;
+
+    if(unlikely(qflex_loglevel_mask(QFLEX_LOG_PROFILE))) {
+        CPUState *cs = CPU(arm_env_get_cpu(env));
+        const char* l1h_str = qflex_profile_get_char_l1h(l1h);
+        const char* l2h_str = qflex_profile_get_char_l2h(l1h, l2h);
+
+        char profile[256];
+        snprintf(profile, 256, "QFLEX_LOG_PROFILE:%02i:%02i|%14s:%-18s | ", l1h, l2h, l1h_str, l2h_str);
+        qemu_log_lock();
+        qemu_log("%s", profile);
+        log_target_disas(cs, pc, 4, flags);
+        qemu_log_unlock();
     }
 }
 
@@ -68,5 +89,4 @@ void HELPER(qflex_magic_insn)(int nop_op) {
  * For the moment not needed.
  */
 void HELPER(qflex_exception_return)(CPUARMState *env) { return; }
-#endif /* CONFIG_FLEXUS */
 

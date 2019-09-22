@@ -29,12 +29,15 @@ void qflex_api_values_init(CPUState *cpu) {
     qflexState.prologue_done = false;
     qflexState.prologue_pc = QFLEX_GET_ARCH(pc)(cpu);
     qflexState.exec_type = QEMU;
+    qflexState.profile_enable = false;
+    qflexState.profiling = false;
 
     qflexPth.iloop = 0;
     qflexPth.iexit = 0;
 }
 
 void qflex_configure(QemuOpts *opts, Error **errp) {
+    qflexState.profile_enable = qemu_opt_get_bool(opts, "profile", false);
     unsigned iloop = qemu_opt_get_number(opts, "pth_iloop", 0);
 
     qflexPth.iloop = iloop;

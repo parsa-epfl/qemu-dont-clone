@@ -14,4 +14,5 @@ obj-$(CONFIG_SOFTMMU) += arm-powerctl.o
 #######################################################################
 obj-$(TARGET_AARCH64) += qflex-helper.o
 obj-$(TARGET_AARCH64) += qflex-arch.o
+obj-$(TARGET_AARCH64) += qflex-profiling.o
 #######################################################################

@@ -33,6 +33,8 @@ typedef struct qflex_state_t {
     bool prologue_done;
     uint64_t prologue_pc;
     QFlexExecType_t exec_type;
+    bool profile_enable; // Enables the TCG Helper generation
+    bool profiling; // Gather statistic with the executed TCG's
     bool flexus_control;
 } qflex_state_t;
 
@@ -88,6 +90,8 @@ static inline bool qflex_is_inst_done(void)         { return qflexState.inst_don
 static inline bool qflex_is_broke_loop(void)        { return qflexState.broke_loop; }
 static inline bool qflex_is_prologue_done(void)     { return qflexState.prologue_done; }
 static inline QFlexExecType_t qflex_is_type(void)   { return qflexState.exec_type; }
+static inline bool qflex_is_profile_enabled(void)   { return qflexState.profile_enable; }
+static inline bool qflex_is_profiling(void)         { return qflexState.profiling; }
 static inline bool qflex_is_flexus_control(void)    { return qflexState.flexus_control; }
 
 static inline void qflex_update_inst_done(bool done) {
@@ -98,6 +102,8 @@ static inline void qflex_update_prologue_done(uint64_t cur_pc) {
     qflexState.prologue_done = (cur_pc == qflexState.prologue_pc); }
 static inline void qflex_update_exec_type(QFlexExecType_t type) {
     qflexState.exec_type = type; }
+static inline void qflex_update_profiling(bool profile) {
+    qflexState.profiling = profile; }
 static inline void qflex_update_flexus_control(bool control) {
     qflexState.flexus_control = control; }
 

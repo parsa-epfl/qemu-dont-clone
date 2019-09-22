@@ -13,6 +13,7 @@ extern int qflex_iExit;
 #define QFLEX_LOG_TB_EXEC       (1 << 2)
 #define QFLEX_LOG_MAGIC_INSN    (1 << 3)
 #define QFLEX_LOG_FF            (1 << 4)
+#define QFLEX_LOG_PROFILE       (1 << 5)
 
 /* Returns true if a bit is set in the current loglevel mask
  */

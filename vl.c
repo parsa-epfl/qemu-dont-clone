@@ -587,6 +587,9 @@ static QemuOptsList qemu_qflex_opts = {
     .head = QTAILQ_HEAD_INITIALIZER(qemu_qflex_opts.head),
     .desc = {
         {
+            .name = "profile",
+            .type = QEMU_OPT_BOOL,
+        }, {
             .name = "pth_iloop",
             .type = QEMU_OPT_NUMBER,
         },

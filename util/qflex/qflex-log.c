@@ -12,6 +12,8 @@ const QEMULogItem qflex_log_items[] = {
       "show when QFLEX magic instrutions are executed" },
     { QFLEX_LOG_FF, "ff",
       "fast-forward cores into user-mode" },
+    { QFLEX_LOG_PROFILE, "profile",
+      "show when instrutions profile trace when executed" },
     { 0, NULL, NULL },
 };
 
