@@ -1,5 +1,4 @@
 #include "qflex/qflex.h"
-#include "../libqflex/api.h"
 
 
 bool qflex_inst_done = false;
@@ -34,8 +33,14 @@ int qflex_singlestep(CPUState *cpu) {
     return ret;
 }
 
+#ifdef CONFIG_FLEXUS
+#include "../libqflex/api.h"
 int advance_qemu(void * obj){
     CPUState *cpu = obj;
     return qflex_singlestep(cpu);
 }
+#endif
 
+#if !defined(CONFIG_FLEXUS)
+int qflex_cpu_step(CPUState *cpu) {return 0;}
+#endif

@@ -151,81 +151,61 @@ static BlockDriverState* find_active(void)
     return bs;
 }
 
-static BlockDriverState* find_base(void)
+static BlockDriverState* get_base(BlockDriverState *bs)
 {
-    BdrvNextIterator bi;
-    BlockDriverState *bs = bdrv_first(&bi);
-    while (bs && bs->backing) {
-        bs = bs->backing->bs;
+    BlockDriverState* base_bs = bs;
+    while (base_bs && base_bs->backing) {
+        base_bs = base_bs->backing->bs;
     }
-    return bs;
+    return base_bs;
 }
 
-static QString *get_dir_path (void) {
-    BlockDriverState *bs = find_base();
-    if (bs == NULL) {
+static char *get_file_name_from_file_path(const char *file_path) {
+    char *word;
+    word = strrchr(file_path, '/');
+    if (word == NULL) {
         return NULL;
     }
-
-    char* end = strrchr(bs->filename, '/');
-    if (end == NULL) {
-        return qstring_from_str("");
-    }
-    size_t size = end - bs->filename;
-    return qstring_from_substr(bs->filename, 0, size - 1);
+    word++; // Get rid of '/'
+    return word;
 }
 
-static QString *get_snap_path (const char *path) {
-    char* end = strrchr(path, '/');
+static QString *get_dir_path_from_file_path(const char *file_path) {
+    char *end = NULL;
+    size_t size = 0;
+    end = strrchr(file_path, '/');
     if (end == NULL) {
         return NULL;
     }
-    size_t size = end - path;
-    return qstring_from_substr(path, 0, size - 1);
+    size = end - file_path;
+    return qstring_from_substr(file_path, 0, size - 1);
 }
 
-//static const char* get_snap_name (const char *path) {
-//    char* end = strrchr(path, '/');
-//    return end + 1;
-//}
+static char *generate_name(char* filename, int inc) {
+    const char* vmname = qemu_get_vm_name();
+    char *tmp_name = g_strdup("");
+    srand(time(NULL));
+    long unsigned int rand = random() + inc;
+    if (vmname != NULL) {
+        tmp_name = g_strdup_printf("%s-%08lX-%s-tmp", filename, rand, vmname);
+    } else {
+        tmp_name = g_strdup_printf("%s-%08lX-tmp", filename, rand);
+    }
+    return tmp_name;
+}
 
-static QList *get_snap_chain (BlockDriverState *bs) {
+static QList *get_snap_chain(BlockDriverState *bs) {
     QList* lst = qlist_new();
 
     bs = bs->backing->bs;
 
     while (bs->backing != NULL) {
-        char path[PATH_MAX];
-        if (realpath(bs->filename, path) == NULL) {
-            return NULL;
-        }
-        QString *snap = get_snap_path(path);
+        QString *snap = get_dir_path_from_file_path(bs->filename);
         qlist_push(lst, QOBJECT(snap));
         bs = bs->backing->bs;
     }
 
     return lst;
-}
-
-static const char *get_base_name(void) {
-    BlockDriverState *bs = find_base();
-    const char *ret = strrchr(bs->filename, '/');
-    if (ret == NULL) {
-        return bs->filename;
-    }
-    return ret;
-}
-
-static void generate_name(char *name, int inc) {
-    const char* vmname = qemu_get_vm_name();
-    BlockDriverState *bs = find_base();
-    srand(time(NULL));
-    long unsigned int rand = random() + inc;
-    if (vmname != NULL) {
-        sprintf(name, "%s-%08lX-%s-tmp", bs->filename, rand, vmname);
-    } else {
-        sprintf(name, "%s-%08lX-tmp", bs->filename, rand);
-    }
 }
 
 int delete_tmp_overlay(void) {
@@ -237,17 +217,20 @@ int delete_tmp_overlay(void) {
 }
 
 int create_tmp_overlay(void) {
+    Error *local_err = NULL;
     BlockDriverState *bs = find_active();
-    char* tmp_name = g_malloc0(8192*sizeof(char));
+    BlockDriverState *base_bs = get_base(bs);
+    char *tmp_name;
     const char *dev_name = bdrv_get_device_name(bs);
     int i = 0;
 
     do {
-        generate_name(tmp_name, i);
+        char *filename = base_bs->filename;
+        tmp_name = generate_name(filename, i);
         i++;
     } while (!access(tmp_name, F_OK));
 
-    Error *local_err = NULL;
+
 
     qmp_blockdev_snapshot_sync(true, dev_name, false, NULL,
                                      tmp_name,
@@ -255,12 +238,14 @@ int create_tmp_overlay(void) {
                                      NULL,
                                      true, "qcow2",
                                      true, 1, &local_err);
+
+    g_free(tmp_name);
+
     if (local_err != NULL) {
         error_report_err(local_err);
-        g_free(tmp_name);
         return -EINVAL;
     }
-    g_free(tmp_name);
+
     return 0;
 }
 
@@ -312,50 +297,34 @@ static int mkdir_p(const char *dir, const mode_t mode) {
     return 0;
 }
 
-static int create_new_snap_dir(const char *name) {
-    int ret = -EINVAL;
-    char snap_dir_path[PATH_MAX] = {};
-    QString *dir_path = get_dir_path();
-
-    sprintf(snap_dir_path, "%s/%s", qstring_get_str(dir_path),
-                                 name);
-    ret = mkdir_p(snap_dir_path, 0777);
+static char *gen_snap_path(const char *snap_name, char *file_path) {
+    char *snap_path = g_strdup("");
+    QString *dir_path = get_dir_path_from_file_path(file_path);
+    char *base_name = get_file_name_from_file_path(file_path);
+    snap_path = g_strdup_printf("%s/%s/%s-sn", qstring_get_str(dir_path), snap_name, base_name);
     QDECREF(dir_path);
-    return ret;
+    return snap_path;
 }
 
-static int gen_snap_path(const char *name, char *path) {
-    QString *dir_path = get_dir_path();
-    if (dir_path == NULL) {
-        return -EINVAL;
-    }
-    const char *base_name = get_base_name();
-    if (base_name == NULL) {
-        return -EINVAL;
-    }
-    sprintf(path, "%s/%s/%s-sn", dir_path->string, name, base_name);
-    QDECREF(dir_path);
-    return 0;
-}
-
-int save_vmstate_ext(Monitor *mon, const char *name)
+int save_vmstate_ext(Monitor *mon, const char *snap_name)
 {
-    BlockDriverState *bs;
     int ret = -EINVAL;
-    QEMUFile *f = NULL;
-    QString *snap_dir = NULL;
     int saved_vm_running = 0;
     Error *local_err = NULL;
-    char snapshot_file[PATH_MAX] = {};
-    char command[PATH_MAX] = {};
+    BlockDriverState *bs = NULL;
+    BlockDriverState *base_bs = NULL;
+    QEMUFile *f = NULL;
+    QString *snap_dir = NULL;
+    char *snap_filepath = NULL;
 
-    if(isNumber(name)){
-	monitor_printf(mon, "Error: Please don't save snapshot with numeric name\n"); // Why?
+    if(isNumber(snap_name)){
+        monitor_printf(mon, "Error: Please don't save snapshot with numeric name\n"); // Why?
         ret = -EINVAL;
-        return ret;
+        goto end;
     }
 
     bs = find_active();
+    base_bs = get_base(bs);
     if (bs == NULL) {
         monitor_printf(mon, "There are not block devices on current VM\n");
         ret = -ENODEV;
@@ -363,41 +332,48 @@ int save_vmstate_ext(Monitor *mon, const char *name)
     }
 
 
-    ret = gen_snap_path(name, snapshot_file);
-    if (ret < 0) {
-        monitor_printf(mon, "Cannot save snapshot %s\n", name);
+    snap_filepath = gen_snap_path(snap_name, base_bs->filename);
+    if (snap_filepath == NULL) {
+        monitor_printf(mon, "Cannot get snapshot '%s' full path \n", snap_name);
         goto end;
     }
 
-    ret = create_new_snap_dir(name);
-    if (ret < 0) {
-        monitor_printf(mon, "Cannot create directory for snapshot %s\n", name);
+    snap_dir = get_dir_path_from_file_path(snap_filepath);
+    if(snap_dir == NULL) {
+        monitor_printf(mon, "Cannot get snap directory from '%s'\n", snap_name);
         goto end;
     }
 
-    if( access( snapshot_file, F_OK ) != -1 ) {
-        monitor_printf(mon, "overwriting snapshot directory %s\n", name);
-        remove(snapshot_file);
-    }
-    ret = link(bs->filename, snapshot_file);
+    ret = mkdir_p(qstring_get_str(snap_dir), 0777);
     if (ret < 0) {
-        monitor_printf(mon, "Cannot save snapshot %s\n", name);
+        monitor_printf(mon, "Cannot create directory for snapshot '%s'\n", snap_name);
+        goto end;
+    }
+
+    if( access(snap_filepath, F_OK ) != -1 ) {
+        monitor_printf(mon, "overwriting snapshot directory %s\n", snap_name);
+        remove(snap_filepath);
+    }
+
+    ret = link(bs->filename, snap_filepath);
+    if (ret < 0) {
+        monitor_printf(mon, "Cannot save snapshot '%s'\n", snap_name);
         goto end;
     }
     ret = unlink(bs->filename);
     if (ret < 0) {
-        monitor_printf(mon, "Cannot save snapshot %s\n", name);
+        monitor_printf(mon, "Cannot save snapshot '%s'\n", snap_name);
         goto end;
     }
 
     memset(bs->filename, 0, PATH_MAX);
     memset(bs->exact_filename, 0, PATH_MAX);
-    strcpy(bs->filename, snapshot_file);
-    strcpy(bs->exact_filename, snapshot_file);
+    strcpy(bs->filename, snap_filepath);
+    strcpy(bs->exact_filename, snap_filepath);
 
     ret = create_tmp_overlay();
     if (ret < 0) {
-        monitor_printf(mon, "Cannot create temporary overlay %s\n", name);
+        monitor_printf(mon, "Cannot create temporary overlay %s\n", snap_name);
         goto end;
     }
 
@@ -410,13 +386,8 @@ int save_vmstate_ext(Monitor *mon, const char *name)
     }
     vm_stop(RUN_STATE_SAVE_VM);
 
-    snap_dir = get_snap_path(snapshot_file);
-    if (snap_dir == NULL) {
-        monitor_printf(mon, "Cannot get snap path %s\n", name);
-        goto end;
-    }
-
-    sprintf(command, "%s > %s/mem", output_command, snap_dir->string);
+    char command[PATH_MAX] = {};
+    snprintf(command, PATH_MAX, "%s > %s/mem", output_command, snap_dir->string);
     const char *argv[] = { "/bin/sh", "-c", command, NULL };
 
 #ifdef CONFIG_FLEXUS
@@ -443,76 +414,85 @@ int save_vmstate_ext(Monitor *mon, const char *name)
     }
 
     ret = qemu_savevm_state(f, &local_err);
+    qemu_fclose(f);
     if (ret < 0) {
         error_report_err(local_err);
         goto end;
     }
 
-    qemu_fclose(f);
 
+    ret = 0;
 end:
+    QDECREF(snap_dir);
+    g_free(snap_filepath);
+
     if (saved_vm_running) {
         vm_start();
-    }
-    if (snap_dir != NULL) {
-        QDECREF(snap_dir);
     }
     return ret;
 }
 
-static int goto_snap (const char* snap) {
+static int goto_snap(const char* snap) {
+    int ret = -EINVAL;
     char image_path[PATH_MAX] = {};
+    Error *local_err = NULL;
+    BlockDriverState *bs = NULL;
+    BlockDriverState *base_bs = NULL;
+    BlockDriverState *new_back = NULL;
+    QString *dir_path = NULL;
+    char *base_name = NULL;
 
-    BlockDriverState *bs = find_active();
+    bs = find_active();
+    base_bs = get_base(bs);
     if (bs == NULL) {
-        return -EINVAL;
+        ret = -EINVAL;
+        goto end;
     }
 
-    int ret = bs->drv->bdrv_make_empty(bs);
-    QString *dir_path = get_dir_path();
+    ret = bs->drv->bdrv_make_empty(bs);
+    dir_path = get_dir_path_from_file_path(base_bs->filename);
+    base_name = get_file_name_from_file_path(base_bs->filename);
 
-    sprintf(image_path, "%s/%s/%s-sn", qstring_get_str(dir_path),
-                                       snap,
-                                       get_base_name());
+    snprintf(image_path, PATH_MAX, "%s/%s/%s-sn", qstring_get_str(dir_path),
+                                       snap, base_name);
+
     ret = bdrv_change_backing_file(bs, image_path, "qcow2");
+
     if (ret < 0) {
         goto end;
     }
 
-    BlockDriverState *new_back = NULL;
-    Error *local_err = NULL;
+
     new_back = bdrv_open(bs->backing_file, NULL, NULL, 0, &local_err);
     if (new_back == NULL) {
         error_report_err(local_err);
-        ret = -EINVAL;
         goto end;
     }
 
     bdrv_set_backing_hd(bs, NULL, &local_err);
     if (local_err != NULL) {
         error_report_err(local_err);
-        ret = -EINVAL;
         goto end;
     }
     bdrv_set_backing_hd(bs, new_back, &local_err);
     if (local_err != NULL) {
         error_report_err(local_err);
-        ret = -EINVAL;
         goto end;
     }
-    bdrv_unref(new_back);
 
+    ret = 0;
 end:
+    bdrv_unref(new_back);
     QDECREF(dir_path);
     return ret;
 }
 
 static int load_state_ext(QString *dir_path)
 {
-    QEMUFile *f;
     int ret = -EINVAL;
     char command[NAME_MAX] = {};
     Error *local_err = NULL;
+    QEMUFile *f = NULL;
     MigrationIncomingState *mis = migration_incoming_get_current();
 
     sprintf(command, "%s %s/mem", input_command, dir_path->string);
@@ -534,6 +514,7 @@ static int load_state_ext(QString *dir_path)
         goto end;
     }
 
+
     mis->from_src_file = f;
 
     ret = qemu_loadvm_state(f);
@@ -544,7 +525,7 @@ static int load_state_ext(QString *dir_path)
         goto end;
     }
 
-    return 0;
+    ret = 0;
 end:
     return ret;
 }
@@ -552,50 +533,54 @@ end:
 int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     int saved_vm_running  = runstate_is_running();
     int ret = -EINVAL;
+    BlockDriverState *bs = NULL;
+    BlockDriverState *base_bs = NULL;
+    QList *snap_chain = NULL;
+    QString *dir_path = NULL;
+    QString *path = NULL;
 
     if (saved_vm_running) {
         vm_stop(RUN_STATE_RESTORE_VM);
     }
     memory_global_dirty_log_start();
 
-    QString *dir_path = get_dir_path();
-    if (dir_path == NULL) {
+    bs = find_active();
+    base_bs = get_base(bs);
+    if (bs == NULL) {
         monitor_printf(mon, "There are not block devices on current VM\n");
         ret = -ENODEV;
-        goto end_snap_uncreated;
+        goto end;
     }
-    QDECREF(dir_path);
+
+    dir_path = get_dir_path_from_file_path(base_bs->filename);
+    if (dir_path == NULL) {
+        monitor_printf(mon, "There are not block devices on current VM\n");
+        goto end;
+    }
 
     ret = goto_snap(name);
     if (ret < 0) {
         monitor_printf(mon, "Cannot load snapshot %s\n", name);
-        goto end_snap_uncreated;
+        goto end;
     }
 
-    BlockDriverState *bs = find_active();
-    if (bs == NULL) {
-        monitor_printf(mon, "There are not block devices on current VM\n");
-        ret = -ENODEV;
-        goto end_snap_uncreated;
-    }
+
 
     // Incremental snapshots
     // Make QList of QStrings with backtracking of snapshot directories
-    QList *snap_chain = get_snap_chain(bs);
-    if (bs == NULL) {
+    snap_chain = get_snap_chain(bs);
+    if (snap_chain == NULL) {
         monitor_printf(mon, "Cannot build snapshot chain on current VM\n");
-        ret = -EINVAL;
         goto end;
     }
+
     bdrv_drain_all();
     if (qlist_empty(snap_chain)) {
         monitor_printf(mon, "The snapshot chain is empty\n");
-        ret = -EINVAL;
         goto end;
     }
 
     // Load incrementally snapshots
-    QString *path = NULL;
     while ((path = qobject_to_qstring(qlist_pop(snap_chain))) != NULL) {
         vm_start();
         vm_stop(RUN_STATE_RESTORE_VM);
@@ -613,17 +598,14 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
         QDECREF(path);
     }
 
+    ret = 0;
 end:
-    if (saved_vm_running) {
-        vm_start();
-    }
-    if (snap_chain != NULL) {
-        qlist_destroy_obj(QOBJECT(snap_chain));
-    }
-end_snap_uncreated:
+    QDECREF(snap_chain);
+    QDECREF(dir_path);
+    QDECREF(path);
+
     if (saved_vm_running) {
         vm_start();
     }
     return ret;
 }
-

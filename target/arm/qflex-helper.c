@@ -24,7 +24,6 @@
  */
 void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags, int location) {
     CPUState *cs = CPU(arm_env_get_cpu(env));
-    //int cur_el = arm_current_el(env);
 
     switch(location) {
     case QFLEX_EXEC_IN:

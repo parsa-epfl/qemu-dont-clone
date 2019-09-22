@@ -66,7 +66,7 @@ void qemu_dump_state(void *obj, char** buf){
 }
 
 
-char* disassemble(void* cpu, uint64_t pc){
+const char* disassemble(void* cpu, uint64_t pc){
     CPUState *cs = (CPUState*)cpu;
 
     if (pc == 0){
@@ -110,6 +110,7 @@ char* disassemble(void* cpu, uint64_t pc){
     if (r != 0) {
         assert(false);
     }
+    return NULL;
 }
 
 
