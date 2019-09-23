@@ -140,6 +140,10 @@ int main(int argc, char **argv)
 #include "qflex/qflex-log.h"
 #endif /* CONFIG_FLEXUS */
 
+#ifdef CONFIG_FA_QFLEX
+#include "qflex/fa-qflex.h"
+#endif /* CONFIG_FA_QFLEX */
+
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
@@ -674,6 +678,28 @@ static QemuOptsList qemu_fw_cfg_opts = {
         { /* end of list */ }
     },
 };
+
+#ifdef CONFIG_FA_QFLEX
+static QemuOptsList qemu_fa_qflex_opts = {
+    .name = "fa_qflex",
+    .implied_opt_name = "enable",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_fa_qflex_opts.head),
+    .desc = {
+        {
+            .name = "enable",
+            .type = QEMU_OPT_BOOL,
+        }, {
+            .name = "mode",
+            .type = QEMU_OPT_STRING,
+        }, {
+            .name = "sim",
+            .type = QEMU_OPT_BOOL,
+        },
+        { /* end of list */ }
+    },
+};
+#endif /* CONFIG_FA_QFLEX */
 
 /**
  * Get machine options
@@ -3294,6 +3320,9 @@ int main(int argc, char **argv, char **envp)
 #endif /* CONFIG_FLEXUS */
 
    char **dirs;
+#ifdef CONFIG_FA_QFLEX
+    QemuOpts *fa_qflex_opts = NULL;
+#endif /* CONFIG_FA_QFLEX */
     typedef struct BlockdevOptions_queue {
         BlockdevOptions *bdo;
         Location loc;
@@ -3356,6 +3385,10 @@ int main(int argc, char **argv, char **envp)
 #endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
+#ifdef CONFIG_FA_QFLEX
+    qemu_add_opts(&qemu_fa_qflex_opts);
+#endif /* CONFIG_FA_QFLEX */
+
     module_call_init(MODULE_INIT_OPTS);
 
     runstate_init();
@@ -4443,9 +4476,16 @@ int main(int argc, char **argv, char **envp)
                 if (!qflex_opts) { exit(1); }
                 break;
             case QEMU_OPTION_qflex_d:
-                qflex_log_opts = optarg;
-                break;
+                    qflex_log_opts = optarg;
+                    break;
 #endif /* CONFIG_FLEXUS */
+#ifdef CONFIG_FA_QFLEX
+            case QEMU_OPTION_fa_qflex:
+              fa_qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("fa_qflex"),
+                                                      optarg, true);
+              if (!fa_qflex_opts) { exit(1); }
+              break;
+#endif /* CONFIG_FA_QFLEX */
             default:
                 os_parse_cmd_args(popt->index, optarg);
             }
@@ -5179,6 +5219,12 @@ int main(int argc, char **argv, char **envp)
         qflex_set_log(0);
     }
 #endif /* CONFIG_FLEXUS */
+#ifdef CONFIG_FA_QFLEX
+    if(fa_qflex_opts) {
+        fa_qflex_configure(fa_qflex_opts, &error_abort);
+        qemu_opts_del(fa_qflex_opts);
+    }
+#endif /* CONFIG_FA_QLEX */
 
     qdev_prop_check_globals();
     if (vmstate_dump_file) {

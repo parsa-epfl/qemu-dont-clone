@@ -1,6 +1,5 @@
 #include "qflex/qflex.h"
 
-
 /* L1; C3.1 A64 instruction index by encoding */
 typedef enum {
     DATA_PROC_IM,  /* Data processing - immediate */

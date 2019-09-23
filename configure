@@ -426,6 +426,16 @@ pth_path=""
 #**************************
 # QFLEX END
 #**************************
+#**************************
+# FA-QFLEX START
+#**************************
+fa_qflex="no"
+fpga="no"
+#**************************
+# FA-QFLEX END
+#**************************
+
+
 # parse CC options first
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -1321,6 +1331,20 @@ for opt do
   #**************************
   # QFLEX END
   #**************************
+  #**************************
+  # FA-QFLEX START
+  #**************************
+  --disable-fa-qflex) fa_qflex="no"
+  ;;
+  --enable-fa-qflex) fa_qflex="yes"
+  ;;
+  --disable-fpga) fpga="no"
+  ;;
+  --enable-fpga) fpga="yes"
+  ;;
+  #**************************
+  # FA-QFLEX END
+  #**************************
   *)
       echo "ERROR: unknown option $opt"
       echo "Try '$0 --help' for more information"
@@ -1579,6 +1603,14 @@ disabled with --disable-FEATURE, default is enabled if available:
   #**************************
   # QFLEX END
   #**************************
+  #**************************
+  # FA-QFLEX START
+  #**************************
+  fa-qflex        support for FA-QFlex
+  #**************************
+  # FA-QFLEX END
+  #**************************
+
 
 NOTE: The object files are built at the place where configure is launched
 EOF
@@ -5301,6 +5333,19 @@ fi
 #**************************
 # QFLEX END
 #**************************
+#**************************
+# FA-QFLEX START
+#**************************
+if test "$fa_qflex" = "yes" ; then
+  QEMU_CFLAGS="-DCONFIG_FA_QFLEX $QEMU_CFLAGS"
+fi
+if test "$fpga" = "yes" ; then
+  QEMU_CFLAGS="-DCONFIG_FPGA $QEMU_CFLAGS"
+fi
+#**************************
+# FA-QFLEX END
+#**************************
+
 
 # Check that the C++ compiler exists and works with the C compiler.
 # All the QEMU_CXXFLAGS are based on QEMU_CFLAGS. Keep this at the end to don't miss any other that could be added.
@@ -5501,6 +5546,15 @@ echo "GNU Pth lib path   $pth_path"
 echo "#**************************"
 echo "# QFLEX END"
 echo "#**************************"
+echo "#**************************"
+echo "# FA-QFLEX START"
+echo "#**************************"
+echo "FA-QFlex support   $fa_qflex"
+echo "FPGA support       $fpga"
+echo "#**************************"
+echo "# FA-QFLEX END"
+echo "#**************************"
+
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
 fi
@@ -6521,6 +6575,20 @@ fi
 #**************************
 # QFLEX END
 #**************************
+#**************************
+# FA_QFLEX START
+#**************************
+if test "$fa_qflex" = "yes" ; then
+  echo "CONFIG_FA_QFLEX=y" >> $config_host_mak
+fi
+if test "$fpga" = "yes" ; then
+  echo "CONFIG_FPGA=y" >> $config_host_mak
+fi
+#**************************
+# FA_QFLEX END
+#**************************
+
+
 
 if test "$target_user_only" = "yes" ; then
   echo "CONFIG_USER_ONLY=y" >> $config_target_mak

@@ -36,10 +36,14 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QLEX)
 #include "qflex/qflex.h"
 #include "qflex/qflex-arch.h"
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
+
+#if defined(CONFIG_FA_QFLEX)
+#include "qflex/fa-qflex.h"
+#endif /* CONFIG_FA_QFLEX) */
 
 #ifdef CONFIG_QUANTUM
 #define QUANTUM_LIMIT \
@@ -791,7 +795,11 @@ static inline void qflex_cpu_exec_loop(CPUState *cpu, SyncClocks *sc, int *ret) 
             case EXCEPTION:
                 if(QFLEX_GET_ARCH(el)(cpu) == 0) { goto break_loop; }
                 break;
-            case QEMU: break;
+            case QEMU:
+#ifdef CONFIG_FA_QFLEX
+                if(fa_qflex_is_enabled() && fa_qflex_is_running()) { goto break_loop; }
+#endif /* CONFIG_FA_QFLEX */
+                break;
             default:
                 fprintf(stdout, "QFLEX execution loop type switch statement should be exaustive\n");
                 exit(1);

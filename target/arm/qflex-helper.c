@@ -7,6 +7,10 @@
 #include "qflex/qflex-profiling.h"
 #include "qflex/qflex-helper.h"
 
+#ifdef CONFIG_FA_QFLEX
+#include "qflex/fa-qflex.h"
+#endif /* CONFIG_FA_QFLEX */
+
 /* TCG helper functions. (See exec/helper-proto.h  and target/arch/helper.h)
  * This one expands prototypes for the helper functions.
  * They get executed in the TB
@@ -77,6 +81,10 @@ void HELPER(qflex_magic_insn)(int nop_op) {
     case 101: qflex_log_mask_disable(QFLEX_LOG_INTERRUPT); break;
     case 102: qflex_log_mask_enable(QFLEX_LOG_MAGIC_INSN); break;
     case 103: qflex_log_mask_disable(QFLEX_LOG_MAGIC_INSN); break;
+#ifdef CONFIG_FA_QFLEX
+    case 110: fa_qflex_update_running(true); break;
+    case 111: fa_qflex_update_running(false); break;
+#endif /* CONFIG_FA_QFLEX */
     default: break;
     }
     qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"MAGIC_INST:%u\n", nop_op);

@@ -4585,6 +4585,34 @@ ETEXI
 
 #endif /* CONFIG_FLEXUS */
 
+#ifdef CONFIG_FA_QFLEX
+
+DEF("fa_qflex", HAS_ARG, QEMU_OPTION_fa_qflex, \
+    "-fa_qflex [enable=on|off][,mode=full|magic][,sim=on|off]\n", QEMU_ARCH_ARM)
+STEXI
+@item -fa_qflex [enable=on|off][,mode=full|magic][,sim=on|off]
+@findex -fa_qflex
+Enable FA-QFLEX, FPGA Accelerated QFLEX.
+
+@option{enable=on} if FA-QFLEX is enabled,
+will start FA-QFLEX from the beginning.
+Currently this option does not work when TBD.
+
+@option{mode} will enable FA-QFLEX to take control when
+-magic: magic instruction is hit.
+-full: from the start (default).
+Currently this option does not work if FA-QFLEX is disabled.
+
+@option{sim=on} will communicate with Chisel3 simulator instead
+of real FPGA.
+Currently this option does not work if FA-QFLEX is disabled and
+does not work if sim is disabled.
+
+
+Note: NONE.
+ETEXI
+
+#endif /* CONFIG_FA_QFLEX */
 
 HXCOMM This is the last statement. Insert new options before this line!
 STEXI

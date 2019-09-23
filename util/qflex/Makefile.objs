@@ -1,2 +1,6 @@
 util-obj-y = qflex-log.o
 util-obj-y += qflex.o
+util-obj-y += fa-qflex.o
+util-obj-y += fa-qflex-sim.o
+util-obj-y += fa-qflex-aws.o
+util-obj-y += json.o

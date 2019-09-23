@@ -52,9 +52,13 @@
 #include "sysemu/replay.h"
 #include "hw/boards.h"
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #include "qflex/qflex.h"
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
+
+#if defined(CONFIG_FA_QFLEX)
+#include "qflex/fa-qflex.h"
+#endif /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FLEXUS
 #include "../libqflex/flexus_proxy.h"

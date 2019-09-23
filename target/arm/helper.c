@@ -11954,3 +11954,18 @@ void helper_flexus_st_aa32(
     helper_flexus_st(env, addr, size, is_user, pc, is_atomic);
 }
 #endif /* CONFIG_FLEXUS */
+
+#if defined(CONFIG_FA_QFLEX)
+#include "qflex/fa-qflex-helper.h"
+bool QFLEX_GET_F(get_phys_addr)(CPUARMState *env, target_ulong address,
+                                MMUAccessType access_type, ARMMMUIdx mmu_idx,
+                                hwaddr *phys_ptr, MemTxAttrs *attrs, int *prot,
+                                target_ulong *page_size, uint32_t *fsr,
+                                ARMMMUFaultInfo *fi) {
+    return get_phys_addr(env, address,
+                         access_type, mmu_idx,
+                         phys_ptr, attrs, prot,
+                         page_size, fsr,
+                         fi);
+}
+#endif /* CONFIG_FA_QFLEX */

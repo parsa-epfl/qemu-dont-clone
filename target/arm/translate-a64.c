@@ -36,10 +36,10 @@
 
 #include "trace-tcg.h"
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #include "qflex/qflex.h"
 #include "qflex/qflex-profiling.h"
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FLEXUS
 #include "include/sysemu/sysemu.h"

@@ -542,8 +542,8 @@ DEF_HELPER_FLAGS_2(neon_pmull_64_hi, TCG_CALL_NO_RWG_SE, i64, i64, i64)
 #include "helper-a64.h"
 #endif
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #define TCG_GEN
 #include "qflex/qflex-helper.h"
 #undef TCG_GEN
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */

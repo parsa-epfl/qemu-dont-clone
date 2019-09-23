@@ -1479,3 +1479,12 @@ uint32_t HELPER(ror_cc)(CPUARMState *env, uint32_t x, uint32_t i)
         return ((uint32_t)x >> shift) | (x << (32 - shift));
     }
 }
+
+#ifdef CONFIG_FA_QFLEX
+#include "qflex/fa-qflex-helper.h"
+void QFLEX_GET_F(deliver_fault)(ARMCPU *cpu, vaddr addr, MMUAccessType access_type,
+                                   uint32_t fsr, uint32_t fsc, ARMMMUFaultInfo *fi) {
+    return deliver_fault(cpu, addr, access_type, fsr, fsc, fi);
+}
+
+#endif /* CONFIG_FA_QFLEX */
