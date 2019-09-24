@@ -2043,6 +2043,11 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 #ifdef CONFIG_FLEXUS
     int counter = 0, init_counter = 0;
     bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
+    if( !ff ) { 
+        qflex_trace_enabled = true;
+        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
+                                          "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
+    }
 #endif
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
