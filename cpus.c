@@ -2075,10 +2075,10 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 process_icount_data(cpu);
 
 #ifdef CONFIG_QUANTUM
-                if ( quantum_state.quantum_value > 0){
-                     if(cpu->hasReachedInstrLimit){
-                         cpu->hasReachedInstrLimit = false;
-                     }
+                if ( quantum_state.quantum_value > 0 ) {
+                    if(cpu->hasReachedInstrLimit){
+                        cpu->hasReachedInstrLimit = false;
+                    }
                 }
                 // for debugging purposes
                 if (r == EXCP_INTERRUPT || r == EXCP_HLT || r == EXCP_DEBUG
@@ -2109,6 +2109,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 CPU_FOREACH(bkp_cpu) {
                     completed[bkp_cpu->cpu_index] = false;
                     if((ARM_CPU(bkp_cpu)->env.pc >> 32) == 0){
+                        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Core #%u completed FF step.\n",bkp_cpu->cpu_index);
                         completed[bkp_cpu->cpu_index] = true;
                         counter++;
                     }
@@ -2154,12 +2155,15 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 #ifdef CONFIG_FLEXUS
     if (flexus_state.mode == TIMING){
 _label_start_timing:
-        // qflex_prologue(CPU_NEXT(cpu) ? CPU_NEXT(cpu) : cpu);
         qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TIMING START\n"
                                           "    -> Starting timing simulation. Passing control to Flexus.\n");
         qflex_control_with_flexus = true;
         startFlexus();
         return NULL;
+    } else if( flexus_state.mode == TRACE) {
+        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
+                                          "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
+        qflex_trace_enabled = true;
     }
     qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Went outside QEMU and Flexus loops\n");
 #endif /* CONFIG_FLEXUS */

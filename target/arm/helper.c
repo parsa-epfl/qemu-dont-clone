@@ -11523,7 +11523,7 @@ void helper_flexus_magic_ins(CPUARMState *env, int trig_reg, uint64_t cmd_id, ui
     qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Received magic instruction: %d, and 0x%" PRId64 ", 0x%" PRIx64 ", 0x%" PRIx64 ", Core: %d\n", trig_reg, cmd_id, user_v1, user_v2, cpu->cpu_index);
 
     /* Msutherl: If in simulation mode, execute magic_insn callback types. */
-    if( (flexus_in_timing() && qflex_control_with_flexus) || flexus_in_trace() ) {
+    if( (flexus_in_timing() && qflex_control_with_flexus) || flexus_in_trace()) {
         QEMU_callback_args_t* event_data = malloc(sizeof(QEMU_callback_args_t));
         event_data->nocI = malloc(sizeof(QEMU_nocI));
         event_data->nocI->bigint = cpu->cpu_index;
@@ -11541,46 +11541,49 @@ void helper_flexus_magic_ins(CPUARMState *env, int trig_reg, uint64_t cmd_id, ui
 void finish_performance(void);
 
 void helper_flexus_periodic(CPUARMState *env, int isUser){
-    ARMCPU *arm_cpu = arm_env_get_cpu(env);
-    CPUState *cpu = CPU(arm_cpu);
 
-    static uint64_t instCnt = 0;
+    if( flexus_in_trace() && qflex_trace_enabled ) {
+        ARMCPU *arm_cpu = arm_env_get_cpu(env);
+        CPUState *cpu = CPU(arm_cpu);
 
-    int64_t simulation_length = QEMU_get_simulation_length();
-    if( simulation_length >= 0 && instCnt >= simulation_length ) {
+        static uint64_t instCnt = 0;
 
-        static bool exited = false;
-        exited = QEMU_break_simulation("Reached the end of the simulation");
+        int64_t simulation_length = QEMU_get_simulation_length();
+        if( simulation_length >= 0 && instCnt >= simulation_length ) {
 
-        if (exited){
-            cpu->exit_request = 1;
-            cpu_loop_exit(cpu);
-            return ;
+            static bool exited = false;
+            exited = QEMU_break_simulation("Reached the end of the simulation");
+
+            if (exited){
+                cpu->exit_request = 1;
+                cpu_loop_exit(cpu);
+                return ;
+            }
         }
-    }
 
 #ifdef CONFIG_DEBUG_LIBQFLEX
-    if (isUser == 1)
-        QEMU_increment_debug_stat(USER_INSTR_CNT);
-    else
-        QEMU_increment_debug_stat(OS_INSTR_CNT);
+        if (isUser == 1)
+            QEMU_increment_debug_stat(USER_INSTR_CNT);
+        else
+            QEMU_increment_debug_stat(OS_INSTR_CNT);
 
-    QEMU_increment_debug_stat(ALL_INSTR_CNT);
+        QEMU_increment_debug_stat(ALL_INSTR_CNT);
 
-    QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
+        QEMU_increment_debug_stat(QEMU_CALLBACK_CNT);
 #endif
 
-    QEMU_increment_instruction_count(cpu_proc_num(cpu), isUser);
+        QEMU_increment_instruction_count(cpu_proc_num(cpu), isUser);
 
-    instCnt++;
+        instCnt++;
 
-    uint64_t eventDelay = 1000;
-    if((instCnt % eventDelay) == 0 ){
-        QEMU_callback_args_t * event_data = &event_data_cached;
-        event_data->ncm = &ncm_cached;
+        uint64_t eventDelay = 1000;
+        if((instCnt % eventDelay) == 0 ){
+            QEMU_callback_args_t * event_data = &event_data_cached;
+            event_data->ncm = &ncm_cached;
 
 
-        QEMU_execute_callbacks(QEMUFLEX_GENERIC_CALLBACK, QEMU_periodic_event, event_data);
+            QEMU_execute_callbacks(QEMUFLEX_GENERIC_CALLBACK, QEMU_periodic_event, event_data);
+        }
     }
 }
 
@@ -11778,35 +11781,17 @@ void helper_flexus_insn_fetch( CPUARMState *env,
                                int is_user,
                                int cond,
                                int annul ) {
-    ARMCPU *arm_cpu = arm_env_get_cpu(env);
-    CPUState *cpu = CPU(arm_cpu);
+    if( flexus_in_trace() && qflex_trace_enabled ) {
+        ARMCPU *arm_cpu = arm_env_get_cpu(env);
+        /*
+         * MARK: Removed old code which was accessing the TCG TLBs.
+         *  - This code generates hVAddrs, which is not what Flexus should model.
+         *  - Fix: Use mmu_logical_to_physical to generate gPAddrs.
+        */
 
-
-    int mmu_idx, page_index, pd;
-    MemoryRegion *mr;
-
-    page_index = (targ_addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
-    mmu_idx = cpu_mmu_index(env , false );                                                     // Flexus Change made since function definition has changed
-    if (unlikely(env->tlb_table[mmu_idx][page_index].addr_code !=
-                 (targ_addr & TARGET_PAGE_MASK))) {
-        cpu_ldub_code(env, targ_addr);
+        physical_address_t phys_addr_functional = mmu_logical_to_physical((void*)arm_cpu,targ_addr);
+        flexus_insn_fetch_transaction(env, targ_addr, phys_addr_functional, pc, QEMU_Trans_Instr_Fetch, ins_size, is_user, cond, annul);
     }
-    pd = env->iotlb[mmu_idx][page_index].addr & ~TARGET_PAGE_MASK;
-    mr = iotlb_to_region(cpu, pd , env->iotlb[mmu_idx][page_index].attrs );                  // Flexus Change made since function definition has changed
-    if (memory_region_is_unassigned(mr)) {
-        CPUClass *cc = CPU_GET_CLASS(cpu);
-
-        if (cc->do_unassigned_access) {
-            cc->do_unassigned_access(cpu, targ_addr, false, true, 0, 4);
-        } else {
-            cpu_abort(cpu, "Trying to execute code outside RAM or ROM at 0x"
-                      TARGET_FMT_lx "\n", targ_addr);
-        }
-    }
-    physical_address_t phys_address = (physical_address_t)((uintptr_t)targ_addr + env->tlb_table[mmu_idx][page_index].addend);
-
-    flexus_insn_fetch_transaction(env, targ_addr, phys_address, pc, QEMU_Trans_Instr_Fetch,
-                                  ins_size, is_user, cond, annul);
 }
 
 void helper_flexus_ld( CPUARMState *env,
@@ -11815,47 +11800,46 @@ void helper_flexus_ld( CPUARMState *env,
                        int is_user,
                        target_ulong pc,
                        int is_atomic ) {
-    int mmu_idx = cpu_mmu_index(env , false );                                                // Flexus Change made since function definition has changed
-    int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
-    target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_read;
+    if( flexus_in_trace() && qflex_trace_enabled ) {
+        ARMCPU *arm_cpu = arm_env_get_cpu(env);
+        int mmu_idx = cpu_mmu_index(env , false );                                                // Flexus Change made since function definition has changed
+        int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+        target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_read;
 
+        if ((addr & TARGET_PAGE_MASK)
+                != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
+            // Given that a previous load instruction happened, we are sure that
+            // that the TLB entry is still in the CPU TLB, if not then the previous
+            // instruction caused an error, so we just return with no tlb_fill() call
+            return;
+        }
 
+        int io = 0;
+        if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
+            // I/O space
+            io = 1;
+        }
+        // Otherwise, RAM/ROM , physical memory space, io = 0
 
-    if ((addr & TARGET_PAGE_MASK)
-            != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
-        // Given that a previous load instruction happened, we are sure that
-        // that the TLB entry is still in the CPU TLB, if not then the previous
-        // instruction caused an error, so we just return with no tlb_fill() call
-        return;
-    }
-
-    int io = 0;
-    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
-        // I/O space
-        io = 1;
-    }
-    // Otherwise, RAM/ROM , physical memory space, io = 0
-
-    target_ulong phys_address =   *((target_ulong*) tlb_vaddr_to_host(env, addr, 0, mmu_idx));
-
-    // Getting page physical address
-    //  phys_address = env->tlb_table[mmu_idx][index].paddr;
-
-    // Resolving physical address by adding offset inside the page
-    //  phys_address += addr & ~TARGET_PAGE_MASK;
-
-    int asi = 0;
+        /*
+         * MARK: Removed old code which was accessing the TCG TLBs.
+         *  - This code generates hVAddrs, which is not what Flexus should model.
+         *  - Fix: Use mmu_logical_to_physical to generate gPAddrs.
+        */
+        int asi = 0;
+        physical_address_t phys_addr_functional = mmu_logical_to_physical((void*)arm_cpu,addr);
 #ifdef CONFIG_DEBUG_LIBQFLEX
-    if (is_user)
-        QEMU_increment_debug_stat(LD_USER_CNT);
-    else
-        QEMU_increment_debug_stat(LD_OS_CNT);
-    QEMU_increment_debug_stat(LD_ALL_CNT);
+        if (is_user)
+            QEMU_increment_debug_stat(LD_USER_CNT);
+        else
+            QEMU_increment_debug_stat(LD_OS_CNT);
+        QEMU_increment_debug_stat(LD_ALL_CNT);
 #endif
 
-    // Here, prefetch_fcn is just a dummy argument since type is not prefetch
-    flexus_transaction(env, addr, phys_address, pc, QEMU_Trans_Load,
-                       size, is_user, is_atomic, asi, 0, io, 0);
+        // Here, prefetch_fcn is just a dummy argument since type is not prefetch
+        flexus_transaction(env, addr, phys_addr_functional, pc, QEMU_Trans_Load,
+                           size, is_user, is_atomic, asi, 0, io, 0);
+    }
 }
 
 void helper_flexus_st(
@@ -11864,65 +11848,48 @@ void helper_flexus_st(
             int size,
             int is_user,
             target_ulong pc,
-            int is_atomic)
-{  
-    int mmu_idx = cpu_mmu_index(env , false );                                                     // Flexus Change made since function definition has changed
-    int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
-    target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
+            int is_atomic) {  
+    if( flexus_in_trace() && qflex_trace_enabled ) {
+        ARMCPU *arm_cpu = arm_env_get_cpu(env);
+        int mmu_idx = cpu_mmu_index(env , false );                                                     // Flexus Change made since function definition has changed
+        int index = ( (target_ulong)addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+        target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
 
-    if ((addr & TARGET_PAGE_MASK)
-            != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
-        // Given that a previous load instruction happened, we are sure that
-        // that the TLB entry is still in the CPU TLB, if not then the previous
-        // instruction caused an error, so we just return with no tlb_fill() call
-        return;
-    }
+        if ((addr & TARGET_PAGE_MASK)
+                != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
+            // Given that a previous load instruction happened, we are sure that
+            // that the TLB entry is still in the CPU TLB, if not then the previous
+            // instruction caused an error, so we just return with no tlb_fill() call
+            return;
+        }
 
-    int io = 0;
-    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
-        // I/O space
-        io = 1;
-    }
-    // Otherwise, RAM/ROM , physical memory space, io = 0
+        int io = 0;
+        if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
+            // I/O space
+            io = 1;
+        }
+        // Otherwise, RAM/ROM , physical memory space, io = 0
 
-    //  target_ulong phys_address =   *((target_ulong*) tlb_vaddr_to_host(env, addr, 0, mmu_idx));
-    MemTxAttrs attrs = {};
-    hwaddr phys_addr;
-    target_ulong page_size;
-    int prot;
-    bool ret;
-    uint32_t fsr;
-    ARMMMUFaultInfo fi = {};
-    ARMMMUIdx mmu_idx2 = core_to_arm_mmu_idx(env, cpu_mmu_index(env, false));
-
-    ret = get_phys_addr(env, addr, 0, mmu_idx2, &phys_addr,
-                        &attrs, &prot, &page_size, &fsr, &fi);
-
-    if (ret) {
-        assert(false);
-    }
-
-    target_ulong phys_address = phys_addr;
-
-    // Getting page physical address
-    //  phys_address = env->tlb_table[mmu_idx][index].paddr;
-    // Resolving physical address by adding offset inside the page
-    //  phys_address += addr & ~TARGET_PAGE_MASK;
-
-    int asi = 0;
+        /*
+         * MARK: Removed old code which was accessing the TCG TLBs.
+         *  - This code generates hVAddrs, which is not what Flexus should model.
+         *  - Fix: Use mmu_logical_to_physical to generate gPAddrs.
+        */
+        int asi = 0;
 #ifdef CONFIG_DEBUG_LIBQFLEX
-    if (is_user)
-        QEMU_increment_debug_stat(ST_USER_CNT);
-    else
-        QEMU_increment_debug_stat(ST_OS_CNT);
+        if (is_user)
+            QEMU_increment_debug_stat(ST_USER_CNT);
+        else
+            QEMU_increment_debug_stat(ST_OS_CNT);
 
-    QEMU_increment_debug_stat(ST_ALL_CNT);
+        QEMU_increment_debug_stat(ST_ALL_CNT);
 #endif
 
-
-    // Here, prefetch_fcn is just a dummy argument since type is not prefetch
-    flexus_transaction(env, addr, phys_address, pc, QEMU_Trans_Store,
-                       size, is_user, is_atomic, asi, 0, io, 0);
+        physical_address_t phys_addr_functional = mmu_logical_to_physical((void*)arm_cpu,addr);
+        // Here, prefetch_fcn is just a dummy argument since type is not prefetch
+        flexus_transaction(env, addr, phys_addr_functional, pc, QEMU_Trans_Store,
+                           size, is_user, is_atomic, asi, 0, io, 0);
+    }
 }
 
 /* Aarch 32 helpers */
