@@ -2165,7 +2165,10 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     }
     qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Went outside QEMU and Flexus loops\n");
 #endif /* CONFIG_FLEXUS */
-
+#if defined(CONFIG_FA_QFLEX)
+    cpu = first_cpu;
+    qflex_adaptative_execution(cpu);
+#endif
     return NULL;
 }
 

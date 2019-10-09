@@ -2443,7 +2443,7 @@ ETEXI
 STEXI
 @item qom-set @var{path} @var{property} @var{value}
 Set QOM property @var{property} of object at location @var{path} to value @var{value}
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 ETEXI
     {
         .name       = "profile-start",

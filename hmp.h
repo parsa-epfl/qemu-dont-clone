@@ -191,7 +191,7 @@ void hmp_hotpluggable_cpus(Monitor *mon, const QDict *qdict);
 void hmp_info_vm_generation_id(Monitor *mon, const QDict *qdict);
 void hmp_info_memory_size_summary(Monitor *mon, const QDict *qdict);
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 void hmp_profile_start(Monitor *mon, const QDict *qdict);
 void hmp_profile_stop(Monitor *mon, const QDict *qdict);
 #endif

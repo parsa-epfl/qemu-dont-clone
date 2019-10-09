@@ -3282,7 +3282,7 @@ void hmp_info_memory_size_summary(Monitor *mon, const QDict *qdict)
     hmp_handle_error(mon, &err);
 }
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #include "qflex/qflex-profiling.h"
 void hmp_profile_start(Monitor *mon, const QDict *qdict)
 {

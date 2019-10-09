@@ -3325,10 +3325,10 @@ int main(int argc, char **argv, char **envp)
     const char* loadext = NULL;
 #endif
    char **dirs;
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     const char *qflex_log_opts = NULL;
     QemuOpts *qflex_opts = NULL;
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FA_QFLEX
     QemuOpts *fa_qflex_opts = NULL;
 #endif /* CONFIG_FA_QFLEX */
@@ -3393,9 +3393,9 @@ int main(int argc, char **argv, char **envp)
 #endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     qemu_add_opts(&qemu_qflex_opts);
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FA_QFLEX
     qemu_add_opts(&qemu_fa_qflex_opts);
 #endif /* CONFIG_FA_QFLEX */
@@ -4480,7 +4480,7 @@ int main(int argc, char **argv, char **envp)
                     exit(1);
                 }
                 break;
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
             case QEMU_OPTION_qflex:
                 qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("qflex"),
                                                         optarg, false);
@@ -4489,7 +4489,7 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_qflex_d:
                     qflex_log_opts = optarg;
                     break;
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FA_QFLEX
             case QEMU_OPTION_fa_qflex:
               fa_qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("fa_qflex"),
@@ -5213,7 +5213,7 @@ int main(int argc, char **argv, char **envp)
     }
 #endif
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     if (qflex_opts) {
         qflex_configure(qflex_opts, &error_abort);
         qemu_opts_del(qflex_opts);
@@ -5229,7 +5229,7 @@ int main(int argc, char **argv, char **envp)
     } else {
         qflex_set_log(0);
     }
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 #ifdef CONFIG_FA_QFLEX
     if(fa_qflex_opts) {
         fa_qflex_configure(fa_qflex_opts, &error_abort);
