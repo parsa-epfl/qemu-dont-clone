@@ -1884,7 +1884,7 @@ static int tcg_cpu_exec(CPUState *cpu)
 }
 
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 
 static int qflex_tcg_cpu_exec(CPUState *cpu)
 {
@@ -2049,7 +2049,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     /* process any pending work */
     cpu->exit_request = 1;
 
-#ifdef CONFIG_FLEXUS
+#if defined(CONFIG_FLEXUX) || defined(CONFIG_FA_QFLEX)
     int counter = 0, init_counter = 0;
     bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
 #endif
@@ -2111,7 +2111,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 break;
             }
 
-#ifdef CONFIG_FLEXUS
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
             if(ff && init_counter == smp_cpus && (ARM_CPU(cpu)->env.pc >> 32) == 0 && !completed[cpu->cpu_index]){
                 counter = 0;
                 CPUState *bkp_cpu = first_cpu;
@@ -2145,7 +2145,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
         qemu_tcg_wait_io_event(cpu ? cpu : QTAILQ_FIRST(&cpus));
         deal_with_unplugged_cpus();
-#ifdef CONFIG_FLEXUS
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
         if(counter == smp_cpus){
             qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
             break;

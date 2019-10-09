@@ -4556,7 +4556,7 @@ contents of @code{iv.b64} to the second secret
 ETEXI
 
 
-#ifdef CONFIG_FLEXUS
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 
 // QFLEX Debug
 DEF("qflex_d", HAS_ARG, QEMU_OPTION_qflex_d, \
@@ -4583,7 +4583,7 @@ Enable QFLEX options
 Note : None
 ETEXI
 
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FA_QFLEX
 

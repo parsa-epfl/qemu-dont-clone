@@ -1,13 +1,13 @@
 /** HELPER definitions for TCG code generation.
  */
-#if defined(TCG_GEN)
+#if defined(TCG_GEN) && (defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX))
 DEF_HELPER_4(qflex_executed_instruction, void, env, i64, int, int)
-DEF_HELPER_5(qflex_profile, void, env, i64, int, int, int)
+DEF_HELPER_6(qflex_profile, void, env, i64, int, int, int, int)
 DEF_HELPER_1(qflex_magic_insn, void, int)
 DEF_HELPER_1(qflex_exception_return, void, env)
 #elif !(defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)) // Empty definitions when disabled
 void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags, int location);
-void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, int l2h);
+void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, int l2h, int ldst);
 void HELPER(qflex_magic_insn)(int nop_op);
 void HELPER(qflex_exception_return)(CPUARMState *env);
 #endif

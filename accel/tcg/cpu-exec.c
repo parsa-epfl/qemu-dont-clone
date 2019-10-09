@@ -36,7 +36,7 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
-#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QLEX)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #include "qflex/qflex.h"
 #include "qflex/qflex-arch.h"
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
@@ -762,7 +762,7 @@ int cpu_exec(CPUState *cpu)
 
 
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 static inline void qflex_cpu_exec_loop(CPUState *cpu, SyncClocks *sc, int *ret) {
     /* if we broke the loop in the past, return to the main loop by skipping
      * the exception handler
@@ -872,4 +872,4 @@ int qflex_cpu_exec(CPUState *cpu)
 
     return ret;
 }
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */

@@ -85,6 +85,6 @@ int advance_qemu(void * obj){
 }
 #endif
 
-#if !defined(CONFIG_FLEXUS)
+#if !(defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX))
 int qflex_cpu_step(CPUState *cpu) {return 0;}
 #endif

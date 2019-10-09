@@ -135,10 +135,10 @@ int main(int argc, char **argv)
 #include "qapi/qmp/qerror.h"
 #include "sysemu/iothread.h"
 
-#if defined(CONFIG_FLEXUS)
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 #include "qflex/qflex.h"
 #include "qflex/qflex-log.h"
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FA_QFLEX
 #include "qflex/fa-qflex.h"
