@@ -31,7 +31,7 @@ void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags
     switch(location) {
     case QFLEX_EXEC_IN:
         if(unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC)) && // To not print twice, Profile has priority
-                unlikely(!qflex_loglevel_mask(QFLEX_LOG_PROFILE))) {
+                unlikely(!qflex_loglevel_mask(QFLEX_LOG_PROFILE_INST))) {
             qemu_log_lock();
             qemu_log("IN[%d]  :", cs->cpu_index);
             log_target_disas(cs, pc, 4, flags);
@@ -43,20 +43,23 @@ void HELPER(qflex_executed_instruction)(CPUARMState* env, uint64_t pc, int flags
     }
 }
 
-void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, int l2h) {
+void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, int l2h, int ldst) {
     if(!qflex_is_profiling()) return; // If not profiling, don't count statistics
 
     int el = (arm_current_el(env) == 0) ? 0 : 1;
-    qflex_insn_profiles_l1h[el][l1h]++;
-    qflex_insn_profiles_l2h[el][l1h][l2h]++;
+    qflex_profile_stats.global_profiles_l1h[el][l1h]++;
+    qflex_profile_stats.global_profiles_l2h[el][l2h]++;
+    qflex_profile_stats.curr_el_profiles_l1h[l1h]++;
+    qflex_profile_stats.curr_el_profiles_l2h[l2h]++;
+    if(l1h == LDST) { qflex_profile_stats.global_ldst[ldst]++; }
 
-    if(unlikely(qflex_loglevel_mask(QFLEX_LOG_PROFILE))) {
+    if(unlikely(qflex_loglevel_mask(QFLEX_LOG_PROFILE_INST))) {
         CPUState *cs = CPU(arm_env_get_cpu(env));
-        const char* l1h_str = qflex_profile_get_char_l1h(l1h);
-        const char* l2h_str = qflex_profile_get_char_l2h(l1h, l2h);
+        const char* l1h_str = qflex_profile_get_string_l1h(l1h);
+        const char* l2h_str = qflex_profile_get_string_l2h(l2h);
 
         char profile[256];
-        snprintf(profile, 256, "QFLEX_LOG_PROFILE:%02i:%02i|%14s:%-18s | ", l1h, l2h, l1h_str, l2h_str);
+        snprintf(profile, 256, "PROFILE:[%02i:%02i]:%14s:%-18s | ", l1h, l2h, l1h_str, l2h_str);
         qemu_log_lock();
         qemu_log("%s", profile);
         log_target_disas(cs, pc, 4, flags);
@@ -77,17 +80,15 @@ void HELPER(qflex_profile)(CPUARMState* env, uint64_t pc, int flags, int l1h, in
  */
 void HELPER(qflex_magic_insn)(int nop_op) {
     switch(nop_op) {
-    case 100: qflex_log_mask_enable(QFLEX_LOG_INTERRUPT); break;
-    case 101: qflex_log_mask_disable(QFLEX_LOG_INTERRUPT); break;
-    case 102: qflex_log_mask_enable(QFLEX_LOG_MAGIC_INSN); break;
-    case 103: qflex_log_mask_disable(QFLEX_LOG_MAGIC_INSN); break;
+    case 103: qflex_update_profiling(true); break;
+    case 104: qflex_update_profiling(false); break;
 #ifdef CONFIG_FA_QFLEX
     case 110: fa_qflex_update_running(true); break;
     case 111: fa_qflex_update_running(false); break;
 #endif /* CONFIG_FA_QFLEX */
     default: break;
     }
-    qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"MAGIC_INST:%u\n", nop_op);
+    qflex_log_mask(QFLEX_LOG_MAGIC_INSN, "MAGIC_INST:%u\n", nop_op);
 }
 
 /**

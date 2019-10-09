@@ -73,6 +73,17 @@ int qflex_singlestep(CPUState *cpu);
  */
 int qflex_exception(CPUState *cpu);
 
+/** qflex_profile
+ * This function profiles while the profiling flag is set
+ */
+int qflex_profile(CPUState *cpu);
+
+/** qflex_adaptative_execution
+ * This executes normal qemu till a different mode flag is set.
+ * For the moment only profiling is supported.
+ */
+int qflex_adaptative_execution(CPUState *cpu);
+
 /** qflex_cpu_step (cpus.c)
  */
 int qflex_cpu_step(CPUState *cpu);

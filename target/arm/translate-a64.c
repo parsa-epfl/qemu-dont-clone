@@ -11360,7 +11360,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     GEN_HELPER(qflex_executed_instruction)(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
                                               tcg_const_i32(QFLEX_EXEC_IN));
     if(qflex_is_profile_enabled()) {
-        qflex_profile_disas_a64_insn(env, pc, flags, insn);
+        qflex_profile_disas_a64_insn(pc, flags, insn);
     }
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 

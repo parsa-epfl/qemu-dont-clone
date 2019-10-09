@@ -10,10 +10,10 @@ const QEMULogItem qflex_log_items[] = {
       "show instruction for each executed TB" },
     { QFLEX_LOG_MAGIC_INSN, "magic_insn",
       "show when QFLEX magic instrutions are executed" },
-    { QFLEX_LOG_FF, "ff",
-      "fast-forward cores into user-mode" },
-    { QFLEX_LOG_PROFILE, "profile",
+    { QFLEX_LOG_PROFILE_INST, "profile-inst",
       "show when instrutions profile trace when executed" },
+    { QFLEX_LOG_PROFILE_EL, "profile-el",
+      "show statistics of profile for current el" },
     { 0, NULL, NULL },
 };
 

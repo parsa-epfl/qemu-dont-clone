@@ -4582,6 +4582,9 @@ Enable QFLEX options
 
 @option{profile=on} Enable profile helper generation of executed instructions.
 
+@option{profile-mode=full} Enable profiling from start. NOTE: if magic instruction to stop profiling is hit, profiling stops
+@option{profile-mode=magic} Enable profiling when magic instruction is hit.
+
 Note : None
 ETEXI
 

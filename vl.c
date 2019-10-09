@@ -675,6 +675,12 @@ static QemuOptsList qemu_qflex_opts = {
             .name = "ff",
             .type = QEMU_OPT_BOOL,
         }, {
+            .name = "profile",
+            .type = QEMU_OPT_BOOL,
+        }, {
+            .name = "profile-mode",
+            .type = QEMU_OPT_STRING,
+        }, {
             .name = "pth_iloop",
             .type = QEMU_OPT_NUMBER,
         },
