@@ -2051,7 +2051,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 
 #if defined(CONFIG_FLEXUX) || defined(CONFIG_FA_QFLEX)
     int counter = 0, init_counter = 0;
-    bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
+    bool initialize[64] = {false}, completed[64] = {false};
 #endif
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
@@ -2112,21 +2112,23 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
             }
 
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
-            if(ff && init_counter == smp_cpus && (ARM_CPU(cpu)->env.pc >> 32) == 0 && !completed[cpu->cpu_index]){
-                counter = 0;
-                CPUState *bkp_cpu = first_cpu;
-                CPU_FOREACH(bkp_cpu) {
-                    completed[bkp_cpu->cpu_index] = false;
-                    if((ARM_CPU(bkp_cpu)->env.pc >> 32) == 0){
-                        completed[bkp_cpu->cpu_index] = true;
-                        counter++;
+            if(qflex_is_fast_forward()) {
+                if(init_counter == smp_cpus && (ARM_CPU(cpu)->env.pc >> 32) == 0 && !completed[cpu->cpu_index]){
+                    counter = 0;
+                    CPUState *bkp_cpu = first_cpu;
+                    CPU_FOREACH(bkp_cpu) {
+                        completed[bkp_cpu->cpu_index] = false;
+                        if((ARM_CPU(bkp_cpu)->env.pc >> 32) == 0){
+                            completed[bkp_cpu->cpu_index] = true;
+                            counter++;
+                        }
                     }
+                    if(counter == smp_cpus)
+                        break;
+                } else if(init_counter < smp_cpus && !initialize[cpu->cpu_index]){
+                    initialize[cpu->cpu_index] = true;
+                    init_counter += 1;
                 }
-                if(counter == smp_cpus)
-                    break;
-            } else if(ff && init_counter < smp_cpus && !initialize[cpu->cpu_index]){
-                initialize[cpu->cpu_index] = true;
-                init_counter += 1;
             }
 #endif
 

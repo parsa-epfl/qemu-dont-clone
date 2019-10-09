@@ -4570,11 +4570,13 @@ ETEXI
 
 // QFLEX extra commands
 DEF("qflex", HAS_ARG, QEMU_OPTION_qflex, \
-    "-qflex [profile=on|off][,pth_iloop=count]\n", QEMU_ARCH_ALL)
+    "-qflex [ff=on|ff][,profile=on|off][,pth_iloop=count]\n", QEMU_ARCH_ALL)
 STEXI
-@item -qflex [profile=on|off][,pth_iloop=count]
+@item -qflex [ff=on|ff][,profile=on|off][,pth_iloop=count]
 @findex -qflex
 Enable QFLEX options
+
+@option{[ff=on|ff]} fast forward prologue from loading snapshots for every core
 
 @option{pth_iloop=count} will set iloop count for qflex PTH
 

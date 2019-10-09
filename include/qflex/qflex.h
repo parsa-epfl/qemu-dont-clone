@@ -36,6 +36,7 @@ typedef struct qflex_state_t {
     bool profile_enable; // Enables the TCG Helper generation
     bool profiling; // Gather statistic with the executed TCG's
     bool flexus_control;
+    bool fast_forward;
 } qflex_state_t;
 
 typedef struct qflex_pth_t {
@@ -93,6 +94,7 @@ static inline QFlexExecType_t qflex_is_type(void)   { return qflexState.exec_typ
 static inline bool qflex_is_profile_enabled(void)   { return qflexState.profile_enable; }
 static inline bool qflex_is_profiling(void)         { return qflexState.profiling; }
 static inline bool qflex_is_flexus_control(void)    { return qflexState.flexus_control; }
+static inline bool qflex_is_fast_forward(void)      { return qflexState.fast_forward; }
 
 static inline void qflex_update_inst_done(bool done) {
     qflexState.inst_done = done; }

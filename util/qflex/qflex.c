@@ -31,21 +31,22 @@ void qflex_api_values_init(CPUState *cpu) {
     qflexState.exec_type = QEMU;
     qflexState.profile_enable = false;
     qflexState.profiling = false;
+    qflexState.fast_forward = false;
 
     qflexPth.iloop = 0;
     qflexPth.iexit = 0;
 }
 
 void qflex_configure(QemuOpts *opts, Error **errp) {
+    qflexState.fast_forward = qemu_opt_get_bool(opts, "ff", false);
     qflexState.profile_enable = qemu_opt_get_bool(opts, "profile", false);
-    unsigned iloop = qemu_opt_get_number(opts, "pth_iloop", 0);
+    qflexPth.iloop = qemu_opt_get_number(opts, "pth_iloop", 0);
 
-    qflexPth.iloop = iloop;
+
 }
 
 int qflex_prologue(CPUState *cpu) {
     int ret = 0;
-    qflex_api_values_init(cpu);
     qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: PROLOGUE START:%08lx\n"
                    "    -> Skips initial snapshot load long interrupt routine to normal user program\n", QFLEX_GET_ARCH(pc)(cpu));
     qflex_update_exec_type(PROLOGUE);

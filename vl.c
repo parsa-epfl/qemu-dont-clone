@@ -585,21 +585,7 @@ static QemuOptsList qemu_flexus_opts = {
         { /* end of list */ }
     },
 };
-static QemuOptsList qemu_qflex_opts = {
-    .name = "qflex",
-    .merge_lists = true,
-    .head = QTAILQ_HEAD_INITIALIZER(qemu_qflex_opts.head),
-    .desc = {
-        {
-            .name = "profile",
-            .type = QEMU_OPT_BOOL,
-        }, {
-            .name = "pth_iloop",
-            .type = QEMU_OPT_NUMBER,
-        },
-        { /* end of list */ }
-    },
-};
+
 #ifdef CONFIG_EXTSNAP
 static QemuOptsList qemu_phases_opts = {
     .name = "phases",
@@ -678,6 +664,24 @@ static QemuOptsList qemu_fw_cfg_opts = {
         { /* end of list */ }
     },
 };
+
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
+static QemuOptsList qemu_qflex_opts = {
+    .name = "qflex",
+    .merge_lists = true,
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_qflex_opts.head),
+    .desc = {
+        {
+            .name = "ff",
+            .type = QEMU_OPT_BOOL,
+        }, {
+            .name = "pth_iloop",
+            .type = QEMU_OPT_NUMBER,
+        },
+        { /* end of list */ }
+    },
+};
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
 #ifdef CONFIG_FA_QFLEX
 static QemuOptsList qemu_fa_qflex_opts = {
@@ -3314,12 +3318,11 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_EXTSNAP
     const char* loadext = NULL;
 #endif
+   char **dirs;
 #if defined(CONFIG_FLEXUS)
     const char *qflex_log_opts = NULL;
     QemuOpts *qflex_opts = NULL;
 #endif /* CONFIG_FLEXUS */
-
-   char **dirs;
 #ifdef CONFIG_FA_QFLEX
     QemuOpts *fa_qflex_opts = NULL;
 #endif /* CONFIG_FA_QFLEX */
@@ -3377,7 +3380,6 @@ int main(int argc, char **argv, char **envp)
 #endif
 #ifdef CONFIG_FLEXUS
     qemu_add_opts(&qemu_flexus_opts);
-    qemu_add_opts(&qemu_qflex_opts);
 #ifdef CONFIG_EXTSNAP
     qemu_add_opts(&qemu_ckpt_opts);
     qemu_add_opts(&qemu_phases_opts);
@@ -3385,6 +3387,9 @@ int main(int argc, char **argv, char **envp)
 #endif
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
+#if defined(CONFIG_FLEXUS)
+    qemu_add_opts(&qemu_qflex_opts);
+#endif /* CONFIG_FLEXUS */
 #ifdef CONFIG_FA_QFLEX
     qemu_add_opts(&qemu_fa_qflex_opts);
 #endif /* CONFIG_FA_QFLEX */
@@ -4472,7 +4477,7 @@ int main(int argc, char **argv, char **envp)
 #if defined(CONFIG_FLEXUS)
             case QEMU_OPTION_qflex:
                 qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("qflex"),
-                                                        optarg, true);
+                                                        optarg, false);
                 if (!qflex_opts) { exit(1); }
                 break;
             case QEMU_OPTION_qflex_d:
@@ -4482,7 +4487,7 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_FA_QFLEX
             case QEMU_OPTION_fa_qflex:
               fa_qflex_opts = qemu_opts_parse_noisily(qemu_find_opts("fa_qflex"),
-                                                      optarg, true);
+                                                      optarg, false);
               if (!fa_qflex_opts) { exit(1); }
               break;
 #endif /* CONFIG_FA_QFLEX */
