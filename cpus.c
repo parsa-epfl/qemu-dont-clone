@@ -2050,8 +2050,8 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     cpu->exit_request = 1;
 
 #if defined(CONFIG_FLEXUX) || defined(CONFIG_FA_QFLEX)
-    int counter = 0, init_counter = 0;
-    bool initialize[64] = {false}, completed[64] = {false};
+    int cpu_complete_cnt = 0;
+    bool cpu_completed[64] = { false };
 #endif
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
@@ -2111,27 +2111,6 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 break;
             }
 
-#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
-            if(qflex_is_fast_forward()) {
-                if(init_counter == smp_cpus && (ARM_CPU(cpu)->env.pc >> 32) == 0 && !completed[cpu->cpu_index]){
-                    counter = 0;
-                    CPUState *bkp_cpu = first_cpu;
-                    CPU_FOREACH(bkp_cpu) {
-                        completed[bkp_cpu->cpu_index] = false;
-                        if((ARM_CPU(bkp_cpu)->env.pc >> 32) == 0){
-                            completed[bkp_cpu->cpu_index] = true;
-                            counter++;
-                        }
-                    }
-                    if(counter == smp_cpus)
-                        break;
-                } else if(init_counter < smp_cpus && !initialize[cpu->cpu_index]){
-                    initialize[cpu->cpu_index] = true;
-                    init_counter += 1;
-                }
-            }
-#endif
-
             cpu = CPU_NEXT(cpu);
 
             PTH_YIELD
@@ -2148,9 +2127,20 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         qemu_tcg_wait_io_event(cpu ? cpu : QTAILQ_FIRST(&cpus));
         deal_with_unplugged_cpus();
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
-        if(counter == smp_cpus){
-            qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
-            break;
+        if(qflex_is_fast_forward()) {
+            CPUState *ff_cpu = first_cpu;
+            CPU_FOREACH(ff_cpu) {
+                if(QFLEX_GET_ARCH(el)(ff_cpu) == 0 ) {
+                    if(!cpu_completed[ff_cpu->cpu_index]){
+                        cpu_completed[ff_cpu->cpu_index] = true;
+                        cpu_complete_cnt++;
+                    }
+                }
+            }
+            if(cpu_complete_cnt == smp_cpus) {
+                qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
+                break;
+            }
         }
 #endif
     }

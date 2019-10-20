@@ -182,6 +182,7 @@ void qflex_profile_global_reset(void) {
     }
 }
 
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 static disas_profile_t insn_profile;
 
 /* LDST:
@@ -297,11 +298,11 @@ static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
         insn_profile.l2h = DP_REG_LOG_SR;
         // disas_logic_reg(s, insn);
         break;
-    case 0x0b: /* Add/subtract */
-        if (insn & (1 << 21)) { /** (extended register) */
+    case 0x0b:
+        if (insn & (1 << 21)) { /* Add/subtract (extended register) */
             insn_profile.l2h = DP_REG_AS_EXT_REG;
             // disas_add_sub_ext_reg(s, insn);
-        } else {                /** (non extended register) */
+        } else {                /* Add/subtract (shifted register) */
             insn_profile.l2h = DP_REG_AS_REG;
             // disas_add_sub_reg(s, insn);
         }
@@ -455,7 +456,6 @@ static void disas_data_proc_imm(DisasContext *s, uint32_t insn)
     }
 }
 
-#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 /* L1; C3.1 A64 instruction index by encoding */
 void qflex_profile_disas_a64_insn(uint64_t pc, int flags, uint32_t insn)
 {
@@ -497,7 +497,7 @@ void qflex_profile_disas_a64_insn(uint64_t pc, int flags, uint32_t insn)
                                 tcg_const_i32(insn_profile.ldst));
 }
 #else // Empty definitions when qflex disabled
-void qflex_profile_disas_a64_insn(CPUState *cpu,  uint64_t pc, int flags, uint32_t insn){return;}
+void qflex_profile_disas_a64_insn(uint64_t pc, int flags, uint32_t insn){return;}
 #endif
 
 /* Get's rid of 'defined but not used' warning */
