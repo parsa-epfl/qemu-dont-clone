@@ -83,8 +83,8 @@ void HELPER(qflex_magic_insn)(int nop_op) {
     case 103: qflex_update_profiling(true); break;
     case 104: qflex_update_profiling(false); break;
 #ifdef CONFIG_FA_QFLEX
-    case 110: fa_qflex_update_running(true); break;
-    case 111: fa_qflex_update_running(false); break;
+    case 110: fa_qflex_update_running(false); break;
+    case 111: fa_qflex_update_running(true); break;
 #endif /* CONFIG_FA_QFLEX */
     default: break;
     }

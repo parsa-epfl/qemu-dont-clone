@@ -1,4 +1,5 @@
 #include "qflex/qflex-log.h"
+
 int qflex_loglevel = 0;
 
 const QEMULogItem qflex_log_items[] = {

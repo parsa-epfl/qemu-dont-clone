@@ -30,6 +30,7 @@ typedef struct FA_QFlexState_t {
  */
 extern FA_QFlexState_t fa_qflexState;
 
+void fa_qflex_run_sim(CPUState *cpu);
 void fa_qflex_start(CPUState *cpu);
 void fa_qflex_configure(QemuOpts *opts, Error **errp);
 

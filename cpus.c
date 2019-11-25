@@ -2049,7 +2049,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     /* process any pending work */
     cpu->exit_request = 1;
 
-#if defined(CONFIG_FLEXUX) || defined(CONFIG_FA_QFLEX)
+#if defined(CONFIG_FLEXUS)
     int cpu_complete_cnt = 0;
     bool cpu_completed[64] = { false };
 #endif
@@ -2128,7 +2128,10 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         deal_with_unplugged_cpus();
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
         if(qflex_is_fast_forward()) {
-            CPUState *ff_cpu = first_cpu;
+        	qflex_adaptative_execution(first_cpu);
+        	return NULL;
+            /*
+        	CPUState *ff_cpu = first_cpu;
             CPU_FOREACH(ff_cpu) {
                 if(QFLEX_GET_ARCH(el)(ff_cpu) == 0 ) {
                     if(!cpu_completed[ff_cpu->cpu_index]){
@@ -2141,6 +2144,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                 qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
                 break;
             }
+            */
         }
 #endif
     }
@@ -2155,10 +2159,6 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
     }
     qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Went outside QEMU and Flexus loops\n");
 #endif /* CONFIG_FLEXUS */
-#if defined(CONFIG_FA_QFLEX)
-    cpu = first_cpu;
-    qflex_adaptative_execution(cpu);
-#endif
     return NULL;
 }
 
@@ -2549,7 +2549,7 @@ void qemu_init_vcpu(CPUState *cpu)
         /* If the target cpu hasn't set up any address spaces itself,
          * give it the default one.
          */
-        AddressSpace *as = g_new0(AddressSpace, 1);
+        AddressSpace *as = g_new0(AddressSpace, 1); // @suppress("Type cannot be resolved")
 
         address_space_init(as, cpu->memory, "cpu-memory");
         cpu->num_ases = 1;

@@ -784,8 +784,11 @@ static inline void qflex_cpu_exec_loop(CPUState *cpu, SyncClocks *sc, int *ret) 
             align_clocks(sc, cpu);
 
             /* Depending on execution type, break the main execution loop */
+            uint64_t pc;
             switch(qflex_is_type()) {
             case SINGLESTEP:
+                pc = QFLEX_GET_ARCH(pc)(cpu);
+                assert(pc);
                 if(qflex_is_inst_done()) { goto break_loop; }
                 break;
             case PROLOGUE:

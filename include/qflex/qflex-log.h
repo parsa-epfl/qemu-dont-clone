@@ -15,6 +15,11 @@ extern int qflex_iExit;
 #define QFLEX_LOG_FF            (1 << 4)
 #define QFLEX_LOG_PROFILE_INST  (1 << 5)
 #define QFLEX_LOG_PROFILE_EL    (1 << 6)
+#define QFLEX_LOG_FILE_ACCESS   (1 << 7)
+#ifdef CONFIG_FA_QFLEX
+#define FA_QFLEX_LOG_CMDS      (1 << (0 + 16))
+#define FA_QFLEX_LOG_SIM       (1 << (1 + 16))
+#endif
 
 /* Returns true if a bit is set in the current loglevel mask
  */

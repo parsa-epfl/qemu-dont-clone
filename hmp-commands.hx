@@ -2443,8 +2443,8 @@ ETEXI
 STEXI
 @item qom-set @var{path} @var{property} @var{value}
 Set QOM property @var{property} of object at location @var{path} to value @var{value}
-#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
 ETEXI
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     {
         .name       = "profile-start",
         .args_type  = "",
@@ -2452,11 +2452,13 @@ ETEXI
         .help       = "",
         .cmd        = hmp_profile_start,
     },
+#endif
 STEXI
 @item profile-start
 Start gathering profile statistics
 NOTE: Need to execute qflex in qflex_adaptative_execution()
 ETEXI
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     {
         .name       = "profile-stop",
         .args_type  = "",
@@ -2464,6 +2466,7 @@ ETEXI
         .help       = "",
         .cmd        = hmp_profile_stop,
     },
+#endif
 STEXI
 @item profile-stop
 Stop and log profile statistics

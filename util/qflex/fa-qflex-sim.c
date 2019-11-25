@@ -12,15 +12,15 @@ FA_QFlexSimConfig_t sim_cfg = {
 };
 
 const FA_QFlexCmd_t cmds[FA_QFLEXCMDS_NR] = {
-    {DATA_LOAD,  0},
-    {DATA_STORE, 0},
-    {INST_FETCH, 0},
-    {INST_UNDEF, 0},
-    {INST_EXCP,  0},
-    {SIM_START, 0},
-    {SIM_STOP,  0},
-    {LOCK_WAIT,  0},
-    {CHECK_N_STEP, 0}
+    {DATA_LOAD,  0, "DATA_LOAD" },
+    {DATA_STORE, 0, "DATA_STORE"},
+    {INST_FETCH, 0, "INST_FETCH"},
+    {INST_UNDEF, 0, "INST_UNDEF"},
+    {INST_EXCP,  0, "INST_EXCP" },
+    {SIM_START,  0, "SIM_START" },
+    {SIM_STOP,   0, "SIM_STOP"  },
+    {LOCK_WAIT,  0, "LOCK_WAIT" },
+    {CHECK_N_STEP, 0, "CHECK_N_STEP"}
 };
 
 void* fa_qflex_start_sim(void *arg) {
@@ -42,7 +42,7 @@ void* fa_qflex_start_sim(void *arg) {
                  cfg->qemu_state, cfg->qemu_lock, cfg->qemu_cmd,
                  cfg->program_page, page_size,
                  cfg->rootPath);
-        execl("/usr/bin/terminator", "terminator", "-e", buffer, (char *) NULL);
+        execl("/usr/bin/xterm", "xterm", "-e", buffer, (char *) NULL);
         // */
         return NULL;
     } else {
@@ -72,10 +72,12 @@ FA_QFlexCmd_t* fa_qflex_loadfile_json2cmd(const char* filename) {
         curr = curr->next;
     } while(curr);
     free(json);
+    cmd->str = cmds[cmd->cmd].str;
     return cmd;
 }
 
 void fa_qflex_writefile_cmd2json(const char* filename, FA_QFlexCmd_t in_cmd) {
+    qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD OUT %s in %s\n", in_cmd.str, filename);
     size_t size;
     char *json;
     json_value_s root;
@@ -137,13 +139,14 @@ void fa_qflex_filewrite_cpu2json(CPUState *cpu, const char* filename) {
     free(buffer);
 }
 
-FA_QFlexCmd_t* fa_qflex_cmd2json_lock_wait(const char *filename) {
+FA_QFlexCmd_t* fa_qflex_cmd2json_lock_wait(const char *filename) {    
+    qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD OUT %s in %s\n", cmds[LOCK_WAIT].str, filename);
     FA_QFlexCmd_t* cmd;
     do {
-        sleep(1);
+        sleep(3);
         cmd = fa_qflex_loadfile_json2cmd(filename);
     } while (cmd->cmd == LOCK_WAIT);
-    qflex_log_mask(QFLEX_LOG_GENERAL, "Consummed Command %i\n", cmd->cmd);
-    fa_qflex_writefile_cmd2json(filename, cmds[LOCK_WAIT]); // Consume command
+    qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD IN %s\n", cmd->str);
+    fa_qflex_writefile_cmd2json(filename, cmds[LOCK_WAIT]);
     return cmd;
 }

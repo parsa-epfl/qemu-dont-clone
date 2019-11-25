@@ -27,6 +27,7 @@ typedef enum FA_QFlexCmds_t {
 typedef struct FA_QFlexCmd_t {
     FA_QFlexCmds_t cmd;
     uint64_t addr;
+    const char* str;
 } FA_QFlexCmd_t;
 
 extern const FA_QFlexCmd_t cmds[FA_QFLEXCMDS_NR];

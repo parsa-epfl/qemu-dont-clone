@@ -21,6 +21,10 @@
 #include "qflex/qflex.h"
 #include "qflex/qflex-profiling.h"
 
+#ifdef CONFIG_FA_QFLEX
+#include "qflex/fa-qflex.h"
+#endif
+
 qflex_state_t qflexState;
 qflex_pth_t qflexPth;
 
@@ -136,6 +140,10 @@ int qflex_adaptative_execution(CPUState *cpu) {
     while(1) {
         if(qflex_is_profiling()) {
             qflex_profile(cpu);
+#ifdef CONFIG_FA_QFLEX
+        } else if (fa_qflex_is_running()) {
+            fa_qflex_run_sim(cpu);
+#endif
         } else {
             qflex_singlestep(cpu);
         }
