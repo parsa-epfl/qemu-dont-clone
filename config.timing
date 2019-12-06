@@ -3,4 +3,4 @@
 # Run this file to recreate the current configuration.
 # Compiler output produced by configure, useful for debugging
 # configure, is in config.log if it exists.
-exec './configure' '--target-list=aarch64-softmmu' '--enable-extsnap' '--enable-flexus' '--enable-quantum' '--enable-pth' '--enable-werror' '--disable-tpm' "$@"
+exec './configure' '--target-list=aarch64-softmmu' '--enable-extsnap' '--enable-flexus' '--enable-quantum' '--enable-werror' '--disable-tpm' "$@"

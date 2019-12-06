@@ -2065,8 +2065,8 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
             qemu_clock_enable(QEMU_CLOCK_VIRTUAL,
                               (cpu->singlestep_enabled & SSTEP_NOTIMER) == 0);
 
+            int r = 0;
             if (cpu_can_run(cpu)) {
-                int r;
 
                 prepare_icount_for_run(cpu);
 
@@ -2118,6 +2118,15 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
             } else if(ff && init_counter < smp_cpus && !initialize[cpu->cpu_index]){
                 initialize[cpu->cpu_index] = true;
                 init_counter += 1;
+            } else if(!ff && flexus_state.mode == TIMING) { // no ff, immediately start
+                if( !completed[cpu->cpu_index] && r != EXCP_HALTED ) {
+                    completed[cpu->cpu_index] = true;
+                    counter++;
+                }
+                if(counter == smp_cpus) {
+                    qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Not in FFW mode, immediately starting timing.\n");
+                    break;
+                }
             }
 #endif
 
@@ -2133,18 +2142,18 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         if (cpu && cpu->exit_request) {
             atomic_mb_set(&cpu->exit_request, 0);
         }
-
         qemu_tcg_wait_io_event(cpu ? cpu : QTAILQ_FIRST(&cpus));
         deal_with_unplugged_cpus();
 #ifdef CONFIG_FLEXUS
-        if(counter == smp_cpus){
+        if(counter == smp_cpus) {
             qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
-            break;
+            goto _label_start_timing;
         }
 #endif
     }
 #ifdef CONFIG_FLEXUS
     if (flexus_state.mode == TIMING){
+_label_start_timing:
         // qflex_prologue(CPU_NEXT(cpu) ? CPU_NEXT(cpu) : cpu);
         qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TIMING START\n"
                                           "    -> Starting timing simulation. Passing control to Flexus.\n");
