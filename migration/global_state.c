@@ -42,8 +42,10 @@ int global_state_store(void)
 void global_state_store_running(void)
 {
     const char *state = RunState_str(RUN_STATE_RUNNING);
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
     strncpy((char *)global_state.runstate,
            state, sizeof(global_state.runstate));
+#pragma GCC diagnostic pop
 }
 
 bool global_state_received(void)

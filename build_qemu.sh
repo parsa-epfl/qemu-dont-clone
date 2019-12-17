@@ -44,7 +44,9 @@
 # This function is called on in ERROR state
 usage() {
     echo -e "\nUsage: $0 "
-    echo -e "use -timing, -trace, or -emulation to build QEMU in the corresponding mode."
+    echo -e "use -timing to build the code in with the flexus timing mode API enabled"
+    echo -e "use -emulation to build the code in with the emulation mode API enabled"
+    echo -e "use -install to install libraries and build PTH"
 }
 
 # Parse the dynamic options
@@ -132,13 +134,9 @@ fi
 if [ "${BUILD_EMULATION}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.emulation
-    make clean && make -j8
+    make clean && make -j
 elif [ "${BUILD_TIMING}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.timing
-    make clean && make -j8
-elif [ "${BUILD_TRACE}" = "TRUE" ]; then
-    export CFLAGS="-fPIC"
-    ./config.trace
-    make clean && make -j8
+    make clean && make -j
 fi
