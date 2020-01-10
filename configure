@@ -325,6 +325,7 @@ bigendian="no"
 mingw32="no"
 gcov="no"
 gcov_tool="gcov"
+asan="no"
 EXESUF=""
 DSOSUF=".so"
 LDFLAGS_SHARED="-shared"
@@ -1297,6 +1298,8 @@ for opt do
           error_exit "vhost-user isn't available on win32"
       fi
   ;;
+  --enable-asan) asan="yes"
+  ;;
   #**************************
   # QFLEX START
   #**************************
@@ -1479,6 +1482,7 @@ Advanced options (experts only):
   --with-coroutine=BACKEND coroutine backend. Supported options:
                            ucontext, sigaltstack, windows
   --enable-gcov            enable test coverage analysis with gcov
+  --enable-asan            enable address sanitizer
   --gcov=GCOV              use specified gcov [$gcov_tool]
   --disable-blobs          disable installing provided firmware blobs
   --with-vss-sdk=SDK-path  enable Windows VSS support in QEMU Guest Agent
@@ -5051,6 +5055,13 @@ elif test "$debug" = "no"; then
   CFLAGS="-O2 $CFLAGS"
 fi
 
+#########################################
+# Add check for asan
+if test "$asan" = "yes"; then
+    QEMU_CFLAGS= "$QEMU_CFLAGS -fsanitize=address"
+    QEMU_LDFLAGS= "$QEMU_LDFLAGS -fsanitize=address"
+fi
+
 ##########################################
 # Do we have libnfs
 if test "$libnfs" != "no" ; then
@@ -5476,6 +5487,7 @@ echo "crypto afalg      $crypto_afalg"
 echo "GlusterFS support $glusterfs"
 echo "gcov              $gcov_tool"
 echo "gcov enabled      $gcov"
+echo "ASan enabled      $asan"
 echo "TPM support       $tpm"
 echo "libssh2 support   $libssh2"
 echo "TPM passthrough   $tpm_passthrough"
