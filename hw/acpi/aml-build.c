@@ -1516,17 +1516,13 @@ build_header(BIOSLinker *linker, GArray *table_data,
     h->revision = rev;
 
     if (oem_id) {
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
         strncpy((char *)h->oem_id, oem_id, sizeof h->oem_id);
-#pragma GCC diagnostic pop
     } else {
         memcpy(h->oem_id, ACPI_BUILD_APPNAME6, 6);
     }
 
     if (oem_table_id) {
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
         strncpy((char *)h->oem_table_id, oem_table_id, sizeof(h->oem_table_id));
-#pragma GCC diagnostic pop
     } else {
         memcpy(h->oem_table_id, ACPI_BUILD_APPNAME4, 4);
         memcpy(h->oem_table_id + 4, sig, 4);

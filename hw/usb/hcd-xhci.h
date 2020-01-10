@@ -133,7 +133,7 @@ typedef struct XHCIPort {
     uint32_t portnr;
     USBPort  *uport;
     uint32_t speedmask;
-    char name[32];
+    char name[16];
     MemoryRegion mem;
 } XHCIPort;
 

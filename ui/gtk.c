@@ -1702,12 +1702,7 @@ static void gd_menu_copy(GtkMenuItem *item, void *opaque)
     GtkDisplayState *s = opaque;
     VirtualConsole *vc = gd_vc_find_current(s);
 
-#if VTE_CHECK_VERSION(0, 50, 0)
-    vte_terminal_copy_clipboard_format(VTE_TERMINAL(vc->vte.terminal),
-            VTE_FORMAT_TEXT);
-#else
     vte_terminal_copy_clipboard(VTE_TERMINAL(vc->vte.terminal));
-#endif
 }
 
 static void gd_vc_adjustment_changed(GtkAdjustment *adjustment, void *opaque)
@@ -1833,12 +1828,10 @@ static GSList *gd_vc_vte_init(GtkDisplayState *s, VirtualConsole *vc,
     /* The documentation says that the default is UTF-8, but actually it is
      * 7-bit ASCII at least in VTE 0.38.
      */
-#if !VTE_CHECK_VERSION(0, 54, 0)
 #if VTE_CHECK_VERSION(0, 38, 0)
     vte_terminal_set_encoding(VTE_TERMINAL(vc->vte.terminal), "UTF-8", NULL);
 #else
     vte_terminal_set_encoding(VTE_TERMINAL(vc->vte.terminal), "UTF-8");
-#endif
 #endif
 
     vte_terminal_set_scrollback_lines(VTE_TERMINAL(vc->vte.terminal), -1);

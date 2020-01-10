@@ -750,7 +750,6 @@ static int unix_listen_saddr(UnixSocketAddress *saddr,
     int sock, fd;
     char *pathbuf = NULL;
     const char *path;
-    size_t pathlen;
 
     sock = qemu_socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -766,8 +765,7 @@ static int unix_listen_saddr(UnixSocketAddress *saddr,
         path = pathbuf = g_strdup_printf("%s/qemu-socket-XXXXXX", tmpdir);
     }
 
-    pathlen = strlen(path);
-    if (pathlen > sizeof(un.sun_path)) {
+    if (strlen(path) > sizeof(un.sun_path)) {
         error_setg(errp, "UNIX socket path '%s' is too long", path);
         error_append_hint(errp, "Path must be less than %zu bytes\n",
                           sizeof(un.sun_path));
@@ -799,7 +797,7 @@ static int unix_listen_saddr(UnixSocketAddress *saddr,
 
     memset(&un, 0, sizeof(un));
     un.sun_family = AF_UNIX;
-    memcpy(un.sun_path, path, pathlen);
+    strncpy(un.sun_path, path, sizeof(un.sun_path));
 
     if (bind(sock, (struct sockaddr*) &un, sizeof(un)) < 0) {
         error_setg_errno(errp, errno, "Failed to bind socket to %s", path);
@@ -828,7 +826,6 @@ static int unix_connect_saddr(UnixSocketAddress *saddr, Error **errp)
 {
     struct sockaddr_un un;
     int sock, rc;
-    size_t pathlen;
 
     if (saddr->path == NULL) {
         error_setg(errp, "unix connect: no path specified");
@@ -841,8 +838,7 @@ static int unix_connect_saddr(UnixSocketAddress *saddr, Error **errp)
         return -1;
     }
 
-    pathlen = strlen(saddr->path);
-    if (pathlen > sizeof(un.sun_path)) {
+    if (strlen(saddr->path) > sizeof(un.sun_path)) {
         error_setg(errp, "UNIX socket path '%s' is too long", saddr->path);
         error_append_hint(errp, "Path must be less than %zu bytes\n",
                           sizeof(un.sun_path));
@@ -851,7 +847,7 @@ static int unix_connect_saddr(UnixSocketAddress *saddr, Error **errp)
 
     memset(&un, 0, sizeof(un));
     un.sun_family = AF_UNIX;
-    memcpy(un.sun_path, saddr->path, pathlen);
+    strncpy(un.sun_path, saddr->path, sizeof(un.sun_path));
 
     /* connect to peer */
     do {

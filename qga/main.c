@@ -297,7 +297,7 @@ static void ga_log(const gchar *domain, GLogLevelFlags level,
                    const gchar *msg, gpointer opaque)
 {
     GAState *s = opaque;
-    GDateTime *time;
+    GTimeVal time;
     const char *level_str = ga_log_level_str(level);
 
     if (!ga_logging_enabled(s)) {
@@ -312,13 +312,10 @@ static void ga_log(const gchar *domain, GLogLevelFlags level,
 #else
     if (level & s->log_level) {
 #endif
-        time = g_date_time_new_now_local();
-        gchar *timestr = g_date_time_format(time,"%T");
+        g_get_current_time(&time);
         fprintf(s->log_file,
-                "%s: %s: %s\n", timestr, level_str, msg);
+                "%lu.%lu: %s: %s\n", time.tv_sec, time.tv_usec, level_str, msg);
         fflush(s->log_file);
-        g_free(timestr);
-        g_date_time_unref(time);
     }
 }
 

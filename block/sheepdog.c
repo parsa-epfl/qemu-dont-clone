@@ -1249,7 +1249,7 @@ static int find_vdi_name(BDRVSheepdogState *s, const char *filename,
     SheepdogVdiReq hdr;
     SheepdogVdiRsp *rsp = (SheepdogVdiRsp *)&hdr;
     unsigned int wlen, rlen = 0;
-    char buf[SD_MAX_VDI_LEN + SD_MAX_VDI_TAG_LEN+1];
+    char buf[SD_MAX_VDI_LEN + SD_MAX_VDI_TAG_LEN];
 
     fd = connect_to_sdog(s, errp);
     if (fd < 0) {
