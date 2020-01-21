@@ -200,7 +200,18 @@ bool cpu_is_idle(void* obj)
 }
 
 void cpu_write_register(void *cpu, arm_register_t reg_type, int reg_index, uint64_t value ) {
-    assert(false);
+    CPUARMState *env = ((CPUState*)cpu)->env_ptr;
+
+    switch(reg_type) {
+        case kGENERAL:
+            assert (reg_index <= 31 && reg_index >= 0);
+            env->xregs[reg_index] = value;
+            break;
+        default:
+            qflex_log_mask(QFLEX_LOG_GENERAL, "Non-implemented case: reg_index: %d, reg_type: %d\n", reg_index, reg_type);
+            assert(false);
+            break;
+    }
 }
 
 #endif /* CONFIG_FLEXUS */
