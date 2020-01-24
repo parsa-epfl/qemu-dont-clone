@@ -477,7 +477,13 @@ void qemu_thread_create(QemuThread *thread, const char *name,
                        void *(*start_routine)(void*),
                        void *arg, int mode)
 {
-	get_main_thread();
+	get_main_thread(); // FIXME: Does this need to be here??
+
+    /* For compliance with the rest of QEMU's code, make a heap-allocated copy of *thread
+     * that doesn't go out of scope when placed into a pth wrapper
+     */
+    QemuThread *thread_pth_copy = g_malloc0(sizeof(QemuThread));
+    memcpy(thread_pth_copy,thread,sizeof(QemuThread));
 
     sigset_t set, oldset;
     int err;
@@ -499,7 +505,7 @@ void qemu_thread_create(QemuThread *thread, const char *name,
     initMainThread();
 
     threadlist* head = calloc(1, sizeof(threadlist));
-    head->qemuthread = thread;
+    head->qemuthread = thread_pth_copy;
     head->qemuthread->wrapper.thread_name = strdup(name);
     memset(&head->qemuthread->wrapper.rcu_reader, 0, sizeof(struct rcu_reader_data));
     threadlist_size++;
@@ -517,7 +523,7 @@ void qemu_thread_create(QemuThread *thread, const char *name,
         }
     }
 
-    err = pthpthread_create(&thread->wrapper.pth_thread, &attr, start_routine, arg);
+    err = pthpthread_create(&thread_pth_copy->wrapper.pth_thread, &attr, start_routine, arg);
     if (err)
         error_exit(err, __func__);
 
@@ -558,7 +564,7 @@ void *qemu_thread_join(QemuThread *thread)
 
 
 pth_wrapper* pth_get_wrapper(void){
-    threadlist * entry = NULL;
+    threadlist *entry = NULL;
     QLIST_FOREACH(entry, &pth_wrappers, next){
         if (entry->qemuthread->wrapper.pth_thread == pth_self())
             return &entry->qemuthread->wrapper;

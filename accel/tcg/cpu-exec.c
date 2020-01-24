@@ -703,7 +703,7 @@ int cpu_exec(CPUState *cpu)
          * siglongjmp. There were bug reports for gcc 4.5.0 and clang.
          * Reload essential local variables here for those compilers.
          * Newer versions of gcc would complain about this code (-Wclobbered). */
-        cpu = current_cpu;
+        cpu = PTH(current_cpu);
         cc = CPU_GET_CLASS(cpu);
 #else /* buggy compiler */
         /* Assert that the compiler does not smash local variables. */
@@ -790,7 +790,7 @@ int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
          * siglongjmp. There were bug reports for gcc 4.5.0 and clang.
          * Reload essential local variables here for those compilers.
          * Newer versions of gcc would complain about this code (-Wclobbered). */
-        cpu = current_cpu;
+        cpu = PTH(current_cpu);
         cc = CPU_GET_CLASS(cpu);
 #else /* buggy compiler */
         /* Assert that the compiler does not smash local variables. */
