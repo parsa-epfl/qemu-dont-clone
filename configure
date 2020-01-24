@@ -5058,8 +5058,8 @@ fi
 #########################################
 # Add check for asan
 if test "$asan" = "yes"; then
-    QEMU_CFLAGS= "$QEMU_CFLAGS -fsanitize=address"
-    QEMU_LDFLAGS= "$QEMU_LDFLAGS -fsanitize=address"
+    QEMU_CFLAGS="$QEMU_CFLAGS -fsanitize=address"
+    LDFLAGS="$LDFLAGS -fsanitize=address"
 fi
 
 ##########################################
@@ -5298,15 +5298,16 @@ if test "$extsnap" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_EXTSNAP $QEMU_CFLAGS"
 fi
 if test "$flexus" = "yes" ; then
-  QEMU_CFLAGS=" -ldl -DCONFIG_FLEXUS $QEMU_CFLAGS"
+  QEMU_CFLAGS="-DCONFIG_FLEXUS $QEMU_CFLAGS"
   LIBS="-ldl $LIBS" 
 fi
 if test "$quantum" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
 fi
 if test "$pth" = "yes" ; then
-  QEMU_CFLAGS="-I${pth_path}/include -L${pth_path}/lib -lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
+  QEMU_CFLAGS="-I${pth_path}/include -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
   LIBS="-L${pth_path}/lib -lpth $LIBS"
+  LDFLAGS="-Wl,-rpath,${pth_path}/lib $LDFLAGS"
   libs_qga="$libs_qga -lpth"
 fi
 #**************************
