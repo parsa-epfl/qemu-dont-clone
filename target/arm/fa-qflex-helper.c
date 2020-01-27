@@ -5,6 +5,7 @@
 #include "qflex/fa-qflex.h"
 #include "qflex/fa-qflex-sim.h"
 #include "qflex/fa-qflex-helper.h"
+#include "qflex/qflex-arch.h"
 #include "qflex/qflex-log.h"
 #include "qflex/json.h"
 
@@ -13,6 +14,7 @@
  *
  * XREGS: uint64_t
  * PC   : uint64_t
+ * SP   : uint64_t
  * CF/VF/NF/ZF : uint32_t
  */
 #define ARCH_NUM_REGS           (32)
@@ -20,11 +22,12 @@
 
 #define ARCH_XREGS_OFFST        (0)                             // 0
 #define ARCH_PC_OFFST           (32 * 2)                        // 64
-#define ARCH_PSTATE_FLAG_OFFST  (ARCH_PC_OFFST + 2)             // 66
-#define ARCH_PSTATE_NF_MASK     (0)    // 64 bit 0
-#define ARCH_PSTATE_ZF_MASK     (1)    // 64 bit 1
-#define ARCH_PSTATE_CF_MASK     (2)    // 64 bit 2
-#define ARCH_PSTATE_VF_MASK     (3)    // 64 bit 3
+#define ARCH_SP_OFFST           (ARCH_PC_OFFST + 2)             // 66
+#define ARCH_PSTATE_FLAG_OFFST  (ARCH_SP_OFFST + 2)             // 68
+#define ARCH_PSTATE_NF_MASK     (3)    // 64bit 3
+#define ARCH_PSTATE_ZF_MASK     (2)    // 64bit 2
+#define ARCH_PSTATE_CF_MASK     (1)    // 64bit 1
+#define ARCH_PSTATE_VF_MASK     (0)    // 64bit 0
 
 /* (Un)serializes memory, for FPGA use.
  */
@@ -38,6 +41,7 @@ void* fa_qflex_pack_archstate(CPUState *cpu) {
 
     memcpy(&buffer[ARCH_XREGS_OFFST],     &env->xregs, ARCH_XREGS_SIZE);
     memcpy(&buffer[ARCH_PC_OFFST],        &env->pc, sizeof(uint64_t));
+    memcpy(&buffer[ARCH_SP_OFFST],        &env->sp_el[QFLEX_GET_ARCH(el)(cpu)], sizeof(uint64_t));
     uint32_t nzcv =
             ((env->CF) ? 1 << ARCH_PSTATE_CF_MASK : 0) |
             ((env->VF & (1<<31)) ? 1 << ARCH_PSTATE_VF_MASK : 0) |
@@ -52,6 +56,7 @@ void fa_qflex_unpack_archstate(CPUState *cpu, uint32_t *buffer) {
     CPUARMState *env = cpu->env_ptr;
     memcpy(&env->xregs, &buffer[0], ARCH_XREGS_SIZE);
     env->pc = ((uint64_t) buffer[ARCH_PC_OFFST + 1] << 32) | buffer[ARCH_PC_OFFST];
+    env->sp_el[QFLEX_GET_ARCH(el)(cpu)] = ((uint64_t) buffer[ARCH_SP_OFFST + 1] << 32) | buffer[ARCH_SP_OFFST];
 
     uint32_t nzcv = buffer[ARCH_PSTATE_FLAG_OFFST];
     env->CF = (nzcv & ARCH_PSTATE_CF_MASK) ? 1 : 0;
@@ -70,7 +75,7 @@ void fa_qflex_unpack_archstate(CPUState *cpu, uint32_t *buffer) {
  * 0000000000400658,0000000000000000,0000000000000000,0000000000000000,0000000000000000,
  * 0000000000000000,0000000000000000,0000000000000000,0000000000000000,0000000000000000,
  * 0000ffffc8909d40,00000000004005d8,0000ffffc8909d40],
- * "pc":00000000004005e4,"nzcv":00000004}
+ * "pc":00000000004005e4,"sp":00000000202fffff,"nzcv":00000004}
  */
 /**
  * @brief fa_qflex_cpu2json
@@ -128,6 +133,22 @@ char* fa_qflex_cpu2json(CPUState *cpu, size_t* size) {
     objects.length++;
     // */ }
 
+    //* SP packing {
+    json_string_s sp;
+
+    char sp_num[ULONG_HEX_MAX + 1];
+    snprintf(sp_num, ULONG_HEX_MAX+1,"%0"XSTR(ULONG_HEX_MAX)"lx", env->sp_el[QFLEX_GET_ARCH(el)(cpu)]);
+    sp.string = sp_num;
+    sp.string_size = ULONG_HEX_MAX;
+
+    json_value_s sp_val = {.payload = &sp, .type = json_type_string};
+    json_string_s sp_name = {.string = "sp", .string_size = strlen("sp")};
+    json_object_element_s sp_obj = {.value = &sp_val, .name = &sp_name, .next = NULL};
+    head->next = &sp_obj;
+    head = &sp_obj;
+    objects.length++;
+    // */ }
+
     //* NZCV flags packing {
     json_string_s nzcv;
 
@@ -181,6 +202,10 @@ void fa_qflex_json2cpu(CPUState *cpu, char* buffer, size_t size) {
             assert(curr->value->type == json_type_string);
             json_string_s* pc = curr->value->payload;
             env->pc = strtol(pc->string, NULL, 16);
+        } else if(!strcmp(curr->name->string, "sp")) {
+            assert(curr->value->type == json_type_string);
+            json_string_s* sp = curr->value->payload;
+            env->sp_el[QFLEX_GET_ARCH(el)(cpu)] = strtol(sp->string, NULL, 16);
         } else if(!strcmp(curr->name->string, "nzcv")) {
                 assert(curr->value->type == json_type_string);
             json_string_s* json_nzcv = curr->value->payload;
@@ -220,14 +245,32 @@ static inline bool fa_qflex_mmu_guest_logical_to_physical(CPUState *cs, target_u
 
 /* Inspired from tlb_set_page_with_attrs() (cputlb.c)
  */
-static inline void fa_qflex_guest_phys_page_to_host_phys_page(CPUState *cpu, hwaddr guest_phys_page, target_ulong page_size, MemTxAttrs attrs,
-                                                hwaddr *host_phys_page) {
+static inline void fa_qflex_guest_phys_addr_to_host_phys_addr(CPUState *cpu, hwaddr guest_phys_addr, target_ulong page_size, MemTxAttrs attrs, hwaddr *host_phys_addr) {
     MemoryRegionSection *section;
     hwaddr xlat, sz;
     sz = page_size;
     int asidx = cpu_asidx_from_attrs(cpu, attrs);
-    section = address_space_translate_for_iotlb(cpu, asidx, guest_phys_page, &xlat, &sz);
-    *host_phys_page = (uintptr_t)memory_region_get_ram_ptr(section->mr) + xlat;
+    section = address_space_translate_for_iotlb(cpu, asidx, guest_phys_addr, &xlat, &sz);
+    *host_phys_addr = (uintptr_t)memory_region_get_ram_ptr(section->mr) + xlat;
+}
+
+// Same as for physical page, but don't mask the lower bits
+bool fa_qflex_load_addr(CPUState *cpu, target_ulong addr, MMUAccessType access_type, uint64_t *hpaddr) {
+    int ret = 0;
+    uint64_t page_size;
+    hwaddr paddr = 0;
+    MemTxAttrs attrs = {};
+
+    ret = fa_qflex_mmu_guest_logical_to_physical(cpu, addr, access_type,
+                                                 &attrs, &paddr, &page_size);
+    // FAULT was generated
+    if(unlikely(ret)) { return ret; } // Do nothing?
+
+    rcu_read_lock();
+    fa_qflex_guest_phys_addr_to_host_phys_addr(cpu, paddr, page_size, attrs, hpaddr);
+    rcu_read_unlock();
+
+    return ret;
 }
 
 bool fa_qflex_get_page(CPUState *cpu, target_ulong addr, MMUAccessType access_type,  uint64_t *host_phys_page, uint64_t *page_size) {
@@ -243,7 +286,7 @@ bool fa_qflex_get_page(CPUState *cpu, target_ulong addr, MMUAccessType access_ty
     guest_phys_page = paddr & TARGET_PAGE_MASK;
 
     rcu_read_lock();
-    fa_qflex_guest_phys_page_to_host_phys_page(cpu, guest_phys_page, *page_size, attrs, host_phys_page);
+    fa_qflex_guest_phys_addr_to_host_phys_addr(cpu, guest_phys_page, *page_size, attrs, host_phys_page);
     rcu_read_unlock();
 
     return ret;
