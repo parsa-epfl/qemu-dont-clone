@@ -58,6 +58,22 @@ void* fa_qflex_pack_archstate(CPUState *cpu);
 void fa_qflex_unpack_archstate(CPUState *cpu, uint32_t *buffer);
 
 /**
+ * @brief fa_qflex_get_load_addr
+ * Translates from guest virtual address to host physical address
+ * NOTE: In case of FAULT, the caller should:
+ *          1. Trigger transplant back from FPGA
+ *          2. Reexecute instruction
+ *          3. Return to FPGA when exception is done
+ * @param cpu               Working CPU
+ * @param addr              Guest Virtual Address to translate
+ * @param acces_type        Access type: LOAD/STORE/INSTR FETCH
+ * @param hpaddr            Return virtual physical address associated
+ * @return                  uint64_t of value at guest address
+ */
+bool fa_qflex_load_addr(CPUState *cpu, uint64_t addr, MMUAccessType access_type,  uint64_t *hpaddr);
+
+
+/**
  * @brief fa_qflex_get_page Translates from guest virtual address to host virtual address
  * NOTE: In case of FAULT, the caller should:
  *          1. Trigger transplant back from FPGA

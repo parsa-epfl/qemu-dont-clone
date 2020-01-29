@@ -77,6 +77,7 @@ void fa_qflex_run_sim(CPUState *cpu) {
     FA_QFlexCmd_t* cmd;
     FA_QFlexCmd_t sim_cmd = cmds[SIM_START];
     uint64_t phys_page, page_size;
+    uint64_t armflex_addr;
 
     fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, cmds[LOCK_WAIT]); // Reset Commands
     fa_qflex_writefile_cmd2json(sim_cfg.qemu_cmd, cmds[LOCK_WAIT]);
@@ -85,11 +86,11 @@ void fa_qflex_run_sim(CPUState *cpu) {
     sim_cfg.page_size = page_size;
     pthread_create(&pid_sim, NULL, &fa_qflex_start_sim, &sim_cfg);
     qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
+    qflex_log_mask_enable(QFLEX_LOG_LDST);
     //qflex_log_mask_enable(FA_QFLEX_LOG_SIM);
 
     while(fa_qflex_is_running()) {
         //* Communicate with FPGA/SIM
-//wait_cmd:
         fa_qflex_filewrite_cpu2json(cpu, sim_cfg.qemu_state);
         fa_qflex_write_program_page(cpu, sim_cfg.program_page);
         fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, sim_cmd);
@@ -98,6 +99,20 @@ void fa_qflex_run_sim(CPUState *cpu) {
         switch(cmd->cmd) {
         case DATA_LOAD:
         case DATA_STORE:
+           fault = fa_qflex_load_addr(cpu, cmd->addr, cmd->cmd, &armflex_addr);
+            if(!fault) {
+                sim_cmd = cmds[DATA_LOAD];
+                sim_cmd.addr = *((uint64_t *) armflex_addr);
+                //qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:0x%016lx:0x%016lx\n", cmd->addr, sim_cmd.addr);
+                free(cmd);
+                continue;
+            } else {
+                // Fault generated -> Transfer system and step in QEMU
+                //fa_qflex_start_transfer(sim_cfg.fpga_cmd);
+                qflex_log_mask(QFLEX_LOG_GENERAL,
+                               "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX\n");
+            }
+            break;
         case INST_FETCH:
             fault = fa_qflex_get_page(cpu, cmd->addr, cmd->cmd, &phys_page, &page_size);
             if(!fault) {
@@ -107,7 +122,10 @@ void fa_qflex_run_sim(CPUState *cpu) {
             } else {
                 // Fault generated -> Transfer system and step in QEMU
                 //fa_qflex_start_transfer(sim_cfg.fpga_cmd);
+                qflex_log_mask(QFLEX_LOG_GENERAL,
+                          "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX");
             }
+            break;
         case INST_UNDEF:
         case INST_EXCP:
             fa_qflex_fileread_json2cpu(cpu, sim_cfg.sim_state);
@@ -129,15 +147,21 @@ void fa_qflex_run_sim(CPUState *cpu) {
 
         qflex_singlestep(cpu);
         if(QFLEX_GET_ARCH(el)(cpu) != 0) {
+            qflex_log_mask(QFLEX_LOG_GENERAL, "EXCP: IN\n");
             qflex_log_mask_disable(QFLEX_LOG_TB_EXEC);
+            qflex_log_mask_disable(QFLEX_LOG_LDST);
+
             qflex_exception(cpu);
+
             qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
+            qflex_log_mask_enable(QFLEX_LOG_LDST);
+            qflex_log_mask(QFLEX_LOG_GENERAL, "EXCP: OUT\n");
         }
     }
     qflex_log_mask_disable(QFLEX_LOG_TB_EXEC);
+    qflex_log_mask_disable(QFLEX_LOG_LDST);
     fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, cmds[SIM_STOP]);
 }
-
 
 void fa_qflex_start(CPUState *cpu) {
     int fault;

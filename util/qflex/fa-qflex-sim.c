@@ -143,7 +143,7 @@ FA_QFlexCmd_t* fa_qflex_cmd2json_lock_wait(const char *filename) {
     qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD OUT %s in %s\n", cmds[LOCK_WAIT].str, filename);
     FA_QFlexCmd_t* cmd;
     do {
-        sleep(3);
+        sleep(1);
         cmd = fa_qflex_loadfile_json2cmd(filename);
     } while (cmd->cmd == LOCK_WAIT);
     qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD IN %s\n", cmd->str);

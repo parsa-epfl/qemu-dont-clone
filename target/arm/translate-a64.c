@@ -866,6 +866,9 @@ static void do_gpr_st(DisasContext *s, TCGv_i64 source,
 {
     do_gpr_st_memidx(s, source, tcg_addr, size, get_mem_index(s),
                      iss_valid, iss_srt, iss_sf, iss_ar);
+#ifdef CONFIG_FA_QFLEX
+    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr);
+#endif
 }
 
 /*
@@ -922,6 +925,9 @@ static void do_gpr_ld(DisasContext *s,
     do_gpr_ld_memidx(s, dest, tcg_addr, size, is_signed, extend,
                      get_mem_index(s),
                      iss_valid, iss_srt, iss_sf, iss_ar);
+#ifdef CONFIG_FA_QFLEX
+    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr);
+#endif
 }
 
 /*
@@ -1453,7 +1459,7 @@ static void handle_hint(DisasContext *s, uint32_t insn,
     case 120: case 121: case 122: case 123: case 124: case 125: case 126: case 127:
         GEN_HELPER(qflex_magic_insn)(tcg_const_i32(selector));
         return;
-#endif /* CONFIG_FLEXUS */
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
     default:
         /* default specified as NOP equivalent */
         return;
