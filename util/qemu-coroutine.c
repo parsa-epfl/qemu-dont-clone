@@ -39,7 +39,7 @@ static void coroutine_pool_cleanup(Notifier *n, void *value)
     Coroutine *co;
     Coroutine *tmp;
 
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
 
     QSLIST_FOREACH_SAFE(co, &PTH(alloc_pool), pool_next, tmp) {
         QSLIST_REMOVE_HEAD(&PTH(alloc_pool), pool_next);
@@ -49,7 +49,7 @@ static void coroutine_pool_cleanup(Notifier *n, void *value)
 
 Coroutine *qemu_coroutine_create(CoroutineEntry *entry, void *opaque)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
     Coroutine *co = NULL;
 
     if (CONFIG_COROUTINE_POOL) {

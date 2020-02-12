@@ -48,6 +48,13 @@ typedef struct {
 #include "util/coroutine-ucontext-pth.h"
 #endif
 
+#if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
+#ifdef HAVE_ASAN_IFACE_FIBER
+#define CONFIG_ASAN 1
+#include <sanitizer/asan_interface.h>
+#endif
+#endif
+
 /**
  * Per-thread coroutine bookkeeping
  */
@@ -66,11 +73,52 @@ union cc_arg {
     int i[2];
 };
 
+static void finish_switch_fiber(void *fake_stack_save, bool update_leader_for_nest)
+{
+#ifdef CONFIG_ASAN
+    const void *bottom_old;
+    size_t size_old;
+
+    __sanitizer_finish_switch_fiber(fake_stack_save, &bottom_old, &size_old);
+    //fprintf(stderr,"finished switch, ASAN runtime returned bottom_old %p, size_old %zu\n",bottom_old,size_old);
+    /* Gnu PTH */
+    if (update_leader_for_nest) {
+        PTH_UPDATE_CONTEXT;
+        PTH(leader).stack = (void *)bottom_old;
+        PTH(leader).stack_size = size_old;
+    }
+    /*
+    PTH(leader).stack = (void *)bottom_old;
+    PTH(leader).stack_size = size_old;
+    if (!PTH(leader).stack) {
+        //fprintf(stderr,"....UPDATING LEADER STACK\n");
+        PTH(leader).stack = (void *)bottom_old;
+        PTH(leader).stack_size = size_old;
+    } else {
+        //fprintf(stderr,"EXISTING leader stack %p, size %zu\n",PTH(leader).stack,PTH(leader).stack_size);
+    }
+    */
+#endif
+}
+
+static void start_switch_fiber(void **fake_stack_save,
+                               const void *bottom, size_t size)
+{
+#ifdef CONFIG_ASAN
+    //fprintf(stderr,"switching to %p, size %zu\n",bottom,size);
+    __sanitizer_start_switch_fiber(fake_stack_save, bottom, size);
+#endif
+}
+
 static void coroutine_trampoline(int i0, int i1)
 {
+    PTH_UPDATE_CONTEXT;
     union cc_arg arg;
     CoroutineUContext *self;
     Coroutine *co;
+    void *fake_stack_save = NULL;
+
+    finish_switch_fiber(NULL,true);
 
     arg.i[0] = i0;
     arg.i[1] = i1;
@@ -79,8 +127,12 @@ static void coroutine_trampoline(int i0, int i1)
 
     /* Initialize longjmp environment and switch back the caller */
     if (!sigsetjmp(self->env, 0)) {
+        start_switch_fiber(&fake_stack_save,
+                           PTH(leader).stack, PTH(leader).stack_size);
         siglongjmp(*(sigjmp_buf *)co->entry_arg, 1);
     }
+
+    finish_switch_fiber(fake_stack_save,false);
 
     while (true) {
         co->entry(co->entry_arg);
@@ -94,6 +146,7 @@ Coroutine *qemu_coroutine_new(void)
     ucontext_t old_uc, uc;
     sigjmp_buf old_env;
     union cc_arg arg = {0};
+    void *fake_stack_save = NULL;
 
     /* The ucontext functions preserve signal masks which incurs a
      * system call overhead.  sigsetjmp(buf, 0)/siglongjmp() does not
@@ -129,8 +182,12 @@ Coroutine *qemu_coroutine_new(void)
 
     /* swapcontext() in, siglongjmp() back out */
     if (!sigsetjmp(old_env, 0)) {
+        start_switch_fiber(&fake_stack_save, co->stack, co->stack_size);
         swapcontext(&old_uc, &uc);
     }
+
+    finish_switch_fiber(fake_stack_save,false);
+
     return &co->base;
 }
 
@@ -173,23 +230,29 @@ CoroutineAction __attribute__((noinline))
 qemu_coroutine_switch(Coroutine *from_, Coroutine *to_,
                       CoroutineAction action)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
     CoroutineUContext *from = DO_UPCAST(CoroutineUContext, base, from_);
     CoroutineUContext *to = DO_UPCAST(CoroutineUContext, base, to_);
     int ret;
+    void *fake_stack_save = NULL;
 
     PTH(current) = to_;
 
     ret = sigsetjmp(from->env, 0);
     if (ret == 0) {
+        start_switch_fiber(action == COROUTINE_TERMINATE ?
+                           NULL : &fake_stack_save, to->stack, to->stack_size);
         siglongjmp(to->env, action);
     }
+
+    finish_switch_fiber(fake_stack_save,false);
+
     return ret;
 }
 
 Coroutine *qemu_coroutine_self(void)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
     if (!PTH(current)) {
         PTH(current) = &PTH(leader).base;
     }
@@ -198,6 +261,6 @@ Coroutine *qemu_coroutine_self(void)
 
 bool qemu_in_coroutine(void)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
     return PTH(current) && PTH(current)->caller;
 }

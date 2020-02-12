@@ -15,6 +15,10 @@
 #include "qemu/coroutine.h"
 #include "qemu/coroutine_int.h"
 
+#ifdef CONFIG_PTH
+#include "qemu/thread.h"
+#endif
+
 /*
  * Check that qemu_in_coroutine() works
  */
@@ -416,6 +420,10 @@ static void perf_cost(void)
 
 int main(int argc, char **argv)
 {
+#ifdef CONFIG_PTH
+    initMainThread();
+#endif
+
     g_test_init(&argc, &argv, NULL);
 
     /* This test assumes there is a freelist and marks freed coroutine memory
