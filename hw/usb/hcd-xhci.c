@@ -3281,7 +3281,7 @@ static void usb_xhci_init(XHCIState *xhci)
 {
     DeviceState *dev = DEVICE(xhci);
     XHCIPort *port;
-    int i, usbports, speedmask;
+    unsigned int i, usbports, speedmask;
 
     xhci->usbsts = USBSTS_HCH;
 
