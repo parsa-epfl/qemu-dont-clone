@@ -401,7 +401,7 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
             ROUND_UP(s->bat_offset + pagetable_size, 512);
 
         for (i = 0; i < s->max_table_entries; i++) {
-            be32_to_cpus(&s->pagetable[i]);
+            s->pagetable[i] = be32_to_cpu(s->pagetable[i]);
             if (s->pagetable[i] != 0xFFFFFFFF) {
                 int64_t next = (512 * (int64_t) s->pagetable[i]) +
                     s->bitmap_size + s->block_size;
@@ -911,6 +911,7 @@ static int vpc_create(const char *filename, QemuOpts *opts, Error **errp)
     bool force_size;
     Error *local_err = NULL;
     BlockBackend *blk = NULL;
+    QemuUUID uuid;
 
     /* Read out options */
     total_size = ROUND_UP(qemu_opt_get_size_del(opts, BLOCK_OPT_SIZE, 0),
@@ -1014,7 +1015,8 @@ static int vpc_create(const char *filename, QemuOpts *opts, Error **errp)
 
     footer->type = cpu_to_be32(disk_type);
 
-    qemu_uuid_generate(&footer->uuid);
+    qemu_uuid_generate(&uuid);
+    footer->uuid = uuid;
 
     footer->checksum = cpu_to_be32(vpc_checksum(buf, HEADER_SIZE));
 

@@ -149,10 +149,10 @@ static int nbd_receive_option_reply(QIOChannel *ioc, uint32_t opt,
         nbd_send_opt_abort(ioc);
         return -1;
     }
-    be64_to_cpus(&reply->magic);
-    be32_to_cpus(&reply->option);
-    be32_to_cpus(&reply->type);
-    be32_to_cpus(&reply->length);
+    reply->magic = be64_to_cpu(reply->magic);
+    reply->option = be32_to_cpu(reply->option);
+    reply->type = be32_to_cpu(reply->type);
+    reply->length = be32_to_cpu(reply->length);
 
     trace_nbd_receive_option_reply(reply->option, nbd_opt_lookup(reply->option),
                                    reply->type, nbd_rep_lookup(reply->type),
@@ -427,7 +427,7 @@ static int nbd_opt_go(QIOChannel *ioc, const char *wantname,
             return -1;
         }
         len -= sizeof(type);
-        be16_to_cpus(&type);
+        type = be16_to_cpu(type);
         switch (type) {
         case NBD_INFO_EXPORT:
             if (len != sizeof(info->size) + sizeof(info->flags)) {
@@ -441,13 +441,13 @@ static int nbd_opt_go(QIOChannel *ioc, const char *wantname,
                 nbd_send_opt_abort(ioc);
                 return -1;
             }
-            be64_to_cpus(&info->size);
+            info->size = be64_to_cpu(info->size);
             if (nbd_read(ioc, &info->flags, sizeof(info->flags), errp) < 0) {
                 error_prepend(errp, "failed to read info flags");
                 nbd_send_opt_abort(ioc);
                 return -1;
             }
-            be16_to_cpus(&info->flags);
+            info->flags = be16_to_cpu(info->flags);
             trace_nbd_receive_negotiate_size_flags(info->size, info->flags);
             break;
 
@@ -464,7 +464,7 @@ static int nbd_opt_go(QIOChannel *ioc, const char *wantname,
                 nbd_send_opt_abort(ioc);
                 return -1;
             }
-            be32_to_cpus(&info->min_block);
+            info->min_block = be32_to_cpu(info->min_block);
             if (!is_power_of_2(info->min_block)) {
                 error_setg(errp, "server minimum block size %" PRId32
                            "is not a power of two", info->min_block);
@@ -477,7 +477,7 @@ static int nbd_opt_go(QIOChannel *ioc, const char *wantname,
                 nbd_send_opt_abort(ioc);
                 return -1;
             }
-            be32_to_cpus(&info->opt_block);
+            info->opt_block = be32_to_cpu(info->opt_block);
             if (!is_power_of_2(info->opt_block) ||
                 info->opt_block < info->min_block) {
                 error_setg(errp, "server preferred block size %" PRId32
@@ -491,7 +491,7 @@ static int nbd_opt_go(QIOChannel *ioc, const char *wantname,
                 nbd_send_opt_abort(ioc);
                 return -1;
             }
-            be32_to_cpus(&info->max_block);
+            info->max_block = be32_to_cpu(info->max_block);
             trace_nbd_opt_go_info_block_size(info->min_block, info->opt_block,
                                              info->max_block);
             break;
@@ -724,13 +724,13 @@ int nbd_receive_negotiate(QIOChannel *ioc, const char *name,
             error_prepend(errp, "Failed to read export length");
             goto fail;
         }
-        be64_to_cpus(&info->size);
+        info->size = be64_to_cpu(info->size);
 
         if (nbd_read(ioc, &info->flags, sizeof(info->flags), errp) < 0) {
             error_prepend(errp, "Failed to read export flags");
             goto fail;
         }
-        be16_to_cpus(&info->flags);
+        info->flags = be16_to_cpu(info->flags);
     } else if (magic == NBD_CLIENT_MAGIC) {
         uint32_t oldflags;
 
@@ -747,13 +747,13 @@ int nbd_receive_negotiate(QIOChannel *ioc, const char *name,
             error_prepend(errp, "Failed to read export length");
             goto fail;
         }
-        be64_to_cpus(&info->size);
+        info->size = be64_to_cpu(info->size);
 
         if (nbd_read(ioc, &oldflags, sizeof(oldflags), errp) < 0) {
             error_prepend(errp, "Failed to read export flags");
             goto fail;
         }
-        be32_to_cpus(&oldflags);
+        oldflags = be32_to_cpu(oldflags);
         if (oldflags & ~0xffff) {
             error_setg(errp, "Unexpected export flags %0x" PRIx32, oldflags);
             goto fail;

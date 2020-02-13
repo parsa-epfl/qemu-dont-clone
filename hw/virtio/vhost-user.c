@@ -613,6 +613,7 @@ static void slave_read(void *opaque)
     struct vhost_dev *dev = opaque;
     struct vhost_user *u = dev->opaque;
     VhostUserMsg msg = { 0, };
+    struct vhost_iotlb_msg msg_payload_iotlb;
     int size, ret = 0;
 
     /* Read header */
@@ -638,7 +639,8 @@ static void slave_read(void *opaque)
 
     switch (msg.request) {
     case VHOST_USER_SLAVE_IOTLB_MSG:
-        ret = vhost_backend_handle_iotlb_msg(dev, &msg.payload.iotlb);
+        msg_payload_iotlb = msg.payload.iotlb;
+        ret = vhost_backend_handle_iotlb_msg(dev, &msg_payload_iotlb);
         break;
     default:
         error_report("Received unexpected msg type.");

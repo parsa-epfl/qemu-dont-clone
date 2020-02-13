@@ -684,16 +684,16 @@ qcrypto_block_luks_open(QCryptoBlock *block,
 
     /* The header is always stored in big-endian format, so
      * convert everything to native */
-    be16_to_cpus(&luks->header.version);
-    be32_to_cpus(&luks->header.payload_offset);
-    be32_to_cpus(&luks->header.key_bytes);
-    be32_to_cpus(&luks->header.master_key_iterations);
+    luks->header.version = be16_to_cpu(luks->header.version);
+    luks->header.payload_offset = be32_to_cpu(luks->header.payload_offset);
+    luks->header.key_bytes = be32_to_cpu(luks->header.key_bytes);
+    luks->header.master_key_iterations = be32_to_cpu(luks->header.master_key_iterations);
 
     for (i = 0; i < QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS; i++) {
-        be32_to_cpus(&luks->header.key_slots[i].active);
-        be32_to_cpus(&luks->header.key_slots[i].iterations);
-        be32_to_cpus(&luks->header.key_slots[i].key_offset);
-        be32_to_cpus(&luks->header.key_slots[i].stripes);
+        luks->header.key_slots[i].active = be32_to_cpu(luks->header.key_slots[i].active);
+        luks->header.key_slots[i].iterations = be32_to_cpu(luks->header.key_slots[i].iterations);
+        luks->header.key_slots[i].key_offset = be32_to_cpu(luks->header.key_slots[i].key_offset);
+        luks->header.key_slots[i].stripes = be32_to_cpu(luks->header.key_slots[i].stripes);
     }
 
     if (memcmp(luks->header.magic, qcrypto_block_luks_magic,
@@ -1254,16 +1254,16 @@ qcrypto_block_luks_create(QCryptoBlock *block,
 
     /* Everything on disk uses Big Endian, so flip header fields
      * before writing them */
-    cpu_to_be16s(&luks->header.version);
-    cpu_to_be32s(&luks->header.payload_offset);
-    cpu_to_be32s(&luks->header.key_bytes);
-    cpu_to_be32s(&luks->header.master_key_iterations);
+    luks->header.version = cpu_to_be16(luks->header.version);
+    luks->header.payload_offset = cpu_to_be32(luks->header.payload_offset);
+    luks->header.key_bytes = cpu_to_be32(luks->header.key_bytes);
+    luks->header.master_key_iterations = cpu_to_be32(luks->header.master_key_iterations);
 
     for (i = 0; i < QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS; i++) {
-        cpu_to_be32s(&luks->header.key_slots[i].active);
-        cpu_to_be32s(&luks->header.key_slots[i].iterations);
-        cpu_to_be32s(&luks->header.key_slots[i].key_offset);
-        cpu_to_be32s(&luks->header.key_slots[i].stripes);
+        luks->header.key_slots[i].active = cpu_to_be32(luks->header.key_slots[i].active);
+        luks->header.key_slots[i].iterations = cpu_to_be32(luks->header.key_slots[i].iterations);
+        luks->header.key_slots[i].key_offset = cpu_to_be32(luks->header.key_slots[i].key_offset);
+        luks->header.key_slots[i].stripes = cpu_to_be32(luks->header.key_slots[i].stripes);
     }
 
 
@@ -1278,16 +1278,16 @@ qcrypto_block_luks_create(QCryptoBlock *block,
 
     /* Byte swap the header back to native, in case we need
      * to read it again later */
-    be16_to_cpus(&luks->header.version);
-    be32_to_cpus(&luks->header.payload_offset);
-    be32_to_cpus(&luks->header.key_bytes);
-    be32_to_cpus(&luks->header.master_key_iterations);
+    luks->header.version = be16_to_cpu(luks->header.version);
+    luks->header.payload_offset = be32_to_cpu(luks->header.payload_offset);
+    luks->header.key_bytes = be32_to_cpu(luks->header.key_bytes);
+    luks->header.master_key_iterations = be32_to_cpu(luks->header.master_key_iterations);
 
     for (i = 0; i < QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS; i++) {
-        be32_to_cpus(&luks->header.key_slots[i].active);
-        be32_to_cpus(&luks->header.key_slots[i].iterations);
-        be32_to_cpus(&luks->header.key_slots[i].key_offset);
-        be32_to_cpus(&luks->header.key_slots[i].stripes);
+        luks->header.key_slots[i].active = be32_to_cpu(luks->header.key_slots[i].active);
+        luks->header.key_slots[i].iterations = be32_to_cpu(luks->header.key_slots[i].iterations);
+        luks->header.key_slots[i].key_offset = be32_to_cpu(luks->header.key_slots[i].key_offset);
+        luks->header.key_slots[i].stripes = be32_to_cpu(luks->header.key_slots[i].stripes);
     }
 
     if (local_err) {

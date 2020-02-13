@@ -725,9 +725,9 @@ static TRBType xhci_ring_fetch(XHCIState *xhci, XHCIRing *ring, XHCITRB *trb,
         pci_dma_read(pci_dev, ring->dequeue, trb, TRB_SIZE);
         trb->addr = ring->dequeue;
         trb->ccs = ring->ccs;
-        le64_to_cpus(&trb->parameter);
-        le32_to_cpus(&trb->status);
-        le32_to_cpus(&trb->control);
+        trb->parameter = le64_to_cpu(trb->parameter);
+        trb->status = le32_to_cpu(trb->status);
+        trb->control = le32_to_cpu(trb->control);
 
         trace_usb_xhci_fetch_trb(ring->dequeue, trb_name(trb),
                                  trb->parameter, trb->status, trb->control);
@@ -771,9 +771,9 @@ static int xhci_ring_chain_length(XHCIState *xhci, const XHCIRing *ring)
     while (1) {
         TRBType type;
         pci_dma_read(pci_dev, dequeue, &trb, TRB_SIZE);
-        le64_to_cpus(&trb.parameter);
-        le32_to_cpus(&trb.status);
-        le32_to_cpus(&trb.control);
+        trb.parameter = le64_to_cpu(trb.parameter);
+        trb.status = le32_to_cpu(trb.status);
+        trb.control = le32_to_cpu(trb.control);
 
         if ((trb.control & TRB_C) != ccs) {
             return -length;
@@ -826,9 +826,9 @@ static void xhci_er_reset(XHCIState *xhci, int v)
         return;
     }
     pci_dma_read(PCI_DEVICE(xhci), erstba, &seg, sizeof(seg));
-    le32_to_cpus(&seg.addr_low);
-    le32_to_cpus(&seg.addr_high);
-    le32_to_cpus(&seg.size);
+    seg.addr_low = le32_to_cpu(seg.addr_low);
+    seg.addr_high = le32_to_cpu(seg.addr_high);
+    seg.size = le32_to_cpu(seg.size);
     if (seg.size < 16 || seg.size > 4096) {
         DPRINTF("xhci: invalid value for segment size: %d\n", seg.size);
         xhci_die(xhci);

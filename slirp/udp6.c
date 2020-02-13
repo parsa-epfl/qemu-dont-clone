@@ -18,6 +18,7 @@ void udp6_input(struct mbuf *m)
     int len;
     struct socket *so;
     struct sockaddr_in6 lhost;
+    struct in6_addr ip_dst;
 
     DEBUG_CALL("udp6_input");
     DEBUG_ARG("m = %lx", (long)m);
@@ -63,9 +64,10 @@ void udp6_input(struct mbuf *m)
     lhost.sin6_port = uh->uh_sport;
 
     /* handle DHCPv6 */
+    ip_dst = ip->ip_dst;
     if (ntohs(uh->uh_dport) == DHCPV6_SERVER_PORT &&
-        (in6_equal(&ip->ip_dst, &slirp->vhost_addr6) ||
-         in6_equal(&ip->ip_dst, &(struct in6_addr)ALLDHCP_MULTICAST))) {
+        (in6_equal(&ip_dst, &slirp->vhost_addr6) ||
+         in6_equal(&ip_dst, &(struct in6_addr)ALLDHCP_MULTICAST))) {
         m->m_data += iphlen;
         m->m_len -= iphlen;
         dhcpv6_input(&lhost, m);

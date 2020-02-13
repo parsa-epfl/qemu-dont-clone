@@ -747,8 +747,8 @@ static int vhdx_parse_metadata(BlockDriverState *bs, BDRVVHDXState *s)
         goto exit;
     }
 
-    le32_to_cpus(&s->params.block_size);
-    le32_to_cpus(&s->params.data_bits);
+    s->params.block_size = le32_to_cpu(s->params.block_size);
+    s->params.data_bits = le32_to_cpu(s->params.data_bits);
 
 
     /* We now have the file parameters, so we can tell if this is a
@@ -1508,7 +1508,7 @@ static int vhdx_create_new_metadata(BlockBackend *blk,
     mt_file_params->block_size = cpu_to_le32(block_size);
     if (type == VHDX_TYPE_FIXED) {
         mt_file_params->data_bits |= VHDX_PARAMS_LEAVE_BLOCKS_ALLOCED;
-        cpu_to_le32s(&mt_file_params->data_bits);
+        mt_file_params->data_bits = cpu_to_le32(mt_file_params->data_bits);
     }
 
     vhdx_guid_generate(&mt_page83->page_83_data);

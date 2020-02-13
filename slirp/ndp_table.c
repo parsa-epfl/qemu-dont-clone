@@ -11,6 +11,7 @@ void ndp_table_add(Slirp *slirp, struct in6_addr ip_addr,
                     uint8_t ethaddr[ETH_ALEN])
 {
     NdpTable *ndp_table = &slirp->ndp_table;
+    struct in6_addr ndp_ip_addr;
     int i;
 
     DEBUG_CALL("ndp_table_add");
@@ -31,7 +32,8 @@ void ndp_table_add(Slirp *slirp, struct in6_addr ip_addr,
 
     /* Search for an entry */
     for (i = 0; i < NDP_TABLE_SIZE; i++) {
-        if (in6_equal(&ndp_table->table[i].ip_addr, &ip_addr)) {
+        ndp_ip_addr = ndp_table->table[i].ip_addr;
+        if (in6_equal(&ndp_ip_addr, &ip_addr)) {
             DEBUG_CALL(" already in table: update the entry");
             /* Update the entry */
             memcpy(ndp_table->table[i].eth_addr, ethaddr, ETH_ALEN);
@@ -51,6 +53,7 @@ bool ndp_table_search(Slirp *slirp, struct in6_addr ip_addr,
                       uint8_t out_ethaddr[ETH_ALEN])
 {
     NdpTable *ndp_table = &slirp->ndp_table;
+    struct in6_addr ndp_ip_addr;
     int i;
 
     DEBUG_CALL("ndp_table_search");
@@ -76,7 +79,8 @@ bool ndp_table_search(Slirp *slirp, struct in6_addr ip_addr,
     }
 
     for (i = 0; i < NDP_TABLE_SIZE; i++) {
-        if (in6_equal(&ndp_table->table[i].ip_addr, &ip_addr)) {
+        ndp_ip_addr = ndp_table->table[i].ip_addr;
+        if (in6_equal(&ndp_ip_addr, &ip_addr)) {
             memcpy(out_ethaddr, ndp_table->table[i].eth_addr,  ETH_ALEN);
             DEBUG_ARGS((dfd, " found hw addr = %02x:%02x:%02x:%02x:%02x:%02x\n",
                         out_ethaddr[0], out_ethaddr[1], out_ethaddr[2],
