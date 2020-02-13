@@ -80,24 +80,12 @@ static void finish_switch_fiber(void *fake_stack_save, bool update_leader_for_ne
     size_t size_old;
 
     __sanitizer_finish_switch_fiber(fake_stack_save, &bottom_old, &size_old);
-    //fprintf(stderr,"finished switch, ASAN runtime returned bottom_old %p, size_old %zu\n",bottom_old,size_old);
     /* Gnu PTH */
+    PTH_UPDATE_CONTEXT;
     if (update_leader_for_nest) {
-        PTH_UPDATE_CONTEXT;
         PTH(leader).stack = (void *)bottom_old;
         PTH(leader).stack_size = size_old;
-    }
-    /*
-    PTH(leader).stack = (void *)bottom_old;
-    PTH(leader).stack_size = size_old;
-    if (!PTH(leader).stack) {
-        //fprintf(stderr,"....UPDATING LEADER STACK\n");
-        PTH(leader).stack = (void *)bottom_old;
-        PTH(leader).stack_size = size_old;
-    } else {
-        //fprintf(stderr,"EXISTING leader stack %p, size %zu\n",PTH(leader).stack,PTH(leader).stack_size);
-    }
-    */
+    } 
 #endif
 }
 
@@ -105,7 +93,9 @@ static void start_switch_fiber(void **fake_stack_save,
                                const void *bottom, size_t size)
 {
 #ifdef CONFIG_ASAN
-    //fprintf(stderr,"switching to %p, size %zu\n",bottom,size);
+    /* Change the stack associated with this coroutine in the PTH library too */
+    pth_wrapper *cur = pth_get_wrapper();
+    pth_swap_cur_thread_sstate(cur->pth_thread,bottom,size); // from pth.h
     __sanitizer_start_switch_fiber(fake_stack_save, bottom, size);
 #endif
 }
