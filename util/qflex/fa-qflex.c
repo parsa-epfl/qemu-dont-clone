@@ -78,6 +78,7 @@ void fa_qflex_run_sim(CPUState *cpu) {
     FA_QFlexCmd_t sim_cmd = cmds[SIM_START];
     uint64_t phys_page, page_size;
     uint64_t armflex_addr;
+    MMUAccessType access_type;
 
     fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, cmds[LOCK_WAIT]); // Reset Commands
     fa_qflex_writefile_cmd2json(sim_cfg.qemu_cmd, cmds[LOCK_WAIT]);
@@ -87,22 +88,22 @@ void fa_qflex_run_sim(CPUState *cpu) {
     pthread_create(&pid_sim, NULL, &fa_qflex_start_sim, &sim_cfg);
     qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
     qflex_log_mask_enable(QFLEX_LOG_LDST);
-    //qflex_log_mask_enable(FA_QFLEX_LOG_SIM);
+    qflex_log_mask_enable(FA_QFLEX_LOG_SIM);
 
     while(fa_qflex_is_running()) {
-        //* Communicate with FPGA/SIM
         fa_qflex_filewrite_cpu2json(cpu, sim_cfg.qemu_state);
-        fa_qflex_write_program_page(cpu, sim_cfg.program_page);
         fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, sim_cmd);
         cmd = fa_qflex_cmd2json_lock_wait(sim_cfg.qemu_cmd);
 
         switch(cmd->cmd) {
         case DATA_LOAD:
+            access_type = MMU_DATA_LOAD;
         case DATA_STORE:
-           fault = fa_qflex_load_addr(cpu, cmd->addr, cmd->cmd, &armflex_addr);
+            access_type = MMU_DATA_STORE;
+            fault = fa_qflex_load_addr(cpu, cmd->addr, access_type, &armflex_addr);
             if(!fault) {
                 sim_cmd = cmds[DATA_LOAD];
-                sim_cmd.addr = *((uint64_t *) armflex_addr);
+                sim_cmd.addr = *((uint64_t *) armflex_addr); // Return value of phys addr
                 //qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:0x%016lx:0x%016lx\n", cmd->addr, sim_cmd.addr);
                 free(cmd);
                 continue;
@@ -114,8 +115,12 @@ void fa_qflex_run_sim(CPUState *cpu) {
             }
             break;
         case INST_FETCH:
-            fault = fa_qflex_get_page(cpu, cmd->addr, cmd->cmd, &phys_page, &page_size);
+            access_type = MMU_INST_FETCH;
+            fault = fa_qflex_get_page(cpu, cmd->addr, access_type, &phys_page, &page_size);
             if(!fault) {
+                sim_cmd = cmds[INST_FETCH];
+                sim_cmd.addr = *((uint64_t *) phys_page);
+                //fa_qflex_write_program_page(cpu, sim_cfg.program_page);
                 fa_qflex_write_file(sim_cfg.program_page, (void*) phys_page, page_size);
                 free(cmd);
                 continue;
@@ -141,7 +146,7 @@ void fa_qflex_run_sim(CPUState *cpu) {
             exit(1);
             break;
         }
-        qflex_log_mask(FA_QFLEX_LOG_SIM, "QEMU: INST is %s\n", cmd->str);
+        //qflex_log_mask(FA_QFLEX_LOG_SIM, "QEMU: INST is %s\n", cmd->str);
         free(cmd);
         // */
 

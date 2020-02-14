@@ -23,8 +23,8 @@
  * @brief HELPER(qflex_hit_ldst)
  * Helper gets executed before the LD/ST
  */
-void HELPER(qflex_hit_ldst)(CPUARMState* env, uint64_t addr) {
-    qflex_log_mask(QFLEX_LOG_LDST, "                                           0x%016lx\n", addr);
+void HELPER(qflex_hit_ldst)(CPUARMState* env, uint64_t addr, int isStore) {
+    qflex_log_mask(QFLEX_LOG_LDST, "    LDST:0x%016lx\n", addr);
 }
 
 /**

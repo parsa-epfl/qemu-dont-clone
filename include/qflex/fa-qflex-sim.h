@@ -10,9 +10,9 @@
  */
 typedef enum FA_QFlexCmds_t {
     // Commands SIM->QEMU
-    DATA_LOAD   = MMU_DATA_LOAD,
-    DATA_STORE  = MMU_DATA_STORE,
-    INST_FETCH  = MMU_INST_FETCH,
+    DATA_LOAD   = 0,
+    DATA_STORE  = 1,
+    INST_FETCH  = 2,
     INST_UNDEF  = 3,
     INST_EXCP   = 4,
     // Commands QEMU->SIM

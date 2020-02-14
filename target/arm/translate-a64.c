@@ -867,7 +867,7 @@ static void do_gpr_st(DisasContext *s, TCGv_i64 source,
     do_gpr_st_memidx(s, source, tcg_addr, size, get_mem_index(s),
                      iss_valid, iss_srt, iss_sf, iss_ar);
 #ifdef CONFIG_FA_QFLEX
-    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr);
+    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr, tcg_const_i32(1));
 #endif
 }
 
@@ -926,7 +926,7 @@ static void do_gpr_ld(DisasContext *s,
                      get_mem_index(s),
                      iss_valid, iss_srt, iss_sf, iss_ar);
 #ifdef CONFIG_FA_QFLEX
-    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr);
+    GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr, tcg_const_i32(0));
 #endif
 }
 

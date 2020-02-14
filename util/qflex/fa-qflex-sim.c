@@ -139,7 +139,7 @@ void fa_qflex_filewrite_cpu2json(CPUState *cpu, const char* filename) {
     free(buffer);
 }
 
-FA_QFlexCmd_t* fa_qflex_cmd2json_lock_wait(const char *filename) {    
+FA_QFlexCmd_t* fa_qflex_cmd2json_lock_wait(const char *filename) {
     qflex_log_mask(FA_QFLEX_LOG_CMDS, "QEMU: CMD OUT %s in %s\n", cmds[LOCK_WAIT].str, filename);
     FA_QFlexCmd_t* cmd;
     do {
