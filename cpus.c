@@ -2151,7 +2151,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
         qemu_tcg_wait_io_event(cpu ? cpu : QTAILQ_FIRST(&cpus));
         deal_with_unplugged_cpus();
 #ifdef CONFIG_FLEXUS
-        if(counter == smp_cpus) {
+        if ((flexus_state.mode == TIMING) && (counter == smp_cpus)) {
             qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Cores successfully fast-forwarded to User mode\n");
             goto _label_start_timing;
         }
