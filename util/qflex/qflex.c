@@ -8,6 +8,8 @@ uint64_t qflex_prologue_pc = 0xDEADBEEF;
 bool qflex_control_with_flexus = false;
 bool qflex_trace_enabled = false;
 
+#ifdef CONFIG_FLEXUS
+
 void qflex_api_values_init(CPUState *cpu) {
     qflex_inst_done = false;
     qflex_prologue_done = false;
@@ -39,4 +41,6 @@ int advance_qemu(void * obj){
     CPUState *cpu = obj;
     return qflex_singlestep(cpu);
 }
+
+#endif // CONFIG_FLEXUS
 
