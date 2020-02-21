@@ -73,12 +73,14 @@ static TCGv_i64 cpu_F0d, cpu_F1d;
 #include "exec/gen-icount.h"
 
 #ifdef CONFIG_FLEXUS
+#include "include/sysemu/sysemu.h"
 #include "../libqflex/api.h"
+#include "qflex/qflex.h"
 static target_ulong flexus_ins_pc = -1;
 
 #define FLEXUS_IF_IN_SIMULATION( a ) do {	\
   printf(" Entering the flexus function \n") ;   \
-  if( QEMU_is_in_simulation() != 0 ) {		\
+  if( flexus_in_trace() ) {		\
     (a) ;					\
   }						\
   printf(" Exiting the flexus function \n") ;   \
@@ -8972,8 +8974,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
         case 0x0c:
 #ifdef CONFIG_FLEXUS
             if( rd == rn && rn == rm && rd < 15 && rd != 1 ) {
-                printf("Detected magic instruction (32bit): %d\n", rd);
-                gen_helper_flexus_magic_ins( tcg_const_i32(rd), 0, 0, 0);
+                qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Detected magic instruction (64bit): %d\n", rd);
+                gen_helper_flexus_magic_ins(NULL/*FIXME:cpu ptr*/, tcg_const_i32(rd), 0, 0, 0);
             }
 #endif
             tcg_gen_or_i32(tmp, tmp, tmp2);

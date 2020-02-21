@@ -38,11 +38,13 @@
 
 
 #ifdef CONFIG_FLEXUS
+#include "include/sysemu/sysemu.h"
 #include "../libqflex/api.h"
+#include "qflex/qflex.h"
 static target_ulong flexus_ins_pc = -1;
 
 #define FLEXUS_IF_IN_SIMULATION( a ) do {	\
-  if( QEMU_is_in_simulation() != 0 ) {		\
+  if( flexus_in_trace() ) {		\
     (a) ;					\
   }						\
 } while(0)
@@ -59,6 +61,7 @@ static target_ulong flexus_ins_pc = -1;
 
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
+
 
 /* Load/store exclusive handling */
 static TCGv_i64 cpu_exclusive_high;
@@ -3597,7 +3600,7 @@ static void shift_reg_imm(TCGv_i64 dst, TCGv_i64 src, int sf,
  * | sf | opc | 0 1 0 1 0 | shift | N |  Rm  |  imm6  |  Rn  |  Rd  |
  * +----+-----+-----------+-------+---+------+--------+------+------+
  */
-static void disas_logic_reg(DisasContext *s, uint32_t insn)
+static void disas_logic_reg(DisasContext *s, uint32_t insn,CPUARMState* env)
 {
     TCGv_i64 tcg_rd, tcg_rn, tcg_rm;
     unsigned int sf, opc, shift_type, invert, rm, shift_amount, rn, rd;
@@ -3654,11 +3657,19 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn)
     case 1: /* ORR */
 #ifdef CONFIG_FLEXUS
         if( rd == rn && rn == rm && rd == 30 ) {
-            printf("Detected magic instruction (64bit): %d\n", rd);
+            qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Detected magic instruction (64bit): %d\n", rd);
+            /* read_cpu_reg takes 3 args: ctx, register number, and 64/32bit mode.
+             * Register values go into r0,r1,r2 in advance of the <orr> execution. */
             TCGv_i64 cmd_id = read_cpu_reg(s, 0, 0);
             TCGv_i64 user_v1 = read_cpu_reg(s, 1, 0);
             TCGv_i64 user_v2 = read_cpu_reg(s, 2, 0);
-            gen_helper_flexus_magic_ins( tcg_const_i32(rd), cmd_id, user_v1, user_v2);
+            TCGv_i32 rd_trigger = tcg_const_i32(rd);
+            ARMCPU *arm_cpu = arm_env_get_cpu(env);
+            CPUState *cpu = CPU(arm_cpu);
+            TCGv_i32 cpu_idx = tcg_const_i32(cpu_proc_num(cpu));
+            gen_helper_flexus_magic_ins(cpu_idx, rd_trigger, cmd_id, user_v1, user_v2);
+            tcg_temp_free_i32(rd_trigger);
+            tcg_temp_free_i32(cpu_idx);
         }
 #endif
         tcg_gen_or_i64(tcg_rd, tcg_rn, tcg_rm);
@@ -4430,11 +4441,11 @@ static void disas_data_proc_2src(DisasContext *s, uint32_t insn)
 }
 
 /* Data processing - register */
-static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
+static void disas_data_proc_reg(DisasContext *s, uint32_t insn, CPUARMState* env)
 {
     switch (extract32(insn, 24, 5)) {
     case 0x0a: /* Logical (shifted register) */
-        disas_logic_reg(s, insn);
+        disas_logic_reg(s, insn,env);
         break;
     case 0x0b: /* Add/subtract */
         if (insn & (1 << 21)) { /* (extended register) */
@@ -11326,8 +11337,18 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     uint32_t insn;
 
     insn = arm_ldl_code(env, s->pc, s->sctlr_b);
+
     s->insn = insn;
     s->pc += 4;
+
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
+    if( flexus_in_timing() || unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC))) {
+        uint64_t pc = s->base.pc_first;
+        uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
+        gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+                                              tcg_const_i32(QFLEX_EXEC_IN));
+    }
+#endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
     s->fp_access_checked = false;
 
@@ -11349,7 +11370,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         break;
     case 0x5:
     case 0xd:      /* Data processing - register */
-        disas_data_proc_reg(s, insn);
+        disas_data_proc_reg(s, insn,env);
         break;
     case 0x7:
     case 0xf:      /* Data processing - SIMD and floating point */
@@ -11368,6 +11389,12 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
  #endif
 #ifdef CONFIG_QUANTUM
     gen_helper_quantum(cpu_env);
+#endif
+
+#if defined (CONFIG_FLEXUS) && defined (CONFIG_EXTSNAP)
+    if (is_phases_enabled() || is_ckpt_enabled()) {
+        gen_helper_phases(cpu_env);
+    }
 #endif
 
     /* if we allocated any temporaries, free them here */
@@ -11484,6 +11511,7 @@ static void aarch64_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
     CPUARMState *env = cpu->env_ptr;
+
 
     if (dc->ss_active && !dc->pstate_ss) {
         /* Singlestep state is Active-pending.

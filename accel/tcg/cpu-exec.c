@@ -36,6 +36,10 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#if defined(CONFIG_FLEXUS)
+#include "qflex/qflex.h"
+#endif /* CONFIG_FLEXUS */
+
 #ifdef CONFIG_QUANTUM
 #define QUANTUM_LIMIT \
     !cpu->hasReachedInstrLimit
@@ -43,66 +47,7 @@
 #else // CONFIG_QUANTUM
 #define QUANTUM_LIMIT 1
 #endif
-#ifdef CONFIG_PTH
-extern int iloop;
-bool bExit = false;
-static int iExit;
-#define INIT_LOOP \
-    iExit = 0;
-#define CHECK_EXIT \
-        if (bExit) { \
-            bExit = false; \
-            break; \
-        }
-#define CHECK_LOOP(cpu, limit) \
-    if (limit > 0) {\
-        if (++iExit > limit) {\
-            iExit = 0; \
-            bExit = true; \
-            qemu_cpu_kick(cpu); \
-        }}
-#define TB_CMP(tb, last_tb) \
-	if (tb == last_tb){ \
-                PTH_YIELD \
-            }
-#else
-#define INIT_LOOP
-#define CHECK_EXIT 
-#define CHECK_LOOP(cpu, limit) 
-#define TB_CMP(tb, last_tb) 
-#endif
-#ifdef CONFIG_FLEXUS
-extern bool timing_mode;
-static bool timing_once = false;
 
-static bool check_timing_loop_limit(void)
-{
-    if (timing_mode)
-        return timing_once;
-    else
-        return false;
-}
-
-#define FLEXUS_TIMING_LOOP_CHECK() \
-        !check_timing_loop_limit()
-
-#define FLEXUS_TIMING_LOOP_INIT() \
-    do{                           \
-        if (timing_mode)          \
-            timing_once = false;  \
-    }while(0)                     \
-
-#define FLEXUS_TIMING_LOOP_FLIP() \
-    do{                           \
-        if (timing_mode)          \
-            timing_once = true;   \
-    }while(0)                     \
-
-#else
-#define FLEXUS_TIMING_LOOP_CHECK() 1
-#define FLEXUS_TIMING_LOOP_FLIP()
-#define FLEXUS_TIMING_LOOP_INIT()
-#endif
 /* -icount align implementation. */
 
 typedef struct SyncClocks {
@@ -670,6 +615,7 @@ static inline bool cpu_handle_interrupt(CPUState *cpu,
     return false;
 }
 
+
 static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
                                     TranslationBlock **last_tb, int *tb_exit)
 {
@@ -721,11 +667,12 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
 #endif
 }
 
+
 /* main execution loop */
 
 int cpu_exec(CPUState *cpu)
 {
-    PTH_UPDATE_CONTEXT
+    PTH_UPDATE_CONTEXT;
 
     CPUClass *cc = CPU_GET_CLASS(cpu);
     int ret;
@@ -733,6 +680,7 @@ int cpu_exec(CPUState *cpu)
 
     /* replay_interrupt may need current_cpu */
     PTH(current_cpu) = cpu;
+
     if (cpu_handle_halt(cpu)) {
         return EXCP_HALTED;
     }
@@ -762,29 +710,42 @@ int cpu_exec(CPUState *cpu)
         g_assert(cpu == PTH(current_cpu));
         g_assert(cc == CPU_GET_CLASS(cpu));
 #endif /* buggy compiler */
+#ifndef CONFIG_SOFTMMU
+        tcg_debug_assert(!have_mmap_lock());
+#endif
         cpu->can_do_io = 1;
         tb_lock_reset();
         if (qemu_mutex_iothread_locked()) {
             qemu_mutex_unlock_iothread();
         }
     }
-    FLEXUS_TIMING_LOOP_INIT();
-    INIT_LOOP
+#if defined(CONFIG_FLEXUS)
+    QFLEX_INIT_LOOP();
+#endif
+
+    if (cpu->exception_index >= 0 ){
+        ret = cpu->exception_index;
+    } else if(cpu->interrupt_request > 0){
+        ret = cpu->interrupt_request;
+    }
+
     /* if an exception is pending, we execute it here */
-    while (!cpu_handle_exception(cpu, &ret)&& FLEXUS_TIMING_LOOP_CHECK()) {
+    while (!cpu_handle_exception(cpu, &ret) && QUANTUM_LIMIT) {
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
 
+        while (!cpu_handle_interrupt(cpu, &last_tb) && QUANTUM_LIMIT) {
+            TranslationBlock *tb;
 
+#if defined(CONFIG_FLEXUS)
+            QFLEX_CHECK_LOOP(cpu);
+#endif
 
-        while (!cpu_handle_interrupt(cpu, &last_tb) && FLEXUS_TIMING_LOOP_CHECK()) {
-                        CHECK_LOOP(cpu, iloop)
-TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
+            tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
             /* Try to align the host and virtual clocks
                if the guest is in advance */
             align_clocks(&sc, cpu);
-            FLEXUS_TIMING_LOOP_FLIP();
         }
     }
 
@@ -793,3 +754,108 @@ TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
 
     return ret;
 }
+
+
+
+#if defined(CONFIG_FLEXUS)
+bool qflex_broke_loop = false;
+int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
+{
+    PTH_UPDATE_CONTEXT;
+
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+    int ret;
+    SyncClocks sc = { 0 };
+
+    PTH(current_cpu) = cpu;
+
+    if (cpu_handle_halt(cpu)) {
+        return EXCP_HALTED;
+    }
+
+    rcu_read_lock();
+    cc->cpu_exec_enter(cpu);
+
+    /* Calculate difference between guest clock and host clock.
+     * This delay includes the delay of the last cycle, so
+     * what we have to do is sleep until it is 0. As for the
+     * advance/delay we gain here, we try to fix it next time.
+     */
+    init_delay_params(&sc, cpu);
+
+    /* prepare setjmp context for exception handling */
+    if (sigsetjmp(cpu->jmp_env, 0) != 0) { // Jump point in case of FAULT
+#if defined(__clang__) || !QEMU_GNUC_PREREQ(4, 6)
+        /* Some compilers wrongly smash all local variables after
+         * siglongjmp. There were bug reports for gcc 4.5.0 and clang.
+         * Reload essential local variables here for those compilers.
+         * Newer versions of gcc would complain about this code (-Wclobbered). */
+        cpu = current_cpu;
+        cc = CPU_GET_CLASS(cpu);
+#else /* buggy compiler */
+        /* Assert that the compiler does not smash local variables. */
+        g_assert(cpu == PTH(current_cpu));
+        g_assert(cc == CPU_GET_CLASS(cpu));
+#endif /* buggy compiler */
+#ifndef CONFIG_SOFTMMU
+        tcg_debug_assert(!have_mmap_lock());
+#endif
+        qflex_broke_loop = false;
+        cpu->can_do_io = 1;
+        tb_lock_reset();
+        if (qemu_mutex_iothread_locked()) {
+            qemu_mutex_unlock_iothread();
+        }
+    }
+
+    if (cpu->exception_index >= 0 ){
+        ret = cpu->exception_index;
+    } else if(cpu->interrupt_request > 0){
+        ret = cpu->interrupt_request;
+    }
+
+    while (qflex_broke_loop || !cpu_handle_exception(cpu, &ret)) {
+        static TranslationBlock *last_tb = NULL;
+        static int tb_exit = 0;
+        if(qflex_broke_loop == false){
+            last_tb = NULL;
+            tb_exit = 0;
+        }
+        qflex_broke_loop = false;
+
+        while (!cpu_handle_interrupt(cpu, &last_tb)) {
+
+            TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
+            cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
+
+            align_clocks(&sc, cpu);
+            switch(type) {
+                case SINGLESTEP:
+                    if(qflex_is_inst_done()){
+                        qflex_broke_loop = true;
+                    }
+                    break;
+                case PROLOGUE:
+                    if(qflex_is_inst_done()){
+                        qflex_update_prologue_done(((CPUArchState *)(cpu->env_ptr))->pc);
+                        if(qflex_is_prologue_done()){
+                            qflex_broke_loop = true;
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+            if(qflex_broke_loop)
+                break;
+        }
+        if(qflex_broke_loop)
+            break;
+    }
+
+    cc->cpu_exec_exit(cpu);
+    rcu_read_unlock();
+
+    return ret;
+}
+#endif /* CONFIG_FLEXUS */

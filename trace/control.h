@@ -19,6 +19,9 @@ typedef struct TraceEventIter {
     const char *pattern;
 } TraceEventIter;
 
+#ifdef CONFIG_PTH
+void set_loop_limit(const char *str);
+#endif
 
 /**
  * trace_event_iter_init:

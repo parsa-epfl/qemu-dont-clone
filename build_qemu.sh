@@ -41,6 +41,64 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# This function is called on in ERROR state
+usage() {
+    echo -e "\nUsage: $0 "
+    echo -e "use -gdb to run the exact same command with debugging."
+    echo -e "use -valgrind to run the exact same command with memcheck enabled."
+    echo -e "use -ldow to run the exact same command, overwriting LD_LIBRARY_PATH for debugging purposes."
+    echo -e "use -mult (--multiple) option to set up multiple instances (default: single instance)"
+    echo -e "use -lo=snapshot, where snapshot is name of snapshot (default: boot)"
+    echo -e "To use with Flexus trace add the -tr option"
+    echo -e "To use with Flexus timing add the -timing option"
+    echo -e "To run with icount in the guest, add the --enable_icount option"
+    echo -e "To use single instance without user network use --no_net option"
+    echo -e "To specify the user port for single-instance, use --unet-port"
+    echo -e "To run multiple instances without NS3 use --no_ns3 opton"
+    echo -e "To kill the qemu instances after the automated run add the --kill option"
+    echo -e "You can use the -sf option to manually set the SIMULATE_TIME for Flexus (default $SIMULATE_TIME)"
+    echo -e "Use the -uf option to specify the user file. e.g. -uf=user1.cfg to use user1.cfg (default: user.cfg)"
+    echo -e "To name your log directory use the -exp=\"name\" or --experiment=\"name\". (default name: run)"
+    echo -e "Use the -ow option to overwrite in an existing log directory"
+    echo -e "Use the -sn option to take a snapshot with specified name"
+    echo -e "Use the -set_quantum option to set a limit for the number of instructions executed per turn by each cpu."
+    echo -e "Use the -pflash option to tell the script to add two pflash devices to the command line. Assumes they are defined in the user config file as PF0 and PF1."
+    echo -e "Use the -rmc=\"NODE_ID\" option to tell the script to add an RMC component with node number <NODE_ID>"
+    echo -e "Use the -kern option to use an extracted kernel and initrd image, which must be defined in the user.cfg file"
+    echo -e "Use --extra=\"<>\" to add arguments to QEMU invocation"
+    echo -e "Use -dbg=\"LVL\" to set the flexus debug level"
+    echo -e "Use the -h option for help"
+}
+
+# Parse the dynamic options
+for i in "$@"
+do
+    case $i in
+        -timing)
+        BUILD_TIMING="TRUE"
+        shift
+        ;;
+        -emulation)
+        BUILD_EMULATION="TRUE"
+        shift
+        ;;
+        -install)
+        INSTALL_DEPS="TRUE"
+        shift
+        ;;
+        -h|--help)
+        usage
+        exit
+        shift
+        ;;
+        *)
+        echo "$0 : what do you mean by $i ?"
+        usage
+        exit
+        ;;
+    esac
+done
+
 set -x
 set -e
 
@@ -61,40 +119,41 @@ if [[ "$IS_PTH" == "" ]] && [[ "$TEST_PTH" == "yes" ]]; then
     exit 0
 fi
 
-sudo apt-get update -qq
-sudo apt-get install -y build-essential checkinstall wget python-dev \
-    software-properties-common pkg-config zip zlib1g-dev unzip curl
-# Install dependencies
-sudo apt-get update
-sudo apt-get install -y build-essential checkinstall git-core libbz2-dev libtool expect bridge-utils uml-utilities
-sudo apt-get --no-install-recommends -y build-dep qemu
-# Install a compatible version of GCC
-sudo apt-get install python-software-properties
-sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-sudo apt-get update
-sudo apt-get -y install gcc-${GCC_VERSION}
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 20
-# Install pth
-wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
-tar -xvf pth-2.0.7.tar.gz
-cd pth-2.0.7
-sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
-sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
-sudo make
-sudo make test
-sudo make install
-cd ..
-# Get images
-mkdir images
-cd images
-mkdir ubuntu-16.04-blank
-cd ubuntu-16.04-blank
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/ubuntu-stripped-comp3.qcow2?raw=true -O ubuntu-stripped-comp3.qcow2
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/initrd.img-4.4.0-83-generic?raw=true -O initrd.img-4.4.0-83-generic
-wget https://github.com/parsa-epfl/images/blob/stripped/ubuntu-16.04-blank/vmlinuz-4.4.0-83-generic?raw=true -O vmlinuz-4.4.0-83-generic
-cd ../..
-git submodule update --init dtc
-# Build Qemu
-export CFLAGS="-fPIC"
-./configure --target-list=$TARGET_LIST $CONFIG --disable-werror --disable-tpm
-make -j4
+## 
+if [ "${INSTALL_DEPS}" = "TRUE" ]; then
+    sudo apt-get update -qq
+    sudo apt-get install -y build-essential checkinstall wget python-dev \
+        software-properties-common pkg-config zip zlib1g-dev unzip curl
+    # Install dependencies
+    sudo apt-get update
+    sudo apt-get install -y build-essential checkinstall git-core libbz2-dev libtool expect bridge-utils uml-utilities
+    sudo apt-get --no-install-recommends -y build-dep qemu
+    # Install a compatible version of GCC
+    sudo apt-get install python-software-properties
+    sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    sudo apt-get update
+    sudo apt-get -y install gcc-${GCC_VERSION}
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 20
+    # Install pth
+    wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
+    tar -xvf pth-2.0.7.tar.gz
+    cd pth-2.0.7
+    sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
+    sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
+    sudo make
+    sudo make test
+    sudo make install
+    cd ..
+    git submodule update --init dtc
+fi
+
+# Build Qemu for emulation, or timing
+if [ "${BUILD_EMULATION}" = "TRUE" ]; then
+    export CFLAGS="-fPIC"
+    ./config.emulation
+    make clean && make -j8
+elif [ "${BUILD_TIMING}" = "TRUE" ]; then
+    export CFLAGS="-fPIC"
+    ./config.timing
+    make clean && make -j8
+fi

@@ -2181,6 +2181,7 @@ static inline bool arm_excp_unmasked(CPUState *cs, unsigned int excp_idx,
  *  + NonSecure EL1 & 0 stage 1
  *  + NonSecure EL1 & 0 stage 2
  *  + NonSecure EL2
+ *
  *  + Secure EL1 & EL0
  *  + Secure EL3
  * If EL3 is 32-bit:

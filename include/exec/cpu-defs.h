@@ -60,18 +60,10 @@ typedef uint64_t target_ulong;
 /* use a fully associative victim tlb of 8 entries */
 #define CPU_VTLB_SIZE 8
 
-#ifdef CONFIG_FLEXUS
-	#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
-	#define CPU_TLB_ENTRY_BITS 5
-	#else
-	#define CPU_TLB_ENTRY_BITS 6
-	#endif
+#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
+#define CPU_TLB_ENTRY_BITS 4
 #else
-	#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
-	#define CPU_TLB_ENTRY_BITS 4
-	#else
-	#define CPU_TLB_ENTRY_BITS 5
-	#endif
+#define CPU_TLB_ENTRY_BITS 5
 #endif
 
 /* TCG_TARGET_TLB_DISPLACEMENT_BITS is used in CPU_TLB_BITS to ensure that
@@ -123,21 +115,13 @@ typedef struct CPUTLBEntry {
             uintptr_t addend;
         };
         /* padding to get a power of two size */
-#ifndef CONFIG_FLEXUS
         uint8_t dummy[1 << CPU_TLB_ENTRY_BITS];
-#else
-    target_ulong paddr;
-    /* padding to get a power of two size */
-    uint8_t dummy[(1 << CPU_TLB_ENTRY_BITS) - (sizeof(target_ulong) * 4 +
-                                              ((-sizeof(target_ulong) * 4) & (sizeof(uintptr_t) - 1)) +
-                                              sizeof(uintptr_t))];
-#endif
+
     };
 } CPUTLBEntry;
 
-#ifndef CONFIG_FLEXUS// Don't know why it is not working
 QEMU_BUILD_BUG_ON(sizeof(CPUTLBEntry) != (1 << CPU_TLB_ENTRY_BITS));
-#endif
+
 
 /* The IOTLB is not accessed directly inline by generated TCG code,
  * so the CPUIOTLBEntry layout is not as critical as that of the

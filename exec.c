@@ -676,7 +676,7 @@ const VMStateDescription vmstate_cpu_common = {
 
 #endif
 
-CPUState *qemu_get_cpu(int index)
+CPUState * qemu_get_cpu(int index)
 {
     CPUState *cpu;
 

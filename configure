@@ -416,19 +416,15 @@ supported_os="no"
 bogus_os="no"
 
 #**************************
-#PARSA START
+# QFLEX START
 #**************************
-#quantum support
+extsnap="no"
+flexus="no"
 quantum="no"
-# gnu pth support
 pth="no"
 pth_path=""
-#external snapshot support
-extsnap=""
-#flexus support 
-flexus="no"
 #**************************
-#PARSA END
+# QFLEX END
 #**************************
 # parse CC options first
 for opt do
@@ -940,30 +936,6 @@ for opt do
     # configure to be used by RPM and similar macros that set
     # lots of directory switches by default.
   ;;
-#**************************
-#PARSA START
-#**************************
-  --disable-quantum) quantum="no"
-  ;;
-  --enable-quantum) quantum="yes"
-  ;;
-  --disable-pth) pth="no"
-  ;;
-  --enable-pth) pth="yes"
-  ;;
-  --pth-path=*) pth_path="$optarg"
-  ;;
-  --disable-extsnap) extsnap="no"
-  ;;
-  --enable-extsnap) extsnap="yes"
-  ;;
-   --disable-flexus) flexus="no"
-  ;;
-  --enable-flexus) flexus="yes"
-  ;;
-#**************************
-#PARSA END
-#**************************
   --disable-sdl) sdl="no"
   ;;
   --enable-sdl) sdl="yes"
@@ -1325,6 +1297,30 @@ for opt do
           error_exit "vhost-user isn't available on win32"
       fi
   ;;
+  #**************************
+  # QFLEX START
+  #**************************
+  --disable-extsnap) extsnap="no"
+  ;;
+  --enable-extsnap) extsnap="yes"
+  ;;
+  --disable-flexus) flexus="no"
+  ;;
+  --enable-flexus) flexus="yes"
+  ;;
+  --disable-quantum) quantum="no"
+  ;;
+  --enable-quantum) quantum="yes"
+  ;;
+  --disable-pth) pth="no"
+  ;;
+  --enable-pth) pth="yes"
+  ;;
+  --pth-path=*) pth_path="$optarg"
+  ;;
+  #**************************
+  # QFLEX END
+  #**************************
   *)
       echo "ERROR: unknown option $opt"
       echo "Try '$0 --help' for more information"
@@ -1574,15 +1570,16 @@ disabled with --disable-FEATURE, default is enabled if available:
   vhost-user      vhost-user support
 
   #**************************
-  #PARSA START
+  # QFLEX START
   #**************************
-  GNU Pth         support for GNU Pth - The GNU Portable Threads
-  extsnap         external snapshots support
-  Quantum	      support for quantum value - no MTTCG at the moment
-    flexus          support for the Flexus simulator
-#**************************
-  #PARSA END
+  extsnap         support for external snapshots
+  flexus          support for the Flexus simulator
+  quantum	        support for quantum value - no MTTCG at the moment
+  pth             support for GNU Pth - The GNU Portable Threads
   #**************************
+  # QFLEX END
+  #**************************
+
 NOTE: The object files are built at the place where configure is launched
 EOF
 exit 0
@@ -5284,26 +5281,27 @@ EOF
   fi
 fi
 #**************************
-#PARSA START
+# QFLEX START
 #**************************
+if test "$extsnap" = "yes" ; then
+  QEMU_CFLAGS="-DCONFIG_EXTSNAP $QEMU_CFLAGS"
+fi
+if test "$flexus" = "yes" ; then
+  QEMU_CFLAGS=" -ldl -DCONFIG_FLEXUS $QEMU_CFLAGS"
+  LIBS="-ldl $LIBS" 
+fi
 if test "$quantum" = "yes" ; then
-QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
+  QEMU_CFLAGS="-DCONFIG_QUANTUM $QEMU_CFLAGS"
 fi
 if test "$pth" = "yes" ; then
   QEMU_CFLAGS="-I${pth_path}/include -L${pth_path}/lib -lpth -fPIC -DCONFIG_PTH $QEMU_CFLAGS"
   LIBS="-L${pth_path}/lib -lpth $LIBS"
   libs_qga="$libs_qga -lpth"
 fi
-if test "$extsnap" = "yes" ; then
-QEMU_CFLAGS="-DCONFIG_EXTSNAP $QEMU_CFLAGS"
-fi
-if test "$flexus" = "yes" ; then
-  QEMU_CFLAGS=" -ldl -DCONFIG_FLEXUS $QEMU_CFLAGS"
-  LIBS="-ldl $LIBS" 
-fi
 #**************************
-#PARSA END
+# QFLEX END
 #**************************
+
 # Check that the C++ compiler exists and works with the C compiler.
 # All the QEMU_CXXFLAGS are based on QEMU_CFLAGS. Keep this at the end to don't miss any other that could be added.
 if has $cxx; then
@@ -5493,15 +5491,15 @@ echo "avx2 optimization $avx2_opt"
 echo "replication support $replication"
 echo "VxHS block device $vxhs"
 echo "#**************************"
-echo "#PARSA START"
+echo "# QFLEX START"
 echo "#**************************"
-echo "GNU Pth           $pth"
-echo "PTH lib path:     $pth_path"
-echo "external snapshots support $extsnap"
-echo "quantum support   $quantum"
-echo "Flexus support    $flexus"
+echo "external snapshots $extsnap"
+echo "Flexus support     $flexus"
+echo "Quantum support    $quantum"
+echo "GNU Pth            $pth"
+echo "GNU Pth lib path   $pth_path"
 echo "#**************************"
-echo "#PARSA END"
+echo "# QFLEX END"
 echo "#**************************"
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
@@ -6506,22 +6504,22 @@ if test "$target_softmmu" = "yes" ; then
   fi
 fi
 #**************************
-#PARSA START
+# QFLEX START
 #**************************
-if test "$pth" = "yes" ; then
-  echo "CONFIG_PTH=y" >> $config_host_mak
-fi
 if test "$extsnap" = "yes" ; then
   echo "CONFIG_EXTSNAP=y" >> $config_host_mak
-fi
-if test "$quantum" = "yes" ; then
-echo "CONFIG_QUANTUM=y" >> $config_host_mak
 fi
 if test "$flexus" = "yes" ; then
   echo "CONFIG_FLEXUS=y" >> $config_host_mak
 fi
+if test "$quantum" = "yes" ; then
+  echo "CONFIG_QUANTUM=y" >> $config_host_mak
+fi
+if test "$pth" = "yes" ; then
+  echo "CONFIG_PTH=y" >> $config_host_mak
+fi
 #**************************
-#PARSA END
+# QFLEX END
 #**************************
 
 if test "$target_user_only" = "yes" ; then
