@@ -63,8 +63,13 @@
 #include "qemu-file-channel.h"
 #include "qemu-file.h"
 
-const char *input_command = "gunzip -c";
-const char *output_command = "gzip -c";
+#include "benchmark.h"
+
+const char *input_command = "cat";
+const char *output_command = "cat";
+
+FILE *savedump = NULL;
+FILE *loaddump = NULL;
 
 static int qemu_savevm_state(QEMUFile *f, Error **errp)
 {
@@ -533,6 +538,7 @@ static int load_state_ext(QString *dir_path)
         error_report("Cannot run a command %s\n", command);
         goto end;
     }
+    input_channel = ioc;
 
     mis->from_src_file = f;
 
@@ -553,10 +559,10 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     int saved_vm_running  = runstate_is_running();
     int ret = -EINVAL;
 
-    if (saved_vm_running) {
-        vm_stop(RUN_STATE_RESTORE_VM);
-    }
-    memory_global_dirty_log_start();
+    struct timespec begin;
+    struct timespec end;
+    double res;
+
 
     QString *dir_path = get_dir_path();
     if (dir_path == NULL) {
@@ -566,7 +572,10 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     }
     QDECREF(dir_path);
 
+    clock_gettime(CLOCK_REALTIME, &begin);
+
     ret = goto_snap(name);
+
     if (ret < 0) {
         monitor_printf(mon, "Cannot load snapshot %s\n", name);
         goto end_snap_uncreated;

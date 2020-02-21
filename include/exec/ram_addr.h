@@ -442,8 +442,8 @@ static inline void ram_list_clean(ram_addr_t start, ram_addr_t length)
 
     /* start address is aligned at the start of a word? */
     if (((page * BITS_PER_LONG) << TARGET_PAGE_BITS) == start) {
-        int k;
-        int nr = BITS_TO_LONGS(length >> TARGET_PAGE_BITS);
+        long k;
+        long nr = BITS_TO_LONGS(length >> TARGET_PAGE_BITS);
         unsigned long * const *src;
         unsigned long idx = (page * BITS_PER_LONG) / DIRTY_MEMORY_BLOCK_SIZE;
         unsigned long offset = BIT_WORD((page * BITS_PER_LONG) %

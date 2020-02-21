@@ -11535,6 +11535,7 @@ void helper_flexus_magic_ins(int cpu_proc_num, int trig_reg, uint64_t cmd_id, ui
         vm_stop(RUN_STATE_PAUSED);
     }
 }
+
 void finish_performance(void);
 
 void helper_flexus_periodic(CPUARMState *env, int isUser){

@@ -25,6 +25,10 @@
 #include "qemu/sockets.h"
 #include "trace.h"
 
+#include "benchmark.h"
+
+QIOChannel *input_channel = NULL;
+double time_in_channel = 0.0;
 
 QIOChannelCommand *
 qio_channel_command_new_pid(int writefd,
@@ -234,6 +238,13 @@ static ssize_t qio_channel_command_readv(QIOChannel *ioc,
     QIOChannelCommand *cioc = QIO_CHANNEL_COMMAND(ioc);
     ssize_t ret;
 
+    struct timespec begin;
+    struct timespec end;
+    double res;
+
+    if (input_channel == ioc) {
+        clock_gettime(CLOCK_REALTIME, &begin);
+    }
  retry:
     ret = readv(cioc->readfd, iov, niov);
     if (ret < 0) {
@@ -247,6 +258,12 @@ static ssize_t qio_channel_command_readv(QIOChannel *ioc,
         error_setg_errno(errp, errno,
                          "Unable to read from command");
         return -1;
+    }
+
+    if (input_channel == ioc) {
+        clock_gettime(CLOCK_REALTIME, &end);
+        res = get_result(begin, end);
+        time_in_channel += res;
     }
 
     return ret;

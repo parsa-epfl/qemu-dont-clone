@@ -2773,13 +2773,7 @@ static int ram_load(QEMUFile *f, void *opaque, int version_id)
                 ret = -EINVAL;
                 break;
             }
-#ifdef CONFIG_EXTSNAP
-            ram_list_clean(addr, block->used_length);
-#endif
             trace_ram_load_loop(block->idstr, (uint64_t)addr, flags, host);
-#ifdef CONFIG_EXTSNAP
-            ram_list_clean(addr, block->used_length);
-#endif
         }
 
         switch (flags & ~RAM_SAVE_FLAG_CONTINUE) {
@@ -2826,7 +2820,9 @@ static int ram_load(QEMUFile *f, void *opaque, int version_id)
                                  "accept migration", id);
                     ret = -EINVAL;
                 }
-
+#ifdef CONFIG_EXTSNAP
+                ram_list_clean(addr, block->used_length);
+#endif
                 total_ram_bytes -= length;
             }
             break;
