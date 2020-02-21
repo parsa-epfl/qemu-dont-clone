@@ -559,11 +559,6 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     int saved_vm_running  = runstate_is_running();
     int ret = -EINVAL;
 
-    struct timespec begin;
-    struct timespec end;
-    double res;
-
-
     QString *dir_path = get_dir_path();
     if (dir_path == NULL) {
         monitor_printf(mon, "There are not block devices on current VM\n");
@@ -571,8 +566,6 @@ int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
         goto end_snap_uncreated;
     }
     QDECREF(dir_path);
-
-    clock_gettime(CLOCK_REALTIME, &begin);
 
     ret = goto_snap(name);
 
