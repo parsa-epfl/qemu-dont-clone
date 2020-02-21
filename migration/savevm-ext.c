@@ -65,8 +65,11 @@
 
 #include "benchmark.h"
 
-const char *input_command = "cat";
-const char *output_command = "cat";
+//const char *input_command = "cat";
+//const char *output_command = "cat";
+
+const char *input_command = "gunzip -c";
+const char *output_command = "gzip -c";
 
 FILE *savedump = NULL;
 FILE *loaddump = NULL;
