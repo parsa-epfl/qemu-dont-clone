@@ -21,7 +21,7 @@
 
 typedef struct {
     uint32_t size;
-    uint8_t runstate[101];
+    uint8_t runstate[100];
     RunState state;
     bool received;
 } GlobalState;
@@ -42,8 +42,9 @@ int global_state_store(void)
 void global_state_store_running(void)
 {
     const char *state = RunState_str(RUN_STATE_RUNNING);
+    assert(strlen(state) < sizeof(global_state.runstate));
     strncpy((char *)global_state.runstate,
-           state, sizeof(global_state.runstate) - 1);
+           state, sizeof(global_state.runstate));
 }
 
 bool global_state_received(void)
