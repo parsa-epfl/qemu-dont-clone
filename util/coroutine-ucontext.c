@@ -85,7 +85,7 @@ static void finish_switch_fiber(void *fake_stack_save, bool update_leader_for_ne
     if (update_leader_for_nest) {
         PTH(leader).stack = (void *)bottom_old;
         PTH(leader).stack_size = size_old;
-    } 
+    }
 #endif
 }
 
@@ -93,11 +93,13 @@ static void start_switch_fiber(void **fake_stack_save,
                                const void *bottom, size_t size)
 {
 #ifdef CONFIG_ASAN
+#ifdef CONFIG_PTH
     /* Change the stack associated with this coroutine in the PTH library too */
     pth_wrapper *cur = pth_get_wrapper();
     pth_swap_cur_thread_sstate(cur->pth_thread,bottom,size); // from pth.h
+#endif /* CONFIG_PTH */
     __sanitizer_start_switch_fiber(fake_stack_save, bottom, size);
-#endif
+#endif /* CONFIG_ASAN */
 }
 
 static void coroutine_trampoline(int i0, int i1)
