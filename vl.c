@@ -5181,7 +5181,9 @@ int main(int argc, char **argv, char **envp)
        delete_tmp_overlay();
     }
 #endif
-    pause_all_vcpus();
+    if (!flexus_in_timing() ) {
+        pause_all_vcpus();
+    }
     bdrv_close_all();
     res_free();
 

@@ -1990,7 +1990,6 @@ static void deal_with_unplugged_cpus(void)
             qemu_tcg_destroy_vcpu(cpu);
             cpu->created = false;
             qemu_cond_signal(&qemu_cpu_cond);
-            break;
         }
     }
 }
@@ -2043,7 +2042,7 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 #ifdef CONFIG_FLEXUS
     int counter = 0, init_counter = 0;
     bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
-    if( !ff ) { 
+    if( !ff && flexus_state.mode == TRACE) { 
         qflex_trace_enabled = true;
         qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
                                           "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
@@ -2164,13 +2163,14 @@ _label_start_timing:
                                           "    -> Starting timing simulation. Passing control to Flexus.\n");
         qflex_control_with_flexus = true;
         startFlexus();
-        return NULL;
-    } else if( flexus_state.mode == TRACE) {
-        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
-                                          "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
-        qflex_trace_enabled = true;
     }
     qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Went outside QEMU and Flexus loops\n");
+    CPU_FOREACH(cpu) {
+        cpu->stop = true;
+        cpu->unplug = true;
+    }
+    deal_with_unplugged_cpus();
+    qemu_mutex_unlock_iothread();
 #endif /* CONFIG_FLEXUS */
 
     return NULL;
