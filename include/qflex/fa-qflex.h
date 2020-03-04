@@ -26,16 +26,24 @@ typedef struct FA_QFlexState_t {
     bool simulate; // Will communicate with Scala simulator instead of FPGA
 } FA_QFlexState_t;
 
-/* (fa-qflex.c)
- */
+typedef struct FA_QFlexFile{
+    void* region; //mapped memory region
+    int fd; // file discriptor
+    size_t size;
+} FA_QFlexFile;
+
 extern FA_QFlexState_t fa_qflexState;
 
 void fa_qflex_run_sim(CPUState *cpu);
+void fa_qflex_run_fpga(CPUState *cpu);
 void fa_qflex_start(CPUState *cpu);
 void fa_qflex_configure(QemuOpts *opts, Error **errp);
 
 char* fa_qflex_read_file(const char* filename, size_t *size);
 int fa_qflex_write_file(const char *filename, void* buffer, size_t size);
+int fa_qflex_write_file_open(const char *filename, size_t size, FA_QFlexFile *file);
+void fa_qflex_write_file_write(FA_QFlexFile *file, void* buffer);
+void fa_qflex_write_file_close(FA_QFlexFile *file);
 
 /* Setters and getters
  */

@@ -30,7 +30,13 @@ typedef struct FA_QFlexCmd_t {
     const char* str;
 } FA_QFlexCmd_t;
 
+typedef struct FA_QFlexCmd_short_t {
+    FA_QFlexCmds_t cmd;
+    uint64_t addr;
+} FA_QFlexCmd_short_t;
+
 extern const FA_QFlexCmd_t cmds[FA_QFLEXCMDS_NR];
+extern const FA_QFlexCmd_short_t cmds_short[FA_QFLEXCMDS_NR];
 
 typedef struct FA_QFlexSimConfig_t {
     /* Names of files where information is shared between sim and QEMU

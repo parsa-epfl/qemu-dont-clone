@@ -23,6 +23,18 @@ const FA_QFlexCmd_t cmds[FA_QFLEXCMDS_NR] = {
     {CHECK_N_STEP, 0, "CHECK_N_STEP"}
 };
 
+const FA_QFlexCmd_short_t cmds_short[FA_QFLEXCMDS_NR] = {
+    {DATA_LOAD,  0 },
+    {DATA_STORE, 0},
+    {INST_FETCH, 0},
+    {INST_UNDEF, 0},
+    {INST_EXCP,  0 },
+    {SIM_START,  0 },
+    {SIM_STOP,   0  },
+    {LOCK_WAIT,  0 },
+    {CHECK_N_STEP, 0}
+};
+
 void* fa_qflex_start_sim(void *arg) {
     int pid = fork();
     if (pid < 0) {

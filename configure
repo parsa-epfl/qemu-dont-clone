@@ -5340,7 +5340,7 @@ if test "$fa_qflex" = "yes" ; then
   QEMU_CFLAGS="-DCONFIG_FA_QFLEX $QEMU_CFLAGS"
 fi
 if test "$fpga" = "yes" ; then
-  QEMU_CFLAGS="-DCONFIG_FPGA $QEMU_CFLAGS"
+  QEMU_CFLAGS="-DCONFIG_AWS $QEMU_CFLAGS"
 fi
 #**************************
 # FA-QFLEX END

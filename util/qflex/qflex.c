@@ -141,6 +141,10 @@ int qflex_adaptative_execution(CPUState *cpu) {
         if(qflex_is_profiling()) {
             qflex_profile(cpu);
 #ifdef CONFIG_FA_QFLEX
+#ifdef CONFIG_AWS
+        } else if (fa_qflex_is_running() && !fa_qflex_is_simulate()) {
+            fa_qflex_run_fpga(cpu);
+#endif
         } else if (fa_qflex_is_running()) {
             fa_qflex_run_sim(cpu);
 #endif
