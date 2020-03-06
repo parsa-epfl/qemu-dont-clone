@@ -44,6 +44,7 @@ int fa_qflex_write_file(const char *filename, void* buffer, size_t size);
 int fa_qflex_write_file_open(const char *filename, size_t size, FA_QFlexFile *file);
 void fa_qflex_write_file_write(FA_QFlexFile *file, void* buffer);
 void fa_qflex_write_file_close(FA_QFlexFile *file);
+void* fa_qflfex_open_cmd_shm(const char* name);
 
 /* Setters and getters
  */

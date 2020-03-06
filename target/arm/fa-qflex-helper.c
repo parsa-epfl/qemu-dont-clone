@@ -309,4 +309,3 @@ bool QFLEX_GET_F(get_phys_addr)(CPUARMState *env, target_ulong address,
                                 target_ulong *page_size, uint32_t *fsr,
                                 ARMMMUFaultInfo *fi) { return false; }
 #endif
-

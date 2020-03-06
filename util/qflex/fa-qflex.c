@@ -9,7 +9,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/thread.h"
-#include "qemu/timer.h"
 
 #include "qapi/error.h"
 #include "qemu-common.h"
@@ -174,86 +173,90 @@ void fa_qflex_run_sim(CPUState *cpu) {
 void fa_qflex_run_fpga(CPUState *cpu) {
     qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU: START: PC:%08lx\n", QFLEX_GET_ARCH(pc)(cpu));
     qflex_log_mask(QFLEX_LOG_GENERAL, "FPGA MODE\n");
-    bool fault;
-    FA_QFlexCmd_short_t* cmd;
-    FA_QFlexCmd_short_t sim_cmd = cmds_short[SIM_START];
+    bool fault; 
     uint64_t phys_page, page_size;
     uint64_t armflex_addr;
     MMUAccessType access_type;
+    // open shared memory for sending and receving commands
+    FA_QFlexCmd_short_t* sim_cmd_file = (FA_QFlexCmd_short_t*) fa_qflfex_open_cmd_shm(sim_cfg.sim_cmd);
+    FA_QFlexCmd_short_t* qemu_cmd = (FA_QFlexCmd_short_t*) fa_qflfex_open_cmd_shm(sim_cfg.qemu_cmd);
 
-    // open all required files to reduce transplant time
+    // open shared file for cpu-states
     size_t qemu_state_file_size = FA_QFLEX_ARCH_STATE_SIZE * sizeof(uint32_t);
     FA_QFlexFile qemu_state_file;
     fault = fa_qflex_write_file_open(sim_cfg.qemu_state, qemu_state_file_size , &qemu_state_file) != 0;
     assert(!fault);
 
-    fa_qflex_write_cmd(sim_cfg.sim_cmd, cmds_short[LOCK_WAIT]); // Reset Commands
-    fa_qflex_write_cmd(sim_cfg.qemu_cmd, cmds_short[LOCK_WAIT]);
+    // set qemu and simulator to wait state
+    sim_cmd_file->cmd = LOCK_WAIT;
+    qemu_cmd->cmd = LOCK_WAIT;
+
     sim_cfg.page_size = page_size;
     qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
     qflex_log_mask_enable(QFLEX_LOG_LDST);
     qflex_log_mask_enable(FA_QFLEX_LOG_SIM);
 
+    // command to be sent in next iteration to simulator
+    FA_QFlexCmd_short_t sim_cmd = cmds_short[SIM_START];
     while(fa_qflex_is_running()) {
-        int64_t a,b; // timing ////////////////////////////
-        a = qemu_clock_get_ns(QEMU_CLOCK_HOST); //timing ////////////////////////
         fa_qflex_write_cpu(cpu, &qemu_state_file); // 4us
-        fa_qflex_write_cmd(sim_cfg.sim_cmd, sim_cmd); 
-        cmd = fa_qflex_cmd_lock_wait(sim_cfg.qemu_cmd);
-        switch(cmd->cmd) {
-        case DATA_LOAD:
-            access_type = MMU_DATA_LOAD;
-        case DATA_STORE:
-            access_type = MMU_DATA_STORE;
-            fault = fa_qflex_load_addr(cpu, cmd->addr, access_type, &armflex_addr);
-            if(!fault) {
-                sim_cmd = cmds_short[DATA_LOAD];
-                sim_cmd.addr = *((uint64_t *) armflex_addr); // Return value of phys addr
-                //qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:0x%016lx:0x%016lx\n", cmd->addr, sim_cmd.addr);
-                free(cmd);
-                continue;
-            } else {
-                // Fault generated -> Transfer system and step in QEMU
-                //fa_qflex_start_transfer(sim_cfg.fpga_cmd);
-                qflex_log_mask(QFLEX_LOG_GENERAL,
-                               "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX\n");
-            }
-            break;
-        case INST_FETCH:
-            access_type = MMU_INST_FETCH;
-            fault = fa_qflex_get_page(cpu, cmd->addr, access_type, &phys_page, &page_size);
-            if(!fault) {
-                sim_cmd = cmds_short[INST_FETCH];
-                sim_cmd.addr = *((uint64_t *) phys_page);
-                //fa_qflex_write_program_page(cpu, sim_cfg.program_page);
-                fa_qflex_write_file(sim_cfg.program_page, (void*) phys_page, page_size);
-                free(cmd);
-                continue;
-            } else {
-                // Fault generated -> Transfer system and step in QEMU
-                //fa_qflex_start_transfer(sim_cfg.fpga_cmd);
-                qflex_log_mask(QFLEX_LOG_GENERAL,
-                          "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX");
-            }
-            break;
-        case INST_UNDEF:
-        case INST_EXCP:
-            fa_qflex_read_cpu(cpu, sim_cfg.sim_state);
-            sim_cmd = cmds_short[SIM_START];
-            break;
-        case CHECK_N_STEP:
-            // Don't load new state
-            // Step then handle control back to Chisel
-            sim_cmd = cmds_short[CHECK_N_STEP];
-            break;
-        default:
-            fprintf(stderr, "FA-QFLEX: Received unknown command\n");
-            exit(1);
-            break;
+
+        // send simulator command
+        sim_cmd_file->cmd = sim_cmd.cmd;
+        sim_cmd_file->addr = sim_cmd.addr;
+        
+        // qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU: waiting... \n");
+        while (qemu_cmd->cmd == LOCK_WAIT) asm("nop");
+        // qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU: CMD IN %s\n", cmds[qemu_cmd->cmd].str);
+        switch(qemu_cmd->cmd) {
+            case DATA_LOAD:
+                access_type = MMU_DATA_LOAD;
+            case DATA_STORE:
+                access_type = MMU_DATA_STORE;
+                fault = fa_qflex_load_addr(cpu, qemu_cmd->addr, access_type, &armflex_addr);
+                if(!fault) {
+                    sim_cmd = cmds_short[DATA_LOAD];
+                    sim_cmd.addr = *((uint64_t *) armflex_addr); // Return value of phys addr
+                    //qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:0x%016lx:0x%016lx\n", qemu_cmd->addr, sim_cmd_file->addr);
+                    continue;
+                } else {
+                    // Fault generated -> Transfer system and step in QEMU
+                    qflex_log_mask(QFLEX_LOG_GENERAL,
+                                "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX\n");
+                }
+                break;
+            case INST_FETCH:
+                access_type = MMU_INST_FETCH;
+                fault = fa_qflex_get_page(cpu, qemu_cmd->addr, access_type, &phys_page, &page_size);
+                if(!fault) {
+                    sim_cmd = cmds_short[INST_FETCH];
+                    sim_cmd.addr = *((uint64_t *) phys_page);
+                    //fa_qflex_write_program_page(cpu, sim_cfg.program_page);
+                    fa_qflex_write_file(sim_cfg.program_page, (void*) phys_page, page_size);
+                    continue;
+                } else {
+                    // Fault generated -> Transfer system and step in QEMU
+                    qflex_log_mask(QFLEX_LOG_GENERAL,
+                            "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX");
+                }
+                break;
+            case INST_UNDEF:
+            case INST_EXCP:
+                fa_qflex_read_cpu(cpu, sim_cfg.sim_state);
+                sim_cmd = cmds_short[SIM_START];
+                break;
+            case CHECK_N_STEP:
+                // Don't load new state
+                // Step then handle control back to Chisel
+                sim_cmd = cmds_short[CHECK_N_STEP];
+                break;
+            default:
+                fprintf(stderr, "FA-QFLEX: Received unknown command\n");
+                exit(1);
+                break;
         }
-        //qflex_log_mask(FA_QFLEX_LOG_SIM, "QEMU: INST is ????\n", "????");
-        free(cmd);
-        // */
+        qemu_cmd->cmd = LOCK_WAIT;
+        // qflex_log_mask(FA_QFLEX_LOG_SIM, "QEMU: INST is %s\n", cmds[qemu_cmd->cmd].str);
 
         qflex_singlestep(cpu);
         if(QFLEX_GET_ARCH(el)(cpu) != 0) {
@@ -267,12 +270,13 @@ void fa_qflex_run_fpga(CPUState *cpu) {
             qflex_log_mask_enable(QFLEX_LOG_LDST);
             qflex_log_mask(QFLEX_LOG_GENERAL, "EXCP: OUT\n");
         }
-        b = qemu_clock_get_ns(QEMU_CLOCK_HOST);qflex_log_mask(QFLEX_LOG_GENERAL, "time for cpu write %f us \n",(double)(b-a)/1000); //timing /////////////////////////
-    }
+
+    } // End of main while loop
+
     fa_qflex_write_file_close(&qemu_state_file);
     qflex_log_mask_disable(QFLEX_LOG_TB_EXEC);
     qflex_log_mask_disable(QFLEX_LOG_LDST);
-    fa_qflex_write_cmd(sim_cfg.sim_cmd, cmds_short[SIM_STOP]);
+    sim_cmd_file->cmd = SIM_STOP;
 }
 
 void fa_qflex_start(CPUState *cpu) {
@@ -421,6 +425,7 @@ int fa_qflex_write_file(const char *filename, void* buffer, size_t size) {
 }
 
 
+/* only open the file. this reduce the overhead of opening file again and again */
 int fa_qflex_write_file_open(const char *filename, size_t size, FA_QFlexFile *file) {
     char filepath[PATH_MAX];
     int fd = -1;
@@ -466,12 +471,26 @@ int fa_qflex_write_file_open(const char *filename, size_t size, FA_QFlexFile *fi
     return 0;
 }
 
+/* write into already opened file*/
 void fa_qflex_write_file_write(FA_QFlexFile *file, void* buffer) {
     memcpy(file->region, buffer, file->size);
     msync(file->region, file->size, MS_SYNC);
 }
 
+/* closes an opened file*/
 void fa_qflex_write_file_close(FA_QFlexFile *file) {
     munmap(file->region, file->size);
     close(file->fd);
+}
+
+/* open shared memory location for commands */
+void* fa_qflfex_open_cmd_shm(const char* name){
+	const int SIZE = sizeof(FA_QFlexCmd_short_t);
+	int shm_fd; 
+	shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666); 
+    if (ftruncate(shm_fd, SIZE) < 0) {
+        qflex_log_mask(QFLEX_LOG_FILE_ACCESS,"ftruncate for '%s' failed\n",name);
+    }
+	void* cmd =  mmap(0, SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0); 
+	return cmd;
 }

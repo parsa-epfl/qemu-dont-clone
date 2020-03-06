@@ -30,6 +30,7 @@ typedef struct FA_QFlexCmd_t {
     const char* str;
 } FA_QFlexCmd_t;
 
+/* short version of FA_QFlexCmd_t. easy to use in binary files*/
 typedef struct FA_QFlexCmd_short_t {
     FA_QFlexCmds_t cmd;
     uint64_t addr;
