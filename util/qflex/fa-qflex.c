@@ -74,11 +74,10 @@ static inline int fa_qflex_wait_magic(CPUState *cpu) {
 
 void fa_qflex_run_sim(CPUState *cpu) {
     qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU: START: PC:%08lx\n", QFLEX_GET_ARCH(pc)(cpu));
-    pthread_t pid_sim;
     FA_QFlexCmd_t* cmd;
     FA_QFlexCmd_t sim_cmd = cmds[SIM_START];
     uint64_t phys_page, page_size;
-    uint64_t armflex_addr;
+    //uint64_t armflex_addr;
     MMUAccessType access_type;
 
     fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, cmds[LOCK_WAIT]); // Reset Commands
@@ -86,7 +85,10 @@ void fa_qflex_run_sim(CPUState *cpu) {
     bool fault = fa_qflex_get_page(cpu, QFLEX_GET_ARCH(pc)(cpu), MMU_INST_FETCH, &phys_page, &page_size);
     assert(!fault);
     sim_cfg.page_size = page_size;
-    pthread_create(&pid_sim, NULL, &fa_qflex_start_sim, &sim_cfg);
+
+    //pthread_t pid_sim;
+    //pthread_create(&pid_sim, NULL, &fa_qflex_start_sim, &sim_cfg);
+
     qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
     qflex_log_mask_enable(QFLEX_LOG_LDST);
     qflex_log_mask_enable(FA_QFLEX_LOG_SIM);
@@ -96,32 +98,34 @@ void fa_qflex_run_sim(CPUState *cpu) {
         fa_qflex_writefile_cmd2json(sim_cfg.sim_cmd, sim_cmd);
         cmd = fa_qflex_cmd2json_lock_wait(sim_cfg.qemu_cmd);
 
+        //fault = fa_qflex_load_addr(cpu, cmd->addr, access_type, &armflex_addr);
         switch(cmd->cmd) {
         case DATA_LOAD:
-            access_type = MMU_DATA_LOAD;
         case DATA_STORE:
-            access_type = MMU_DATA_STORE;
-            fault = fa_qflex_load_addr(cpu, cmd->addr, access_type, &armflex_addr);
-            if(!fault) {
+            sim_cmd = cmds[DATA_STORE];
+            qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:    PAGE:0x%016lx\n", cmd->addr);
+            fault = fa_qflex_get_page(cpu, cmd->addr, MMU_DATA_STORE, &phys_page, &page_size);
+            if(fault) {
                 sim_cmd = cmds[DATA_LOAD];
-                sim_cmd.addr = *((uint64_t *) armflex_addr); // Return value of phys addr
-                //qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:0x%016lx:0x%016lx\n", cmd->addr, sim_cmd.addr);
-                free(cmd);
-                continue;
-            } else {
-                // Fault generated -> Transfer system and step in QEMU
-                //fa_qflex_start_transfer(sim_cfg.fpga_cmd);
-                qflex_log_mask(QFLEX_LOG_GENERAL,
-                               "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX\n");
+                fault = fa_qflex_get_page(cpu, cmd->addr, MMU_DATA_LOAD, &phys_page, &page_size);
+                if(fault) {
+                    qflex_log_mask(QFLEX_LOG_GENERAL, "       Page triggers exception TODO transplant\n");
+                }
+                qflex_log_mask(QFLEX_LOG_GENERAL, "       Page is Read Only\n");
             }
-            break;
+
+            sim_cmd.addr = *((uint64_t *) phys_page);
+            fa_qflex_write_file(sim_cfg.program_page, (void*) phys_page, page_size);
+            free(cmd);
+            continue;
+
         case INST_FETCH:
             access_type = MMU_INST_FETCH;
             fault = fa_qflex_get_page(cpu, cmd->addr, access_type, &phys_page, &page_size);
+            qflex_log_mask(QFLEX_LOG_GENERAL, "QEMU:REQ:    PAGE:0x%016lx\n", cmd->addr);
             if(!fault) {
                 sim_cmd = cmds[INST_FETCH];
                 sim_cmd.addr = *((uint64_t *) phys_page);
-                //fa_qflex_write_program_page(cpu, sim_cfg.program_page);
                 fa_qflex_write_file(sim_cfg.program_page, (void*) phys_page, page_size);
                 free(cmd);
                 continue;
@@ -131,10 +135,10 @@ void fa_qflex_run_sim(CPUState *cpu) {
                 qflex_log_mask(QFLEX_LOG_GENERAL,
                           "ARMFLEX requested faulted address, change control from ARMFLEX to FA_QFLEX");
             }
-            break;
+            continue;
         case INST_UNDEF:
         case INST_EXCP:
-            fa_qflex_fileread_json2cpu(cpu, sim_cfg.sim_state);
+            //fa_qflex_fileread_json2cpu(cpu, sim_cfg.sim_state);
             sim_cmd = cmds[SIM_START];
             break;
         case CHECK_N_STEP:

@@ -864,11 +864,11 @@ static void do_gpr_st(DisasContext *s, TCGv_i64 source,
                       unsigned int iss_srt,
                       bool iss_sf, bool iss_ar)
 {
-    do_gpr_st_memidx(s, source, tcg_addr, size, get_mem_index(s),
-                     iss_valid, iss_srt, iss_sf, iss_ar);
 #ifdef CONFIG_FA_QFLEX
     GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr, tcg_const_i32(1));
 #endif
+    do_gpr_st_memidx(s, source, tcg_addr, size, get_mem_index(s),
+                     iss_valid, iss_srt, iss_sf, iss_ar);
 }
 
 /*
@@ -922,12 +922,12 @@ static void do_gpr_ld(DisasContext *s,
                       bool iss_valid, unsigned int iss_srt,
                       bool iss_sf, bool iss_ar)
 {
-    do_gpr_ld_memidx(s, dest, tcg_addr, size, is_signed, extend,
-                     get_mem_index(s),
-                     iss_valid, iss_srt, iss_sf, iss_ar);
 #ifdef CONFIG_FA_QFLEX
     GEN_HELPER(qflex_hit_ldst)(cpu_env, tcg_addr, tcg_const_i32(0));
 #endif
+    do_gpr_ld_memidx(s, dest, tcg_addr, size, is_signed, extend,
+                     get_mem_index(s),
+                     iss_valid, iss_srt, iss_sf, iss_ar);
 }
 
 /*
@@ -11354,18 +11354,21 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
 {
     uint32_t insn;
 
+#if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
+    uint64_t pc = s->base.pc_first;
+    uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
+
+    GEN_HELPER(qflex_executed_instruction)(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+                                           tcg_const_i32(QFLEX_EXEC_IN));
+#endif
+
     insn = arm_ldl_code(env, s->pc, s->sctlr_b);
 
     s->insn = insn;
     s->pc += 4;
 
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
-    uint64_t pc = s->base.pc_first;
-    uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
-
-    GEN_HELPER(qflex_executed_instruction)(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
-                                              tcg_const_i32(QFLEX_EXEC_IN));
-    if(qflex_is_profile_enabled()) {
+   if(qflex_is_profile_enabled()) {
         qflex_profile_disas_a64_insn(pc, flags, insn);
     }
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
