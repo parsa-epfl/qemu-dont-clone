@@ -441,6 +441,38 @@ void qmp_quantum_pause(Error **errp)
 #endif
 }
 
+#ifdef CONFIG_EXTSNAP
+void qmp_savevm_ext(const char *snap_name, Error **errp)
+{
+    int ret;
+    ret = save_vmstate_ext(cur_mon, snap_name);
+    if (ret != 0) {
+      error_setg(errp, "savevm-ext failed");
+    }
+}
+#else
+void qmp_savevm_ext(const char *snap_name, Error **errp)
+{
+    error_setg(errp, "External snapshot support disabled");
+}
+#endif
+
+#ifdef CONFIG_EXTSNAP
+void qmp_loadvm_ext(const char *snap_name, Error **errp)
+{
+    int ret;
+    ret = incremental_load_vmstate_ext(snap_name, cur_mon);
+    if (ret != 0) {
+        error_setg(errp, "loadvm-ext failed");
+    }
+}
+#else
+void qmp_loadvm_ext(const char *snap_name, Error **errp)
+{
+    error_setg(errp, "External snapshot support disabled");
+}
+#endif
+
 #ifndef CONFIG_VNC
 /* If VNC support is enabled, the "true" query-vnc command is
    defined in the VNC subsystem */

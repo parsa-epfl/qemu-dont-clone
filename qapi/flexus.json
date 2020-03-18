@@ -340,9 +340,20 @@
 ##
 { 'command': 'flexus-printMMU','data': {'cpu': 'str'} }
 
+##
+# @savevm-ext:
+#
+# Saves an external snapshot.
+#
+# Since: 2.10 PARSA
+##
+{ 'command': 'savevm-ext','data': {'name': 'str'} }
 
-
-
-
-
-
+##
+# @loadvm-ext:
+#
+# loads an external snapshot.
+#
+# Since: 2.10 PARSA
+##
+{ 'command': 'loadvm-ext','data': {'name': 'str'} }
