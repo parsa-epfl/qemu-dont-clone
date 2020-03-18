@@ -44,33 +44,47 @@
 # This function is called on in ERROR state
 usage() {
     echo -e "\nUsage: $0 "
-    echo -e "use -gdb to run the exact same command with debugging."
-    echo -e "use -valgrind to run the exact same command with memcheck enabled."
-    echo -e "use -ldow to run the exact same command, overwriting LD_LIBRARY_PATH for debugging purposes."
-    echo -e "use -mult (--multiple) option to set up multiple instances (default: single instance)"
-    echo -e "use -lo=snapshot, where snapshot is name of snapshot (default: boot)"
-    echo -e "To use with Flexus trace add the -tr option"
-    echo -e "To use with Flexus timing add the -timing option"
-    echo -e "To run with icount in the guest, add the --enable_icount option"
-    echo -e "To use single instance without user network use --no_net option"
-    echo -e "To specify the user port for single-instance, use --unet-port"
-    echo -e "To run multiple instances without NS3 use --no_ns3 opton"
-    echo -e "To kill the qemu instances after the automated run add the --kill option"
-    echo -e "You can use the -sf option to manually set the SIMULATE_TIME for Flexus (default $SIMULATE_TIME)"
-    echo -e "Use the -uf option to specify the user file. e.g. -uf=user1.cfg to use user1.cfg (default: user.cfg)"
-    echo -e "To name your log directory use the -exp=\"name\" or --experiment=\"name\". (default name: run)"
-    echo -e "Use the -ow option to overwrite in an existing log directory"
-    echo -e "Use the -sn option to take a snapshot with specified name"
-    echo -e "Use the -set_quantum option to set a limit for the number of instructions executed per turn by each cpu."
-    echo -e "Use the -pflash option to tell the script to add two pflash devices to the command line. Assumes they are defined in the user config file as PF0 and PF1."
-    echo -e "Use the -rmc=\"NODE_ID\" option to tell the script to add an RMC component with node number <NODE_ID>"
-    echo -e "Use the -kern option to use an extracted kernel and initrd image, which must be defined in the user.cfg file"
-    echo -e "Use --extra=\"<>\" to add arguments to QEMU invocation"
-    echo -e "Use -dbg=\"LVL\" to set the flexus debug level"
-    echo -e "Use the -h option for help"
+    echo -e "use -install to compile and install all dependencies to run the version of QEMU packed with QFlex."
+    echo -e "use -emulation to build QEMU with the flags and options enabled for emulation mode only"
+    echo -e "use -trace to build QEMU with the flags and options enabled for trace simulation only"
+    echo -e "use -timing to build QEMU with the flags and options enabled for timing simulation"
 }
 
-# Parse the dynamic options
+# Getting the Absolute Path to the script
+CURDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Determine which version of Linux is being run
+get_linux_version() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$NAME
+        VER=$VERSION_ID
+    elif type lsb_release >/dev/null 2>&1; then
+        # linuxbase.org
+        OS=$(lsb_release -si)
+        VER=$(lsb_release -sr)
+    elif [ -f /etc/lsb-release ]; then
+        # For some versions of Debian/Ubuntu without lsb_release command
+        . /etc/lsb-release
+        OS=$DISTRIB_ID
+        VER=$DISTRIB_RELEASE
+    else 
+        # Fallback to " Linux <> "
+        OS=$(uname -s)
+        VER=$(uname -r)
+    fi
+}
+
+# Get linux version
+get_linux_version
+if [ "$OS" == "Ubuntu" ]; then
+    ubuntu=true
+elif [ "$OS" == "CentOS Linux" ]; then
+    centos=true
+fi
+
+
+#Parse the dynamic options
 for i in "$@"
 do
     case $i in
@@ -106,58 +120,61 @@ done
 set -x
 set -e
 
-# Check for test
-export IS_EXTSNAP=`grep enable-extsnap configure`
-export IS_QUANTUM=`grep enable-quantum configure`
-export IS_PTH=`grep enable-pth configure`
-
-if [[ "$IS_EXTSNAP" == "" ]] && [[ "$TEST_EXTSNAP" == "yes" ]]; then
-    exit 0
-fi
-
-if [[ "$IS_QUANTUM" == "" ]] && [[ "$TEST_QUANTUM" == "yes" ]]; then
-    exit 0
-fi
-
-if [[ "$IS_PTH" == "" ]] && [[ "$TEST_PTH" == "yes" ]]; then
-    exit 0
-fi
-
-## 
+## Installation of dependencies
 if [ "${INSTALL_DEPS}" = "TRUE" ]; then
-    sudo apt-get update -qq
-    sudo apt-get install -y build-essential checkinstall wget python-dev \
-        software-properties-common pkg-config zip zlib1g-dev unzip curl
-    # Install dependencies
-    sudo apt-get update
-    sudo apt-get install -y build-essential checkinstall git-core libbz2-dev libtool expect bridge-utils uml-utilities
-    sudo apt-get --no-install-recommends -y build-dep qemu
-    # Install a compatible version of GCC
-    sudo apt-get install python-software-properties
-    sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-    sudo apt-get update
-    sudo apt-get -y install gcc-${GCC_VERSION}
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 20
-    # Install pth
-    wget ftp://ftp.gnu.org/gnu/pth/pth-2.0.7.tar.gz
-    tar -xvf pth-2.0.7.tar.gz
-    cd pth-2.0.7
-    sed -i 's#$(LOBJS): Makefile#$(LOBJS): pth_p.h Makefile#' Makefile.in
-    sudo ./configure --with-pic --prefix=/usr --mandir=/usr/share/man
-    sudo make
-    sudo make test
-    sudo make install
-    cd ..
-    git submodule update --init dtc
+    if [ "$ubuntu" ]; then
+        # Install dependencies
+        sudo apt-get update -qq
+        sudo apt-get install -y build-essential python-dev software-properties-common pkg-config \
+            zip zlib1g-dev unzip libbz2-dev \
+            expect bridge-utils uml-utilities
+        # Install known-good version of gcc-8
+        GCC_VERSION="8"
+        sudo apt-get install -y gcc-${GCC_VERSION} g++-${GCC_VERSION}
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
+        # For ubuntu - edit sources.list to allow use of build-dep for qemu
+        sudo cp /etc/apt/sources.list /etc/apt/sources.list_$(date +"%T")
+        sudo sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list
+        sudo apt-get update -qq
+        sudo apt-get --no-install-recommends -y build-dep qemu
+    elif [ "$centos" ]; then
+        sudo yum update -q
+        sudo yum install -y centos-release-scl
+        # Install known-good version of gcc-8
+        GCC_VERSION="8"
+        sudo yum install -y devtoolset-${GCC_VERSION}-gcc devtoolset-${GCC_VERSION}-gcc-c++ scl-utils
+
+        # Add devtoolset-8 to the current ~/.bashrc
+        echo "source scl_source enable devtoolset-8" >> $HOME/.bashrc
+        unset -xe
+        source $HOME/.bashrc
+        set -xe
+
+        # Install dependencies
+        sudo yum install -y make cmake python-devel autoconf binutils bison flex \
+            libtool pkgconfig bzip2-devel zlib-devel
+    fi
+    # Install the version of pth previously cloned from qflex, if not there already
+    if [ ! -f $HOME/lib/libpth.so ]; then
+        PTH_PATH=${CURDIR}/../3rdparty/pth
+        pushd $PTH_PATH > /dev/null
+        ./build_pth.sh
+        popd > /dev/null
+        git submodule update --init dtc
+    fi
 fi
 
 # Build Qemu for emulation, or timing
 if [ "${BUILD_EMULATION}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.emulation
-    make clean && make -j8
+    make clean && make -j
+elif [ "${BUILD_TRACE}" = "TRUE" ]; then
+    export CFLAGS="-fPIC"
+    ./config.trace
+    make clean && make -j
 elif [ "${BUILD_TIMING}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.timing
-    make clean && make -j8
+    make clean && make -j
 fi
