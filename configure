@@ -802,7 +802,7 @@ fi
 
 : ${make=${MAKE-make}}
 : ${install=${INSTALL-install}}
-: ${python=${PYTHON-python}}
+: ${python=${PYTHON}}
 : ${smbd=${SMBD-/usr/sbin/smbd}}
 
 # Default objcc to clang if available, otherwise use CC
@@ -1580,7 +1580,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   #**************************
   extsnap         support for external snapshots
   flexus          support for the Flexus simulator
-  quantum	        support for quantum value - no MTTCG at the moment
+  quantum         support for quantum value - no MTTCG at the moment
   pth             support for GNU Pth - The GNU Portable Threads
   #**************************
   # QFLEX END
@@ -1591,15 +1591,29 @@ EOF
 exit 0
 fi
 
-if ! has $python; then
+# Python explicitly specified, go with that
+if [ -n "$python" ] && ! has "$python"; then
+  error_exit "Python $python not found."
+# No python explicitly specified. Guess the right executable
+elif [ -z "$python" ]; then
+    # Prefer python3, python may be either 2 or 3 fallback to python2.
+    for p in ${python:-python3} python python2; do
+        if has "$p" ; then
+            python=$p
+            break
+        fi
+    done
+fi
+
+if ! has "$python"; then
   error_exit "Python not found. Use --python=/path/to/python"
 fi
 
 # Note that if the Python conditional here evaluates True we will exit
 # with status 1 which is a shell 'false' value.
-if ! $python -c 'import sys; sys.exit(sys.version_info < (2,6) or sys.version_info >= (3,))'; then
-  error_exit "Cannot use '$python', Python 2.6 or later is required." \
-      "Note that Python 3 or later is not yet supported." \
+if $python -c 'import sys; sys.exit((sys.version_info[0],
+               sys.version_info[1]) == (2,7) or sys.version_info >= (3,2))'; then
+  error_exit "Cannot use '$python', Python 2.7 or Python 3.2 or later is required." \
       "Use --python=/path/to/python to specify a supported Python."
 fi
 

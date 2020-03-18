@@ -4,6 +4,8 @@
 # and then:
 # gdb ${KERNEL}.vmlinux -x ${QEMU_SRC}/tests/guest-debug/test-gdbstub.py
 
+from __future__ import print_function
+
 import gdb
 
 failcount = 0
@@ -12,9 +14,9 @@ failcount = 0
 def report(cond, msg):
     "Report success/fail of test"
     if cond:
-        print ("PASS: %s" % (msg))
+        print("PASS: %s" % (msg))
     else:
-        print ("FAIL: %s" % (msg))
+        print("FAIL: %s" % (msg))
         failcount += 1
 
 
@@ -36,7 +38,7 @@ def check_break(sym_name):
 
     # hopefully we came back
     end_pc = gdb.parse_and_eval('$pc')
-    print ("%s == %s %d" % (end_pc, sym.value(), bp.hit_count))
+    print("%s == %s %d" % (end_pc, sym.value(), bp.hit_count))
     bp.delete()
 
     # can we test we hit bp?
@@ -52,7 +54,7 @@ def check_hbreak(sym_name):
 
     # hopefully we came back
     end_pc = gdb.parse_and_eval('$pc')
-    print ("%s == %s" % (end_pc, sym.value()))
+    print("%s == %s" % (end_pc, sym.value()))
 
     if end_pc == sym.value():
         gdb.execute("d 1")
@@ -78,7 +80,7 @@ class WatchPoint(gdb.Breakpoint):
 
     def stop(self):
         end_pc = gdb.parse_and_eval('$pc')
-        print ("HIT WP @ %s" % (end_pc))
+        print("HIT WP @ %s" % (end_pc))
         return True
 
 
@@ -115,7 +117,7 @@ class CatchBreakpoint(gdb.Breakpoint):
 
     def stop(self):
         end_pc = gdb.parse_and_eval('$pc')
-        print ("CB: %s == %s" % (end_pc, self.sym.value()))
+        print("CB: %s == %s" % (end_pc, self.sym.value()))
         if end_pc == self.sym.value():
             report(False, "Hit final catchpoint")
 
@@ -165,7 +167,7 @@ try:
     run_test()
 
 except:
-    print ("GDB Exception: %s" % (sys.exc_info()[0]))
+    print("GDB Exception: %s" % (sys.exc_info()[0]))
     failcount += 1
     import code
     code.InteractiveConsole(locals=globals()).interact()

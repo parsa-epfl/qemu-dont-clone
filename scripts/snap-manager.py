@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 """
 Copyright (C) 2017, PARSA EPFL
@@ -11,6 +11,8 @@ the COPYING file in the top-level directory.
 """
 
 #TODO: To limit default tree depth
+
+from __future__ import print_function
 
 import os
 import argparse
@@ -78,7 +80,7 @@ class Snapshot(object):
             return
         filename = os.path.join(base_dir, self.name);
         rm_cmd = " ".join(['rm -rf', filename])
-        print rm_cmd # Its untested properly, if you want delete just copy and execute it
+        print(rm_cmd) # Its untested properly, if you want delete just copy and execute it
 
     def compress(self, out):
         if self.name == '':
@@ -89,11 +91,11 @@ class Snapshot(object):
     def info(self):
         stmem = os.stat(os.path.join(base_dir, self.name + '/mem'))
         stdisk = os.stat(self.image)
-        print
-        print 'Snapshot ' + self.name
-        print 'Disk size: %d' % stdisk.st_size
-        print 'Memory size: %d' % stmem.st_size
-        print 'Date: ', datetime.datetime.fromtimestamp(stmem.st_mtime)
+        print()
+        print('Snapshot ' + self.name)
+        print('Disk size: %d' % stdisk.st_size)
+        print('Memory size: %d' % stmem.st_size)
+        print('Date: ', datetime.datetime.fromtimestamp(stmem.st_mtime))
 
 
 class SnapTree(object):
@@ -136,21 +138,21 @@ class SnapTree(object):
 
         def dump(self, indent):
             if indent > 0:
-                print ' ' * 8 * (indent - 1) + '^-------' + str(self)
+                print(' ' * 8 * (indent - 1) + '^-------' + str(self))
             for i in self.children:
                 i.dump(indent + 1)
 
         def delete(self):
-            map((lambda x: x.delete()), self.children)
+            list(map((lambda x: x.delete()), self.children))
             self.snap.delete()
 
         def rec_update(self):
             self.snap.update()
-            map((lambda x: x.rec_update()), self.children)
+            list(map((lambda x: x.rec_update()), self.children))
 
         def rec_compress(self, out):
             self.snap.compress(out)
-            map((lambda x: x.rec_compress(out)), self.children)
+            list(map((lambda x: x.rec_compress(out)), self.children))
 
     def __init__(self, snap_list):
         self.root = self.SnapNode(Snapshot(root_image))
@@ -158,7 +160,7 @@ class SnapTree(object):
 
     def dump(self, name=None):
         if name == None:
-            print 'root'
+            print('root')
             self.root.dump(0)
             return
         snap = self.root.find(name)
@@ -178,7 +180,7 @@ class SnapTree(object):
         if end == None:
             return
         chain = end.get_chain()
-        map((lambda x: x.update()), chain)
+        list(map((lambda x: x.update()), chain))
 
     def compress(self, out, name=None):
         if name == None:
@@ -188,7 +190,7 @@ class SnapTree(object):
         if end == None:
             return
         chain = end.get_chain()
-        map((lambda x: x.compress(out)), chain)
+        list(map((lambda x: x.compress(out)), chain))
 
     def delete(self, name=None):
         if name == None:
@@ -201,7 +203,7 @@ def action_update(args):
 
     if args.snapshots == []:
         snap_tree.update()
-    map((lambda x: snap_tree.update(x)), args.snapshots)
+    list(map((lambda x: snap_tree.update(x)), args.snapshots))
 
     return
 
@@ -209,7 +211,7 @@ def action_delete(args):
 
     if args.snapshots == []:
         snap_tree.delete()
-    map((lambda x: snap_tree.delete(x)), args.snapshots)
+    list(map((lambda x: snap_tree.delete(x)), args.snapshots))
 
     return
 
@@ -217,7 +219,7 @@ def action_info(args):
 
     if args.snapshots == []:
         snap_tree.dump()
-    map((lambda x: snap_tree.dump(x)), args.snapshots)
+    list(map((lambda x: snap_tree.dump(x)), args.snapshots))
     return
 
 def action_compress(args):
@@ -228,7 +230,7 @@ def action_compress(args):
 
     if args.snapshots == []:
         snap_tree.compress(out)
-    map((lambda x: snap_tree.compress(out, x)), args.snapshots)
+    list(map((lambda x: snap_tree.compress(out, x)), args.snapshots))
 
     os.system("gzip " + out)
     return
