@@ -166,6 +166,7 @@ void fa_qflex_run_sim(CPUState *cpu) {
             qflex_log_mask_enable(QFLEX_LOG_TB_EXEC);
             qflex_log_mask_enable(QFLEX_LOG_LDST);
             qflex_log_mask(QFLEX_LOG_GENERAL, "EXCP: OUT\n");
+            qflex_singlestep(cpu);
         }
     }
     qflex_log_mask_disable(QFLEX_LOG_TB_EXEC);
