@@ -819,7 +819,7 @@ int qflex_cpu_exec(CPUState *cpu)
     PTH_UPDATE_CONTEXT;
 
     CPUClass *cc = CPU_GET_CLASS(cpu);
-    int ret;
+    int ret=0;
     SyncClocks sc = { 0 };
 
     PTH(current_cpu) = cpu;
