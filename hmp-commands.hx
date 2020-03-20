@@ -1928,6 +1928,497 @@ Set the whole virtual machine to the external snapshot identified by the tag
 ETEXI
 #endif //CONFIG_EXTSNAP
 
+#ifdef CONFIG_FLEXUS
+
+{
+    .name       = "flexus_printCycleCount",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_printCycleCount,
+},
+
+STEXI
+@item flexus_printCycleCount
+@findex flexus_printCycleCount
+ETEXI
+
+
+{
+    .name       = "flexus_setStopCycle",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setStopCycle,
+},
+
+STEXI
+@item flexus_setStopCycle
+@findex flexus_setStopCycle
+ETEXI
+
+
+{
+    .name       = "flexus_setBreakCPU",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setBreakCPU,
+},
+
+STEXI
+@item flexus_setBreakCPU
+@findex flexus_setBreakCPU
+ETEXI
+
+
+{
+    .name       = "flexus_setBreakInsn",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setBreakInsn,
+},
+
+STEXI
+@item flexus_setBreakInsn
+@findex flexus_setBreakInsn
+ETEXI
+
+
+{
+    .name       = "flexus_printProfile",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_printProfile,
+},
+
+STEXI
+@item flexus_printProfile
+@findex flexus_printProfile
+ETEXI
+
+
+{
+    .name       = "flexus_resetProfile",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_resetProfile,
+},
+
+STEXI
+@item flexus_resetProfile
+@findex flexus_resetProfile
+ETEXI
+
+
+{
+    .name       = "flexus_writeProfile",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_writeProfile,
+},
+
+STEXI
+@item flexus_writeProfile
+@findex flexus_writeProfile
+ETEXI
+
+
+{
+    .name       = "flexus_printConfiguration",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_printConfiguration,
+},
+
+STEXI
+@item flexus_printConfiguration
+@findex flexus_printConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_writeConfiguration",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_writeConfiguration,
+},
+
+STEXI
+@item flexus_writeConfiguration
+@findex flexus_writeConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_parseConfiguration",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_parseConfiguration,
+},
+
+STEXI
+@item flexus_parseConfiguration
+@findex flexus_parseConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_setConfiguration",
+    .args_type  = "name:s,value:s",
+    .params     = "name value",
+    .help       = "",
+    .cmd = hmp_flexus_setConfiguration,
+},
+
+STEXI
+@item flexus_setConfiguration
+@findex flexus_setConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_printMeasurement",
+    .args_type  = "measurement:s",
+    .params     = "measurement",
+    .help       = "",
+    .cmd = hmp_flexus_printMeasurement,
+},
+
+STEXI
+@item flexus_printMeasurement
+@findex flexus_printMeasurement
+ETEXI
+
+
+{
+    .name       = "flexus_listMeasurements",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_listMeasurements,
+},
+
+STEXI
+@item flexus_listMeasurements
+@findex flexus_listMeasurements
+ETEXI
+
+
+{
+    .name       = "flexus_writeMeasurement",
+    .args_type  = "measurement:s, filename:s",
+    .params     = "measurement filename",
+    .help       = "",
+    .cmd = hmp_flexus_writeMeasurement,
+},
+
+STEXI
+@item flexus_writeMeasurement
+@findex flexus_writeMeasurement
+ETEXI
+
+
+{
+    .name       = "flexus_enterFastMode",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_enterFastMode,
+},
+
+STEXI
+@item flexus_enterFastMode
+@findex flexus_enterFastMode
+ETEXI
+
+
+{
+    .name       = "flexus_leaveFastMode",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_leaveFastMode,
+},
+
+STEXI
+@item flexus_leaveFastMode
+@findex flexus_leaveFastMode
+ETEXI
+
+{
+    .name       = "flexus_backupStats",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_backupStats,
+},
+
+STEXI
+@item flexus_backupStats
+@findex flexus_backupStats
+ETEXI
+
+
+{
+    .name       = "flexus_saveStats",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_saveStats,
+},
+
+STEXI
+@item flexus_saveStats
+@findex flexus_saveStats
+ETEXI
+
+
+{
+    .name       = "flexus_reloadDebugCfg",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_reloadDebugCfg,
+},
+
+STEXI
+@item flexus_reloadDebugCfg
+@findex flexus_reloadDebugCfg
+ETEXI
+
+
+{
+    .name       = "flexus_addDebugCfg",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_addDebugCfg,
+},
+
+STEXI
+@item flexus_addDebugCfg
+@findex flexus_addDebugCfg
+ETEXI
+
+
+{
+    .name       = "flexus_enableCategory",
+    .args_type  = "component:s",
+    .params     = "component",
+    .help       = "",
+    .cmd = hmp_flexus_enableCategory,
+},
+
+STEXI
+@item flexus_enableCategory
+@findex flexus_enableCategory
+ETEXI
+
+
+{
+    .name       = "flexus_disableCategory",
+    .args_type  = "component:s",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_disableCategory,
+},
+
+STEXI
+@item flexus_disableCategory
+@findex flexus_disableCategory
+ETEXI
+
+
+{
+    .name       = "flexus_listCategories",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_listCategories,
+},
+
+STEXI
+@item flexus_listCategories
+@findex flexus_listCategories
+ETEXI
+
+
+{
+    .name       = "flexus_enableComponent",
+    .args_type  = "component:s, index:s",
+    .params     = "component index",
+    .help       = "",
+    .cmd = hmp_flexus_enableComponent,
+},
+
+STEXI
+@item flexus_enableComponent
+@findex flexus_enableComponent
+ETEXI
+
+
+{
+    .name       = "flexus_disableComponent",
+    .args_type  = "component:s, index:s",
+    .params     = "component index",
+    .help       = "",
+    .cmd = hmp_flexus_disableComponent,
+},
+
+STEXI
+@item flexus_disableComponent
+@findex flexus_disableComponent
+ETEXI
+
+
+{
+    .name       = "flexus_listComponents",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_listComponents,
+},
+
+STEXI
+@item flexus_listComponents
+@findex flexus_listComponents
+ETEXI
+
+
+{
+    .name       = "flexus_printDebugConfiguration",
+    .args_type  = "",
+    .params     = "",
+    .help       = "",
+    .cmd = hmp_flexus_printDebugConfiguration,
+},
+
+STEXI
+@item flexus_printDebugConfiguration
+@findex flexus_printDebugConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_writeDebugConfiguration",
+    .args_type  = "filename:s",
+    .params     = "filename",
+    .help       = "",
+    .cmd = hmp_flexus_writeDebugConfiguration,
+},
+
+STEXI
+@item flexus_writeDebugConfiguration
+@findex flexus_writeDebugConfiguration
+ETEXI
+
+
+{
+    .name       = "flexus_log",
+    .args_type  = "name:s,interval:s,regex:s",
+    .params     = "name interval regex",
+    .help       = "",
+    .cmd = hmp_flexus_log,
+},
+
+STEXI
+@item flexus_log
+@findex flexus_log
+ETEXI
+
+
+{
+    .name       = "flexus_printMMU",
+    .args_type  = "cpu:s",
+    .params     = "cpu",
+    .help       = "",
+    .cmd = hmp_flexus_printMMU,
+},
+
+STEXI
+@item flexus_printMMU
+@findex flexus_printMMU
+ETEXI
+
+
+
+{
+    .name       = "flexus_setDebug",
+    .args_type  = "severity:s",
+    .params     = "severity",
+    .help       = "",
+    .cmd = hmp_flexus_setDebug,
+},
+
+STEXI
+@item flexus_setDebug
+@findex flexus_setDebug
+ETEXI
+
+
+{
+    .name       = "flexus_setStatInterval",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setStatInterval,
+},
+
+STEXI
+@item flexus_setStatInterval
+@findex flexus_setStatInterval
+ETEXI
+
+{
+    .name       = "flexus_setProfileInterval",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setProfileInterval,
+},
+
+STEXI
+@item flexus_setProfileInterval
+@findex flexus_setProfileInterval
+ETEXI
+
+
+{
+    .name       = "flexus_setRegionInterval",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setRegionInterval,
+},
+
+STEXI
+@item flexus_setRegionInterval
+@findex flexus_setRegionInterval
+ETEXI
+
+{
+    .name       = "flexus_setTimestampInterval",
+    .args_type  = "value:s",
+    .params     = "value",
+    .help       = "",
+    .cmd = hmp_flexus_setTimestampInterval,
+},
+
+STEXI
+@item flexus_setTimestampInterval
+@findex flexus_setTimestampInterval
+ETEXI
+
+#endif
+
     {
         .name       = "qom-list",
         .args_type  = "path:s?",

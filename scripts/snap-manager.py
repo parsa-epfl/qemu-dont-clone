@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 """
 Copyright (C) 2017, PARSA EPFL
@@ -12,6 +12,8 @@ the COPYING file in the top-level directory.
 
 #TODO: To limit default tree depth
 
+from __future__ import print_function
+
 import os
 import argparse
 import datetime
@@ -20,7 +22,9 @@ import resource, sys
 resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 sys.setrecursionlimit(10**6) # because default limit is too low and we need to increase it
 
-scan_cmd = "find */*-sn -type f -print | xargs -L 1 qemu-img info | grep -a -e 'image:' -e 'backing file:' | sed -e 's@image:\ @@g' -e  's@backing file:\ @@g'"
+scan_cmd_prologue = "find */*-sn -type f -print | xargs -L 1 "
+scan_cmd_epilogue = " info | grep -a -e 'image:' -e 'backing file:' | sed -e 's@image:\ @@g' -e  's@backing file:\ @@g'"
+#scan_cmd = "find */*-sn -type f -print | xargs -L 1 qemu-img info | grep -a -e 'image:' -e 'backing file:' | sed -e 's@image:\ @@g' -e  's@backing file:\ @@g'"
 memory = 'mem'
 
 class Snapshot(object):
@@ -41,7 +45,7 @@ class Snapshot(object):
 
         self.backing = os.path.normpath(backing)
         self.name = os.path.split(os.path.split(self.image)[0])[1]
-        
+
         if os.path.split(self.backing)[1] == os.path.split(root_image)[1]:
             self.back_name = ''
             self.back_base = os.path.split(self.backing)[0] # if back image is root image
@@ -66,7 +70,9 @@ class Snapshot(object):
             newback = os.path.join(base_dir, os.path.split(root_image)[1])
         else:
             newback = os.path.join(os.path.join(base_dir, self.back_name), self.disk)
-        rebase_cmd = " ".join(['qemu-img rebase -u -b', newback, self.image])
+
+        qemu_base_cmd = qcmd + ' rebase -u -b'
+        rebase_cmd = " ".join([qemu_base_cmd, newback, self.image])
         os.system(rebase_cmd)
 
     def delete(self):
@@ -74,7 +80,7 @@ class Snapshot(object):
             return
         filename = os.path.join(base_dir, self.name);
         rm_cmd = " ".join(['rm -rf', filename])
-        print rm_cmd # Its untested properly, if you want delete just copy and execute it
+        print(rm_cmd) # Its untested properly, if you want delete just copy and execute it
 
     def compress(self, out):
         if self.name == '':
@@ -85,12 +91,12 @@ class Snapshot(object):
     def info(self):
         stmem = os.stat(os.path.join(base_dir, self.name + '/mem'))
         stdisk = os.stat(self.image)
-        print
-        print 'Snapshot ' + self.name
-        print 'Disk size: %d' % stdisk.st_size
-        print 'Memory size: %d' % stmem.st_size
-        print 'Date: ', datetime.datetime.fromtimestamp(stmem.st_mtime)
-        
+        print()
+        print('Snapshot ' + self.name)
+        print('Disk size: %d' % stdisk.st_size)
+        print('Memory size: %d' % stmem.st_size)
+        print('Date: ', datetime.datetime.fromtimestamp(stmem.st_mtime))
+
 
 class SnapTree(object):
 
@@ -123,30 +129,30 @@ class SnapTree(object):
                     if res != None:
                         return res
             return None
-        
+
         def get_chain(self):
             chain = [self.snap]
             if self.parent == None:
                 return chain
             return chain + self.parent.get_chain()
-        
+
         def dump(self, indent):
             if indent > 0:
-                print ' ' * 8 * (indent - 1) + '^-------' + str(self)
+                print(' ' * 8 * (indent - 1) + '^-------' + str(self))
             for i in self.children:
                 i.dump(indent + 1)
-                
+
         def delete(self):
-            map((lambda x: x.delete()), self.children)
+            list(map((lambda x: x.delete()), self.children))
             self.snap.delete()
 
         def rec_update(self):
             self.snap.update()
-            map((lambda x: x.rec_update()), self.children)
+            list(map((lambda x: x.rec_update()), self.children))
 
         def rec_compress(self, out):
             self.snap.compress(out)
-            map((lambda x: x.rec_compress(out)), self.children)
+            list(map((lambda x: x.rec_compress(out)), self.children))
 
     def __init__(self, snap_list):
         self.root = self.SnapNode(Snapshot(root_image))
@@ -154,7 +160,7 @@ class SnapTree(object):
 
     def dump(self, name=None):
         if name == None:
-            print 'root'
+            print('root')
             self.root.dump(0)
             return
         snap = self.root.find(name)
@@ -174,8 +180,8 @@ class SnapTree(object):
         if end == None:
             return
         chain = end.get_chain()
-        map((lambda x: x.update()), chain)
-    
+        list(map((lambda x: x.update()), chain))
+
     def compress(self, out, name=None):
         if name == None:
             self.root.rec_compress(out)
@@ -184,8 +190,8 @@ class SnapTree(object):
         if end == None:
             return
         chain = end.get_chain()
-        map((lambda x: x.compress(out)), chain)
-    
+        list(map((lambda x: x.compress(out)), chain))
+
     def delete(self, name=None):
         if name == None:
             self.root.delete()
@@ -197,7 +203,7 @@ def action_update(args):
 
     if args.snapshots == []:
         snap_tree.update()
-    map((lambda x: snap_tree.update(x)), args.snapshots)
+    list(map((lambda x: snap_tree.update(x)), args.snapshots))
 
     return
 
@@ -205,7 +211,7 @@ def action_delete(args):
 
     if args.snapshots == []:
         snap_tree.delete()
-    map((lambda x: snap_tree.delete(x)), args.snapshots)
+    list(map((lambda x: snap_tree.delete(x)), args.snapshots))
 
     return
 
@@ -213,18 +219,18 @@ def action_info(args):
 
     if args.snapshots == []:
         snap_tree.dump()
-    map((lambda x: snap_tree.dump(x)), args.snapshots)
-    return 
+    list(map((lambda x: snap_tree.dump(x)), args.snapshots))
+    return
 
 def action_compress(args):
 
     out = args.output
     if args.output == None:
         out = 'snapshots.tar'
-    
+
     if args.snapshots == []:
         snap_tree.compress(out)
-    map((lambda x: snap_tree.compress(out, x)), args.snapshots)
+    list(map((lambda x: snap_tree.compress(out, x)), args.snapshots))
 
     os.system("gzip " + out)
     return
@@ -236,8 +242,9 @@ def main():
                         action="store_true")
     parser.add_argument("--dry-run", help="Do nothing just print commands",
                         action="store_true")
+    parser.add_argument("--qemu-img-cmd-path", help="Specify the path to qemu-img command (if not installed in the root directory)")
     subparsers = parser.add_subparsers(help="sub-command help")
-    
+
     parser_update = subparsers.add_parser('update', help="Change absolute path in all snapshots in chain")
     parser_update.add_argument("root_image", help="The root image of snapshot tree.")
     parser_update.add_argument("snapshots", nargs='*', help="The name of the required snapshots. By default, update whole tree")
@@ -253,13 +260,21 @@ def main():
     parser_info.add_argument("snapshots", nargs='*', help="The name of the required snapshots. By default, print whole tree")
     parser_info.set_defaults(func=action_info)
 
-    parser_info = subparsers.add_parser('compress', help="Compress snapshots to single file")
-    parser_info.add_argument("root_image", help="The root image of snapshot tree.")
-    parser_info.add_argument("snapshots", nargs='*', help="The name of the required snapshots. By default, compress whole tree")
-    parser_info.add_argument('-o', '--output', help="Output file. By default, snapshots.tar.gz")
-    parser_info.set_defaults(func=action_compress)
+    parser_compress = subparsers.add_parser('compress', help="Compress snapshots to single file")
+    parser_compress.add_argument("root_image", help="The root image of snapshot tree.")
+    parser_compress.add_argument("snapshots", nargs='*', help="The name of the required snapshots. By default, compress whole tree")
+    parser_compress.add_argument('-o', '--output', help="Output file. By default, snapshots.tar.gz")
+    parser_compress.set_defaults(func=action_compress)
 
     args = parser.parse_args()
+    global qcmd
+    if args.qemu_img_cmd_path is not None:
+        qcmd = args.qemu_img_cmd_path + "/qemu-img"
+        print("Using qemu-img from", qcmd)
+        scan_cmd = scan_cmd_prologue + qcmd + scan_cmd_epilogue
+    else:
+        qcmd = "qemu-img"
+        scan_cmd = scan_cmd_prologue + "qemu-img" + scan_cmd_epilogue
 
     global root_image
     root_image = os.path.abspath(args.root_image)
@@ -273,7 +288,7 @@ def main():
 
     global snap_tree
     snap_tree = SnapTree(snap_list)
-    
+
     args.func(args)
 
 if __name__ == "__main__":

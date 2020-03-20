@@ -43,11 +43,17 @@
 # This work is licensed under the terms of the GNU GPL, version 2 or later.
 # See the COPYING file in the top-level directory.
 
+from __future__ import print_function
+
 import sys
 import socket
 import struct
 import collections
-import ConfigParser
+try:
+    import configparser
+except ImportError:
+    # Python 2 fallback
+    import ConfigParser as configparser
 
 FAKE_DISK_SIZE = 8 * 1024 * 1024 * 1024 # 8 GB
 
@@ -110,7 +116,7 @@ class FaultInjectionSocket(object):
         for rule in self.rules:
             if rule.match(event, io):
                 if rule.when == 0 or bufsize is None:
-                    print 'Closing connection on rule match %s' % rule.name
+                    print('Closing connection on rule match %s' % rule.name)
                     sys.exit(0)
                 if rule.when != -1:
                     return rule.when
@@ -182,7 +188,7 @@ def handle_connection(conn, use_export):
         elif req.type == NBD_CMD_DISC:
             break
         else:
-            print 'unrecognized command type %#02x' % req.type
+            print('unrecognized command type %#02x' % req.type)
             break
     conn.close()
 
@@ -223,7 +229,7 @@ def parse_config(config):
     return rules
 
 def load_rules(filename):
-    config = ConfigParser.RawConfigParser()
+    config = configparser.RawConfigParser()
     with open(filename, 'rt') as f:
         config.readfp(f, filename)
     return parse_config(config)
@@ -242,7 +248,7 @@ def open_socket(path):
         sock = socket.socket(socket.AF_UNIX)
         sock.bind(path)
     sock.listen(0)
-    print 'Listening on %s' % path
+    print('Listening on %s' % path)
     sys.stdout.flush() # another process may be waiting, show message now
     return sock
 

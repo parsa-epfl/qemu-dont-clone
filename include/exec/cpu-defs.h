@@ -1,3 +1,47 @@
+//  DO-NOT-REMOVE begin-copyright-block
+// QFlex consists of several software components that are governed by various
+// licensing terms, in addition to software that was developed internally.
+// Anyone interested in using QFlex needs to fully understand and abide by the
+// licenses governing all the software components.
+// 
+// ### Software developed externally (not by the QFlex group)
+// 
+//     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+//     * [QEMU] (http://wiki.qemu.org/License)
+//     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+//     * [GNU PTH] (https://www.gnu.org/software/pth/)
+// 
+// ### Software developed internally (by the QFlex group)
+// **QFlex License**
+// 
+// QFlex
+// Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//     * Neither the name of the Parallel Systems Architecture Laboratory, EPFL,
+//       nor the names of its contributors may be used to endorse or promote
+//       products derived from this software without specific prior written
+//       permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE PARALLEL SYSTEMS ARCHITECTURE LABORATORY,
+// EPFL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  DO-NOT-REMOVE end-copyright-block
 /*
  * common defines for all CPUs
  *
@@ -60,18 +104,10 @@ typedef uint64_t target_ulong;
 /* use a fully associative victim tlb of 8 entries */
 #define CPU_VTLB_SIZE 8
 
-#ifdef CONFIG_FLEXUS
-	#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
-	#define CPU_TLB_ENTRY_BITS 5
-	#else
-	#define CPU_TLB_ENTRY_BITS 6
-	#endif
+#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
+#define CPU_TLB_ENTRY_BITS 4
 #else
-	#if HOST_LONG_BITS == 32 && TARGET_LONG_BITS == 32
-	#define CPU_TLB_ENTRY_BITS 4
-	#else
-	#define CPU_TLB_ENTRY_BITS 5
-	#endif
+#define CPU_TLB_ENTRY_BITS 5
 #endif
 
 /* TCG_TARGET_TLB_DISPLACEMENT_BITS is used in CPU_TLB_BITS to ensure that
@@ -123,21 +159,13 @@ typedef struct CPUTLBEntry {
             uintptr_t addend;
         };
         /* padding to get a power of two size */
-#ifndef CONFIG_FLEXUS
         uint8_t dummy[1 << CPU_TLB_ENTRY_BITS];
-#else
-    target_ulong paddr;
-    /* padding to get a power of two size */
-    uint8_t dummy[(1 << CPU_TLB_ENTRY_BITS) - (sizeof(target_ulong) * 4 +
-                                              ((-sizeof(target_ulong) * 4) & (sizeof(uintptr_t) - 1)) +
-                                              sizeof(uintptr_t))];
-#endif
+
     };
 } CPUTLBEntry;
 
-#ifndef CONFIG_FLEXUS// Don't know why it is not working
 QEMU_BUILD_BUG_ON(sizeof(CPUTLBEntry) != (1 << CPU_TLB_ENTRY_BITS));
-#endif
+
 
 /* The IOTLB is not accessed directly inline by generated TCG code,
  * so the CPUIOTLBEntry layout is not as critical as that of the

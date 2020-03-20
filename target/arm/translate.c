@@ -1,3 +1,47 @@
+//  DO-NOT-REMOVE begin-copyright-block
+// QFlex consists of several software components that are governed by various
+// licensing terms, in addition to software that was developed internally.
+// Anyone interested in using QFlex needs to fully understand and abide by the
+// licenses governing all the software components.
+// 
+// ### Software developed externally (not by the QFlex group)
+// 
+//     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+//     * [QEMU] (http://wiki.qemu.org/License)
+//     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+//     * [GNU PTH] (https://www.gnu.org/software/pth/)
+// 
+// ### Software developed internally (by the QFlex group)
+// **QFlex License**
+// 
+// QFlex
+// Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//     * Neither the name of the Parallel Systems Architecture Laboratory, EPFL,
+//       nor the names of its contributors may be used to endorse or promote
+//       products derived from this software without specific prior written
+//       permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE PARALLEL SYSTEMS ARCHITECTURE LABORATORY,
+// EPFL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  DO-NOT-REMOVE end-copyright-block
 /*
  *  ARM translation
  *
@@ -73,12 +117,14 @@ static TCGv_i64 cpu_F0d, cpu_F1d;
 #include "exec/gen-icount.h"
 
 #ifdef CONFIG_FLEXUS
+#include "include/sysemu/sysemu.h"
 #include "../libqflex/api.h"
+#include "qflex/qflex.h"
 static target_ulong flexus_ins_pc = -1;
 
 #define FLEXUS_IF_IN_SIMULATION( a ) do {	\
   printf(" Entering the flexus function \n") ;   \
-  if( QEMU_is_in_simulation() != 0 ) {		\
+  if( flexus_in_trace() ) {		\
     (a) ;					\
   }						\
   printf(" Exiting the flexus function \n") ;   \
@@ -8972,8 +9018,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
         case 0x0c:
 #ifdef CONFIG_FLEXUS
             if( rd == rn && rn == rm && rd < 15 && rd != 1 ) {
-                printf("Detected magic instruction (32bit): %d\n", rd);
-                gen_helper_flexus_magic_ins( tcg_const_i32(rd), 0, 0, 0);
+                qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Detected magic instruction (64bit): %d\n", rd);
+                gen_helper_flexus_magic_ins(NULL/*FIXME:cpu ptr*/, tcg_const_i32(rd), 0, 0, 0);
             }
 #endif
             tcg_gen_or_i32(tmp, tmp, tmp2);

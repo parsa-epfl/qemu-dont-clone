@@ -1,3 +1,47 @@
+//  DO-NOT-REMOVE begin-copyright-block
+// QFlex consists of several software components that are governed by various
+// licensing terms, in addition to software that was developed internally.
+// Anyone interested in using QFlex needs to fully understand and abide by the
+// licenses governing all the software components.
+// 
+// ### Software developed externally (not by the QFlex group)
+// 
+//     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+//     * [QEMU] (http://wiki.qemu.org/License)
+//     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+//     * [GNU PTH] (https://www.gnu.org/software/pth/)
+// 
+// ### Software developed internally (by the QFlex group)
+// **QFlex License**
+// 
+// QFlex
+// Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//     * Neither the name of the Parallel Systems Architecture Laboratory, EPFL,
+//       nor the names of its contributors may be used to endorse or promote
+//       products derived from this software without specific prior written
+//       permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE PARALLEL SYSTEMS ARCHITECTURE LABORATORY,
+// EPFL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  DO-NOT-REMOVE end-copyright-block
 /*
  *  Common CPU TLB handling
  *
@@ -599,15 +643,9 @@ static void tlb_add_large_page(CPUArchState *env, target_ulong vaddr,
  * Called from TCG-generated code, which is under an RCU read-side
  * critical section.
  */
-#if defined(CONFIG_FLEXUS) && defined(TARGET_SPARC64)
-void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
-                 hwaddr paddr, MemTxAttrs attrs, int prot,
-                  int mmu_idx, target_ulong size, uint8_t cbits)
-#else
 void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
                              hwaddr paddr, MemTxAttrs attrs, int prot,
                              int mmu_idx, target_ulong size)
-#endif
 {
     CPUArchState *env = cpu->env_ptr;
     MemoryRegionSection *section;
@@ -655,14 +693,6 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
 
     /* addr_write can race with tlb_reset_dirty_range */
     copy_tlb_helper(tv, te, true);
-
-#ifdef CONFIG_FLEXUS
-   /* Saving physical address along with the virtual address of a memory operation */
-    te->paddr = paddr;
-	    #ifdef TARGET_SPARC64
-		te->dummy[0] = cbits;
-	    #endif
-#endif
     env->iotlb_v[mmu_idx][vidx] = env->iotlb[mmu_idx][index];
 
     /* refill the tlb */
@@ -702,15 +732,7 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     copy_tlb_helper(te, &tn, true);
     /* atomic_mb_set(&te->addr_write, write_address); */
 }
-#if defined(CONFIG_FLEXUS) && defined(TARGET_SPARC64)
-void tlb_set_page(CPUState *cpu, target_ulong vaddr,
-          hwaddr paddr, int prot,
-                  int mmu_idx, target_ulong size, uint8_t cbits)
-{
-    tlb_set_page_with_attrs(cpu, vaddr, paddr, MEMTXATTRS_UNSPECIFIED,
-                            prot, mmu_idx, size, cbits);
-}
-#else
+
 /* Add a new TLB entry, but without specifying the memory
  * transaction attributes to be used.
  */
@@ -721,7 +743,6 @@ void tlb_set_page(CPUState *cpu, target_ulong vaddr,
     tlb_set_page_with_attrs(cpu, vaddr, paddr, MEMTXATTRS_UNSPECIFIED,
                             prot, mmu_idx, size);
 }
-#endif
 
 static void report_bad_exec(CPUState *cpu, target_ulong addr)
 {

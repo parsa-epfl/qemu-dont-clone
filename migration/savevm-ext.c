@@ -1,3 +1,47 @@
+//  DO-NOT-REMOVE begin-copyright-block
+// QFlex consists of several software components that are governed by various
+// licensing terms, in addition to software that was developed internally.
+// Anyone interested in using QFlex needs to fully understand and abide by the
+// licenses governing all the software components.
+// 
+// ### Software developed externally (not by the QFlex group)
+// 
+//     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+//     * [QEMU] (http://wiki.qemu.org/License)
+//     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+//     * [GNU PTH] (https://www.gnu.org/software/pth/)
+// 
+// ### Software developed internally (by the QFlex group)
+// **QFlex License**
+// 
+// QFlex
+// Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//     * Neither the name of the Parallel Systems Architecture Laboratory, EPFL,
+//       nor the names of its contributors may be used to endorse or promote
+//       products derived from this software without specific prior written
+//       permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE PARALLEL SYSTEMS ARCHITECTURE LABORATORY,
+// EPFL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  DO-NOT-REMOVE end-copyright-block
 /*
  * QEMU System Emulator
  *
@@ -65,8 +109,11 @@
 
 #include "benchmark.h"
 
-const char *input_command = "cat";
-const char *output_command = "cat";
+//const char *input_command = "cat";
+//const char *output_command = "cat";
+
+const char *input_command = "gunzip -c";
+const char *output_command = "gzip -c";
 
 FILE *savedump = NULL;
 FILE *loaddump = NULL;
@@ -189,10 +236,10 @@ static QString *get_snap_path (const char *path) {
     return qstring_from_substr(path, 0, size - 1);
 }
 
-static const char* get_snap_name (const char *path) {
-    char* end = strrchr(path, '/');
-    return end + 1;
-}
+//static const char* get_snap_name (const char *path) {
+//    char* end = strrchr(path, '/');
+//    return end + 1;
+//}
 
 static QList *get_snap_chain (BlockDriverState *bs) {
     QList* lst = qlist_new();
@@ -243,7 +290,7 @@ int delete_tmp_overlay(void) {
 
 int create_tmp_overlay(void) {
     BlockDriverState *bs = find_active();
-    char tmp_name[PATH_MAX];
+    char* tmp_name = g_malloc0(8192*sizeof(char));
     const char *dev_name = bdrv_get_device_name(bs);
     int i = 0;
 
@@ -262,7 +309,57 @@ int create_tmp_overlay(void) {
                                      true, 1, &local_err);
     if (local_err != NULL) {
         error_report_err(local_err);
+        g_free(tmp_name);
         return -EINVAL;
+    }
+    g_free(tmp_name);
+    return 0;
+}
+
+static int mkdir_p(const char *dir, const mode_t mode) {
+    char tmp[PATH_MAX];
+    char *p = NULL;
+    struct stat sb;
+    size_t len;
+
+    /* copy path */
+    strncpy(tmp, dir, sizeof(tmp));
+    len = strlen(dir);
+    if (len >= sizeof(tmp)) {
+        return -1;
+    }
+
+    /* remove trailing slash */
+    if(tmp[len - 1] == '/') {
+        tmp[len - 1] = 0;
+    }
+
+    /* recursive mkdir */
+    for(p = tmp + 1; *p; p++) {
+        if(*p == '/') {
+            *p = 0;
+            /* test path */
+            if (stat(tmp, &sb) != 0) {
+                /* path does not exist - create directory */
+                if (mkdir(tmp, mode) < 0) {
+                    return -1;
+                }
+            } else if (!S_ISDIR(sb.st_mode)) {
+                /* not a directory */
+                return -1;
+            }
+            *p = '/';
+        }
+    }
+    /* test path */
+    if (stat(tmp, &sb) != 0) {
+        /* path does not exist - create directory */
+        if (mkdir(tmp, mode) < 0) {
+            return -1;
+        }
+    } else if (!S_ISDIR(sb.st_mode)) {
+        /* not a directory */
+        return -1;
     }
     return 0;
 }
@@ -274,7 +371,7 @@ static int create_new_snap_dir(const char *name) {
 
     sprintf(snap_dir_path, "%s/%s", qstring_get_str(dir_path),
                                  name);
-    ret = mkdir(snap_dir_path, 0777);
+    ret = mkdir_p(snap_dir_path, 0777);
     QDECREF(dir_path);
     return ret;
 }
@@ -330,6 +427,10 @@ int save_vmstate_ext(Monitor *mon, const char *name)
         goto end;
     }
 
+    if( access( snapshot_file, F_OK ) != -1 ) {
+        monitor_printf(mon, "overwriting snapshot directory %s\n", name);
+        remove(snapshot_file);
+    }
     ret = link(bs->filename, snapshot_file);
     if (ret < 0) {
         monitor_printf(mon, "Cannot save snapshot %s\n", name);
@@ -369,6 +470,12 @@ int save_vmstate_ext(Monitor *mon, const char *name)
 
     sprintf(command, "%s > %s/mem", output_command, snap_dir->string);
     const char *argv[] = { "/bin/sh", "-c", command, NULL };
+
+#ifdef CONFIG_FLEXUS
+    flexus_doSave(snap_dir->string, &local_err);
+    if (local_err)
+        error_report_err(local_err);
+#endif
 
     QIOChannel *ioc;
     ioc = QIO_CHANNEL(qio_channel_command_new_spawn(argv,
@@ -452,32 +559,15 @@ end:
     return ret;
 }
 
-static int load_state_ext(const char *name)
+static int load_state_ext(QString *dir_path)
 {
     QEMUFile *f;
     int ret = -EINVAL;
     char command[NAME_MAX] = {};
-    QString *dir_path;
     Error *local_err = NULL;
     MigrationIncomingState *mis = migration_incoming_get_current();
 
-    time_in_channel = 0;
-
-    struct timespec begin;
-    struct timespec end;
-    double res;
-
-    clock_gettime(CLOCK_REALTIME, &begin);
-
-    BlockDriverState *base = find_active();
-    if (base == NULL) {
-        error_report("There is no base image");
-        return ret;
-    }
-
-    dir_path = get_dir_path();
-
-    sprintf(command, "%s %s/%s/mem", input_command, dir_path->string, name);
+    sprintf(command, "%s %s/mem", input_command, dir_path->string);
     const char *argv[] = { "/bin/sh", "-c", command, NULL };
 
     QIOChannel *ioc;
@@ -485,7 +575,6 @@ static int load_state_ext(const char *name)
                                                     O_RDONLY,
                                                     &local_err));
     qio_channel_set_name(ioc, "loadvm-exec-incoing");
-
     if (!ioc) {
         error_report("Could not open VM state file's channel\n");
         goto end;
@@ -505,102 +594,72 @@ static int load_state_ext(const char *name)
     migration_incoming_state_destroy();
     if (ret < 0) {
         error_report("Error %d while loading vm state", ret);
-        return ret;
+        goto end;
     }
 
-    clock_gettime(CLOCK_REALTIME, &end);
-    res = get_result(begin, end);
-    fprintf(loaddump, "%lg, %lg\n", res, time_in_channel);
-    fflush(loaddump);
     return 0;
 end:
-    QDECREF(dir_path);
     return ret;
 }
 
 int incremental_load_vmstate_ext (const char *name, Monitor *mon) {
     int saved_vm_running  = runstate_is_running();
     int ret = -EINVAL;
-    QList *snap_chain = NULL;
-    QString *cur = NULL;
-    const char *cur_name = NULL;
-
-    struct timespec begin;
-    struct timespec end;
-    double res;
-
-    loaddump = fopen("loaddump.txt", "w");
-
-
-    if (saved_vm_running) {
-        vm_stop(RUN_STATE_RESTORE_VM);
-    }
-    memory_global_dirty_log_start();
 
     QString *dir_path = get_dir_path();
     if (dir_path == NULL) {
         monitor_printf(mon, "There are not block devices on current VM\n");
         ret = -ENODEV;
-        goto end;
+        goto end_snap_uncreated;
     }
-
-    clock_gettime(CLOCK_REALTIME, &begin);
+    QDECREF(dir_path);
 
     ret = goto_snap(name);
 
     if (ret < 0) {
         monitor_printf(mon, "Cannot load snapshot %s\n", name);
-        goto end;
+        goto end_snap_uncreated;
     }
 
     BlockDriverState *bs = find_active();
     if (bs == NULL) {
         monitor_printf(mon, "There are not block devices on current VM\n");
         ret = -ENODEV;
-        goto end;
+        goto end_snap_uncreated;
     }
 
-    snap_chain = get_snap_chain(bs);
-
-    clock_gettime(CLOCK_REALTIME, &end);
-    res = get_result(begin, end);
-
-    fprintf(loaddump, "Getting chain time: %lg\n", res);
-    fflush(loaddump);
-
+    // Incremental snapshots
+    // Make QList of QStrings with backtracking of snapshot directories
+    QList *snap_chain = get_snap_chain(bs);
     if (bs == NULL) {
         monitor_printf(mon, "Cannot build snapshot chain on current VM\n");
         ret = -EINVAL;
         goto end;
     }
-
     bdrv_drain_all();
-
-    cur = qobject_to_qstring(qlist_pop(snap_chain));
-    if (cur == NULL) {
-        monitor_printf(mon, "The chain is empty\n");
+    if (qlist_empty(snap_chain)) {
+        monitor_printf(mon, "The snapshot chain is empty\n");
         ret = -EINVAL;
         goto end;
     }
 
-    while (cur) {
-        cur_name = get_snap_name(cur->string);
-        if (cur_name == NULL) {
-            monitor_printf(mon, "Cannot load snapshot %s\n", name);
-            ret = -EINVAL;
-            goto end;
-        }
-
+    // Load incrementally snapshots
+    QString *path = NULL;
+    while ((path = qobject_to_qstring(qlist_pop(snap_chain))) != NULL) {
         vm_start();
         vm_stop(RUN_STATE_RESTORE_VM);
 
-        ret = load_state_ext(cur_name);
+        ret = load_state_ext(path);
         if (ret < 0) {
-            monitor_printf(mon, "Cannot load memory for snapshot %s\n", name);
+            monitor_printf(mon, "Cannot load memory for snapshot located in %s\n", path->string);
             goto end;
         }
-        QDECREF(cur);
-        cur = qobject_to_qstring(qlist_pop(snap_chain));
+
+#ifdef CONFIG_FLEXUS
+        set_flexus_load_dir(path->string);
+#endif
+
+        QDECREF(path);
     }
 
 end:
@@ -610,7 +669,10 @@ end:
     if (snap_chain != NULL) {
         qlist_destroy_obj(QOBJECT(snap_chain));
     }
-    QDECREF(dir_path);
+end_snap_uncreated:
+    if (saved_vm_running) {
+        vm_start();
+    }
     return ret;
 }
 

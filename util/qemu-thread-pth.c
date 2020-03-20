@@ -1,3 +1,47 @@
+//  DO-NOT-REMOVE begin-copyright-block
+// QFlex consists of several software components that are governed by various
+// licensing terms, in addition to software that was developed internally.
+// Anyone interested in using QFlex needs to fully understand and abide by the
+// licenses governing all the software components.
+// 
+// ### Software developed externally (not by the QFlex group)
+// 
+//     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+//     * [QEMU] (http://wiki.qemu.org/License)
+//     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+//     * [GNU PTH] (https://www.gnu.org/software/pth/)
+// 
+// ### Software developed internally (by the QFlex group)
+// **QFlex License**
+// 
+// QFlex
+// Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//     * Neither the name of the Parallel Systems Architecture Laboratory, EPFL,
+//       nor the names of its contributors may be used to endorse or promote
+//       products derived from this software without specific prior written
+//       permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE PARALLEL SYSTEMS ARCHITECTURE LABORATORY,
+// EPFL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  DO-NOT-REMOVE end-copyright-block
 #ifdef CONFIG_PTH
 
 #include "qemu/osdep.h"
@@ -477,7 +521,13 @@ void qemu_thread_create(QemuThread *thread, const char *name,
                        void *(*start_routine)(void*),
                        void *arg, int mode)
 {
-	get_main_thread();
+	get_main_thread(); // FIXME: Does this need to be here??
+
+    /* For compliance with the rest of QEMU's code, make a heap-allocated copy of *thread
+     * that doesn't go out of scope when placed into a pth wrapper
+     */
+    QemuThread *thread_pth_copy = g_malloc0(sizeof(QemuThread));
+    memcpy(thread_pth_copy,thread,sizeof(QemuThread));
 
     sigset_t set, oldset;
     int err;
@@ -499,7 +549,7 @@ void qemu_thread_create(QemuThread *thread, const char *name,
     initMainThread();
 
     threadlist* head = calloc(1, sizeof(threadlist));
-    head->qemuthread = thread;
+    head->qemuthread = thread_pth_copy;
     head->qemuthread->wrapper.thread_name = strdup(name);
     memset(&head->qemuthread->wrapper.rcu_reader, 0, sizeof(struct rcu_reader_data));
     threadlist_size++;
@@ -517,7 +567,7 @@ void qemu_thread_create(QemuThread *thread, const char *name,
         }
     }
 
-    err = pthpthread_create(&thread->wrapper.pth_thread, &attr, start_routine, arg);
+    err = pthpthread_create(&thread_pth_copy->wrapper.pth_thread, &attr, start_routine, arg);
     if (err)
         error_exit(err, __func__);
 
@@ -558,7 +608,7 @@ void *qemu_thread_join(QemuThread *thread)
 
 
 pth_wrapper* pth_get_wrapper(void){
-    threadlist * entry = NULL;
+    threadlist *entry = NULL;
     QLIST_FOREACH(entry, &pth_wrappers, next){
         if (entry->qemuthread->wrapper.pth_thread == pth_self())
             return &entry->qemuthread->wrapper;
