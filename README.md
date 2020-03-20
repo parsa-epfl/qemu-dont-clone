@@ -25,9 +25,9 @@ Now, configure and build QEMU:
 ```
 $ cd ../qemu
 $ export CFLAGS="-fPIC"
-$ ./configure --target-list=aarch64-softmmu \
-              --enable-flexus --disable-werror --disable-tpm
-$ make -j
+$ ./configure --target-list=aarch64-softmmu --python=/usr/bin/python2 --enable-extsnap \
+     --enable-fa-qflex --extra-cflags=-std=gnu99 --enable-fpga
+$ make -j4
 ```
 
-After the build process is complete, you are ready to experiment with QEMU. Download an image and give it a test!
+After the build process is complete, you are ready to experiment with QEMU. Download an image [here](https://github.com/parsa-epfl/images/tree/matmul-knockoutkraken) and give it a test!
