@@ -11603,7 +11603,7 @@ void helper_flexus_periodic(CPUARMState *env, int isUser){
 
         static uint64_t instCnt = 0;
 
-        int64_t simulation_length = QEMU_get_simulation_length();
+        int64_t simulation_length = QEMU_getSimulationTime();
         if( simulation_length >= 0 && instCnt >= simulation_length ) {
 
             qflex_trace_enabled = false;
@@ -11847,15 +11847,6 @@ void helper_flexus_insn_fetch( CPUARMState *env,
 
         physical_address_t phys_addr_functional = mmu_logical_to_physical((void*)arm_cpu,targ_addr);
         flexus_insn_fetch_transaction(env, targ_addr, phys_addr_functional, pc, QEMU_Trans_Instr_Fetch, ins_size, is_user, cond, annul);
-
-        /* Report we executed an instruction */
-        QEMU_setSimulationTime(QEMU_getSimulationTime()-1);
-
-        /* Check for sim end condition */
-        if ( QEMU_getSimulationTime() <= 0 ) {
-            qflex_trace_enabled = false;
-            QEMU_break_simulation("Ending tracemode simulation.");
-        }
 
     }
 }

@@ -11421,7 +11421,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         break;
     }
 #ifdef CONFIG_FLEXUS
-    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_periodic(cpu_env,0));
+    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_periodic(cpu_env,0)); /* FIXME: currently always says in OS mode (isUser = 0) */
     FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->pc),
                                        tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4),
                                        tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
