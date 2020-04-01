@@ -56,9 +56,6 @@ This is required to comply with the terms of the GPL which covers the original Q
          
 Original QEMU Documentation
 ===========================
-         
-         QEMU README
-         ===========
 
 QEMU is a generic and open source machine & userspace emulator and
 virtualizer.
@@ -89,8 +86,7 @@ QEMU as a whole is released under the GNU General Public License,
 version 2. For full licensing details, consult the LICENSE file.
 
 
-Building
-========
+## Building
 
 QEMU is multi-platform software intended to be buildable on all modern
 Linux platforms, OS-X, Win32 (via the Mingw64 toolchain) and a variety
@@ -108,8 +104,7 @@ Additional information can also be found online via the QEMU website:
   http://qemu-project.org/Hosts/W32
 
 
-Submitting patches
-==================
+## Submitting patches
 
 The QEMU source code is maintained under the GIT version control system.
 
@@ -128,8 +123,7 @@ the QEMU website
   http://qemu-project.org/Contribute/TrivialPatches
 
 
-Bug reporting
-=============
+## Bug reporting
 
 The QEMU project uses Launchpad as its primary upstream bug tracker. Bugs
 found when running code built from QEMU git or upstream released sources
@@ -147,8 +141,7 @@ For additional information on bug reporting consult:
   http://qemu-project.org/Contribute/ReportABug
 
 
-Contact
-=======
+## Contact
 
 The QEMU community can be contacted in a number of ways, with the two
 main methods being email and IRC
@@ -161,5 +154,3 @@ Information on additional methods of contacting the community can be
 found online via the QEMU website:
 
   http://qemu-project.org/Contribute/StartHere
-
--- End
