@@ -154,9 +154,9 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
         sudo yum install -y make cmake python-devel autoconf binutils bison flex \
             libtool pkgconfig bzip2-devel zlib-devel
     fi
-    # Install the version of pth previously cloned from qflex, if not there already
+    # Install pth if it is not installed already
     if [ ! -f $HOME/lib/libpth.so ]; then
-        PTH_PATH=${CURDIR}/../3rdparty/pth
+        PTH_PATH=${CURDIR}/./pth
         pushd $PTH_PATH > /dev/null
         ./build_pth.sh
         popd > /dev/null
