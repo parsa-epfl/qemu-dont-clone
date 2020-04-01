@@ -46,45 +46,16 @@ branches:
   only:
     - master
     - dev
-# We will get submodules ourselves
+
 git:
-  submodules: false
-# Builds GCC version: 5
+  submodules: true
 matrix:
   include:
     - env: # Test only build
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG=""
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
+      - MODE="emulation"
     - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-extsnap"
-      - TEST_EXTSNAP="yes"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="yes"
-      - GCC_VERSION="5"
+      - MODE="trace"
     - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-pth --enable-extsnap"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="yes"
-      - TEST_QUANTUM="no"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-    - env:
-      - TARGET_LIST="aarch64-softmmu"
-      - CONFIG="--enable-quantum"
-      - TEST_EXTSNAP="no"
-      - TEST_PTH="no"
-      - TEST_QUANTUM="yes"
-      - TEST_SSH="no"
-      - GCC_VERSION="5"
-before_script:
-  - ${TRAVIS_BUILD_DIR}/build_qemu.sh
+      - MODE="timing"
 script:
-  - ${TRAVIS_BUILD_DIR}/test_qemu.sh
+  - ${TRAVIS_BUILD_DIR}/build_qemu.sh -install -${MODE}
