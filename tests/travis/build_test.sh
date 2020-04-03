@@ -1,3 +1,4 @@
+#!/bin/bash
 # QFlex consists of several software components that are governed by various
 # licensing terms, in addition to software that was developed internally.
 # Anyone interested in using QFlex needs to fully understand and abide by the
@@ -40,23 +41,9 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-dist: bionic
-language: c
-sudo: required
-branches:
-  only:
-    - master
-    - dev
+set -x
+set -e
 
-git:
-  submodules: true
-matrix:
-  include:
-    - env: # Test only build
-      - MODE="emulation"
-    - env:
-      - MODE="trace"
-    - env:
-      - MODE="timing"
-script:
-  - ${TRAVIS_BUILD_DIR}/tests/travis/build_test.sh ${MODE}
+git clone https://github.com/parsa-epfl/libqflex.git ../libqflex
+
+${TRAVIS_BUILD_DIR}/build_qemu.sh -install $1
