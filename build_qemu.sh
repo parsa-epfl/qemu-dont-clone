@@ -160,21 +160,23 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
         pushd $PTH_PATH > /dev/null
         ./build_pth.sh
         popd > /dev/null
-        git submodule update --init dtc
     fi
 fi
+
+JOBS=$(($(getconf _NPROCESSORS_ONLN) + 1))
+echo "=== Using ${JOBS} simultaneous jobs ==="
 
 # Build Qemu for emulation, or timing
 if [ "${BUILD_EMULATION}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.emulation
-    make clean && make -j
+    make clean && make -j${JOBS}
 elif [ "${BUILD_TRACE}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.trace
-    make clean && make -j
+    make clean && make -j${JOBS}
 elif [ "${BUILD_TIMING}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.timing
-    make clean && make -j
+    make clean && make -j${JOBS}
 fi
