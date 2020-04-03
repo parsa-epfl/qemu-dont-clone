@@ -46,4 +46,4 @@ set -e
 
 git clone https://github.com/parsa-epfl/libqflex.git ../libqflex
 
-${TRAVIS_BUILD_DIR}/build_qemu.sh -install $1
+${TRAVIS_BUILD_DIR}/build_qemu.sh -install -$1

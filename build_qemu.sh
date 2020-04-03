@@ -112,7 +112,7 @@ do
         *)
         echo "$0 : what do you mean by $i ?"
         usage
-        exit
+        exit 1
         ;;
     esac
 done
