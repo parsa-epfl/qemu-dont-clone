@@ -1,25 +1,26 @@
-#!/bin/bash
+#  DO-NOT-REMOVE begin-copyright-block
 # QFlex consists of several software components that are governed by various
 # licensing terms, in addition to software that was developed internally.
 # Anyone interested in using QFlex needs to fully understand and abide by the
 # licenses governing all the software components.
-
+#
 # ### Software developed externally (not by the QFlex group)
-
-#     * [NS-3](https://www.gnu.org/copyleft/gpl.html)
-#     * [QEMU](http://wiki.qemu.org/License)
-#     * [SimFlex](http://parsa.epfl.ch/simflex/)
-
+#
+#     * [NS-3] (https://www.gnu.org/copyleft/gpl.html)
+#     * [QEMU] (http://wiki.qemu.org/License)
+#     * [SimFlex] (http://parsa.epfl.ch/simflex/)
+#     * [GNU PTH] (https://www.gnu.org/software/pth/)
+#
 # ### Software developed internally (by the QFlex group)
 # **QFlex License**
-
+#
 # QFlex
-# Copyright (c) 2016, Parallel Systems Architecture Lab, EPFL
+# Copyright (c) 2020, Parallel Systems Architecture Lab, EPFL
 # All rights reserved.
-
+#
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
-
+#
 #     * Redistributions of source code must retain the above copyright notice,
 #       this list of conditions and the following disclaimer.
 #     * Redistributions in binary form must reproduce the above copyright notice,
@@ -29,7 +30,7 @@
 #       nor the names of its contributors may be used to endorse or promote
 #       products derived from this software without specific prior written
 #       permission.
-
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -40,6 +41,7 @@
 # HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#  DO-NOT-REMOVE end-copyright-block
 
 # This function is called on in ERROR state
 usage() {
@@ -112,7 +114,7 @@ do
         *)
         echo "$0 : what do you mean by $i ?"
         usage
-        exit
+        exit 1
         ;;
     esac
 done
@@ -160,21 +162,23 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
         pushd $PTH_PATH > /dev/null
         ./build_pth.sh
         popd > /dev/null
-        git submodule update --init dtc
     fi
 fi
+
+JOBS=$(($(getconf _NPROCESSORS_ONLN) + 1))
+echo "=== Using ${JOBS} simultaneous jobs ==="
 
 # Build Qemu for emulation, or timing
 if [ "${BUILD_EMULATION}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.emulation
-    make clean && make -j
+    make clean && make -j${JOBS}
 elif [ "${BUILD_TRACE}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.trace
-    make clean && make -j
+    make clean && make -j${JOBS}
 elif [ "${BUILD_TIMING}" = "TRUE" ]; then
     export CFLAGS="-fPIC"
     ./config.timing
-    make clean && make -j
+    make clean && make -j${JOBS}
 fi

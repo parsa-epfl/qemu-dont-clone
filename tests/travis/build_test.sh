@@ -43,23 +43,9 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #  DO-NOT-REMOVE end-copyright-block
 
-dist: bionic
-language: c
-sudo: required
-branches:
-  only:
-    - master
-    - dev
+set -x
+set -e
 
-git:
-  submodules: true
-matrix:
-  include:
-    - env: # Test only build
-      - MODE="emulation"
-    - env:
-      - MODE="trace"
-    - env:
-      - MODE="timing"
-script:
-  - ${TRAVIS_BUILD_DIR}/tests/travis/build_test.sh ${MODE}
+git clone https://github.com/parsa-epfl/libqflex.git ../libqflex
+
+${TRAVIS_BUILD_DIR}/build_qemu.sh -install -$1
