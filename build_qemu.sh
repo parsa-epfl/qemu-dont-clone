@@ -1,3 +1,4 @@
+#!/bin/bash
 #  DO-NOT-REMOVE begin-copyright-block
 # QFlex consists of several software components that are governed by various
 # licensing terms, in addition to software that was developed internally.
