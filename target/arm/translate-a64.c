@@ -3704,9 +3704,9 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn,CPUARMState* env)
             qflex_log_mask(QFLEX_LOG_MAGIC_INSN,"Detected magic instruction (64bit): %d\n", rd);
             /* read_cpu_reg takes 3 args: ctx, register number, and 64/32bit mode.
              * Register values go into r0,r1,r2 in advance of the <orr> execution. */
-            TCGv_i64 cmd_id = read_cpu_reg(s, 0, 0);
-            TCGv_i64 user_v1 = read_cpu_reg(s, 1, 0);
-            TCGv_i64 user_v2 = read_cpu_reg(s, 2, 0);
+            TCGv_i64 cmd_id = read_cpu_reg(s, 0, 1);
+            TCGv_i64 user_v1 = read_cpu_reg(s, 1, 1);
+            TCGv_i64 user_v2 = read_cpu_reg(s, 2, 1);
             TCGv_i32 rd_trigger = tcg_const_i32(rd);
             gen_helper_flexus_magic_ins(cpu_env, rd_trigger, cmd_id, user_v1, user_v2);
             tcg_temp_free_i32(rd_trigger);
