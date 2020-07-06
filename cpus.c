@@ -448,12 +448,12 @@ static inline void request_save(const char*str) {
     save_requested = true;
 }
 void save_ckpt(void) {
-    char* name = (char*)malloc(strlen(get_base_ckpt_name())+5*sizeof(char));
+    char* name = (char*)malloc(strlen(get_base_ckpt_name()) + 10*sizeof(char));
     sprintf(name, "%s_ckpt_%03d", get_base_ckpt_name(), ckpt_state.ckpt_id++);
     request_save(name);
 }
 void save_phase(void) {
-    char* name = (char*)malloc(strlen(get_phases_prefix())+4*sizeof(char));
+    char* name = (char*)malloc(strlen(get_phases_prefix()) + 5*sizeof(char));
     sprintf(name, "%s_%03d", get_phases_prefix(), get_phase_id());
     request_save(name);
 }
