@@ -130,7 +130,7 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
         sudo apt-get update -qq
         sudo apt-get install -y build-essential python-dev software-properties-common pkg-config \
             zip zlib1g-dev unzip libbz2-dev \
-            expect bridge-utils uml-utilities
+            expect bridge-utils uml-utilities pigz
         # Install known-good version of gcc-8
         GCC_VERSION="8"
         sudo apt-get install -y gcc-${GCC_VERSION} g++-${GCC_VERSION}
@@ -155,7 +155,7 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
 
         # Install dependencies
         sudo yum install -y make cmake python-devel autoconf binutils bison flex \
-            libtool pkgconfig bzip2-devel zlib-devel
+            libtool pkgconfig bzip2-devel zlib-devel pigz
     fi
     # Install pth if it is not installed already
     if [ ! -f $HOME/lib/libpth.so ]; then
