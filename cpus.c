@@ -2115,6 +2115,18 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 #ifdef CONFIG_FLEXUS
     int counter = 0, init_counter = 0;
     bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
+
+    if (!ff) {
+        if (flexus_state.mode == TIMING) {
+            goto _label_start_timing;
+        }
+        else if (!qflex_trace_enabled && flexus_state.mode == TRACE) {
+            qflex_trace_enabled = true;
+            qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
+                    "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
+        }
+    }
+
 #endif
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
@@ -2201,25 +2213,8 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                     initialize[cpu->cpu_index] = true;
                     init_counter += 1;
                 }
-            } else { // no ff, immediately start
-                if (flexus_state.mode == TIMING) {
-                    if( !completed[cpu->cpu_index] && r != EXCP_HALTED ) {
-                        completed[cpu->cpu_index] = true;
-                        counter++;
-                    }
-                    if(counter == smp_cpus) {
-                        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Not in FFW mode, immediately starting timing.\n");
-                        break;
-                    }
-                }
-                else if (!qflex_trace_enabled && flexus_state.mode == TRACE) {
-                    qflex_trace_enabled = true;
-                    qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
-                                  "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
-                }
-            }
+            } 
 #endif
-
             cpu = CPU_NEXT(cpu);
 
             PTH_YIELD
