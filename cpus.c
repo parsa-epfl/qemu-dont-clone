@@ -613,6 +613,9 @@ typedef struct TimersState {
     int64_t qemu_icount_bias;
     /* Only written by TCG thread */
     int64_t qemu_icount;
+
+    /* Msutherl: State variable indicating icount subsection was received */
+    bool icount_subsec_set;
 } TimersState;
 
 static TimersState timers_state;
@@ -1099,6 +1102,26 @@ static bool icount_state_needed(void *opaque)
     return use_icount;
 }
 
+static int icount_timers_post_load(void *opaque, int version_id) {
+    TimersState *s = (TimersState*) opaque;
+    s->icount_subsec_set = true;
+    return 0;
+}
+
+static int timers_global_pre_load(void *opaque) {
+    TimersState *s = (TimersState*) opaque;
+    s->icount_subsec_set = false;
+    return 0;
+}
+
+static int timers_global_post_load(void *opaque,int version_id) {
+    TimersState *s = (TimersState*) opaque;
+    if (use_icount && !s->icount_subsec_set) {
+        timers_state.qemu_icount_bias = cpu_get_clock();
+    }
+    return 0;
+}
+
 /*
  * This is a subsection for icount migration.
  */
@@ -1107,6 +1130,7 @@ static const VMStateDescription icount_vmstate_timers = {
     .version_id = 1,
     .minimum_version_id = 1,
     .needed = icount_state_needed,
+    .post_load = icount_timers_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_INT64(qemu_icount_bias, TimersState),
         VMSTATE_INT64(qemu_icount, TimersState),
@@ -1118,6 +1142,8 @@ static const VMStateDescription vmstate_timers = {
     .name = "timer",
     .version_id = 2,
     .minimum_version_id = 1,
+    .pre_load = timers_global_pre_load,
+    .post_load = timers_global_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_INT64(cpu_ticks_offset, TimersState),
         VMSTATE_INT64(dummy, TimersState),
