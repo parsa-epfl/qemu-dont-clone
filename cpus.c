@@ -1307,13 +1307,19 @@ void configure_quantum(QemuOpts *opts, Error **errp)
         error_setg(errp, "quantum option is not valid");
         exit(1);
     }
-    if (qopt && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
-        processForOpts(&quantum_state.quantum_value, qopt, errp);
-    } else if (qopt && !qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
-        processForOpts(&quantum_state.quantum_value, qopt, errp);
-        printf("quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
-        //error_setg(errp, "quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
+
+    if (qopt) {
+        if (qemu_tcg_mttcg_enabled()) {
+            error_setg(errp, "Quantum is not supported with mttcg. Use -accel tcg,thread=single or -icount.\n");
+            exit(1);
+        } else {
+            processForOpts(&quantum_state.quantum_value, qopt, errp);
+            if (!qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
+                printf("quantum value is not guaranteed to work with chaining TBs. use '-d nochain'\n");
+            }
+        }
     }
+
     if (qopt_record) {
         processForOpts(&quantum_state.quantum_record_value, qopt_record, errp);
     }
@@ -1867,7 +1873,13 @@ static int64_t tcg_get_icount_limit(void)
             deadline = INT32_MAX;
         }
 
-        return qemu_icount_round(deadline);
+        int64_t quantum_val = query_quantum_core_value();
+        if (quantum_val > 0) { // assume quantum is enabled
+            int64_t icount_scaled = qemu_icount_round(deadline);
+            return (icount_scaled < quantum_val) ? icount_scaled : quantum_val;
+        } else {
+            return qemu_icount_round(deadline);
+        }
     } else {
         return replay_get_instructions();
     }
