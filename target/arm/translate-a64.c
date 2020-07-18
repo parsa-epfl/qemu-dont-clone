@@ -1353,13 +1353,16 @@ static inline AArch64DecodeFn *lookup_disas_fn(const AArch64DecodeTable *table,
  * | op | 0 0 1 0 1 |                 imm26               |
  * +----+-----------+-------------------------------------+
  */
-static void disas_uncond_b_imm(DisasContext *s, uint32_t insn)
+static void disas_uncond_b_imm(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
 {
     uint64_t addr = s->pc + sextract32(insn, 0, 26) * 4 - 4;
+
+    *branch_type = QEMU_Unconditional_Branch;
 
     if (insn & (1U << 31)) {
         /* BL Branch with link */
         tcg_gen_movi_i64(cpu_reg(s, 30), s->pc);
+        *branch_type = QEMU_Call_Branch;
     }
 
     /* B Branch / BL Branch with link */
@@ -1896,7 +1899,7 @@ static void disas_exc(DisasContext *s, uint32_t insn)
  * | 1 1 0 1 0 1 1 |  opc  |  op2  |  op3  |  Rn  |  op4  |
  * +---------------+-------+-------+-------+------+-------+
  */
-static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
+static void disas_uncond_b_reg(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
 {
     unsigned int opc, op2, op3, rn, op4;
 
@@ -1913,13 +1916,17 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
 
     switch (opc) {
     case 0: /* BR */
+        gen_a64_set_pc(s, cpu_reg(s, rn));
+        *branch_type = QEMU_Unconditional_Branch;
+        break;
     case 1: /* BLR */
+        gen_a64_set_pc(s, cpu_reg(s, rn));
+        tcg_gen_movi_i64(cpu_reg(s, 30), s->pc); /* BLR also needs to load return address */
+        *branch_type = QEMU_Call_Branch;
+        break;
     case 2: /* RET */
         gen_a64_set_pc(s, cpu_reg(s, rn));
-        /* BLR also needs to load return address */
-        if (opc == 1) {
-            tcg_gen_movi_i64(cpu_reg(s, 30), s->pc);
-        }
+        *branch_type = QEMU_Return_Branch;
         break;
     case 4: /* ERET */
         if (s->current_el == 0) {
@@ -1929,6 +1936,7 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
         gen_helper_exception_return(cpu_env);
         /* Must exit loop to check un-masked IRQs */
         s->base.is_jmp = DISAS_EXIT;
+        *branch_type = QEMU_Return_Branch;
         return;
     case 5: /* DRPS */
         if (rn != 0x1f) {
@@ -1946,21 +1954,24 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
 }
 
 /* Branches, exception generating and system instructions */
-static void disas_b_exc_sys(DisasContext *s, uint32_t insn)
+static void disas_b_exc_sys(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
 {
     switch (extract32(insn, 25, 7)) {
     case 0x0a: case 0x0b:
     case 0x4a: case 0x4b: /* Unconditional branch (immediate) */
-        disas_uncond_b_imm(s, insn);
+        disas_uncond_b_imm(s, insn, branch_type);
         break;
     case 0x1a: case 0x5a: /* Compare & branch (immediate) */
         disas_comp_b_imm(s, insn);
+        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x1b: case 0x5b: /* Test & branch (immediate) */
         disas_test_b_imm(s, insn);
+        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x2a: /* Conditional branch (immediate) */
         disas_cond_b_imm(s, insn);
+        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x6a: /* Exception generation / System */
         if (insn & (1 << 24)) {
@@ -1968,9 +1979,10 @@ static void disas_b_exc_sys(DisasContext *s, uint32_t insn)
         } else {
             disas_exc(s, insn);
         }
+        *branch_type = QEMU_Non_Branch;
         break;
     case 0x6b: /* Unconditional branch (register) */
-        disas_uncond_b_reg(s, insn);
+        disas_uncond_b_reg(s, insn, branch_type);
         break;
     default:
         unallocated_encoding(s);
@@ -3707,6 +3719,8 @@ static void disas_logic_reg(DisasContext *s, uint32_t insn,CPUARMState* env)
             TCGv_i64 cmd_id = read_cpu_reg(s, 0, 1);
             TCGv_i64 user_v1 = read_cpu_reg(s, 1, 1);
             TCGv_i64 user_v2 = read_cpu_reg(s, 2, 1);
+            TCGv_i64 user_v3 = read_cpu_reg(s, 3, 1);
+            TCGv_i64 user_v4 = read_cpu_reg(s, 4, 1);
             TCGv_i32 rd_trigger = tcg_const_i32(rd);
             gen_helper_flexus_magic_ins(cpu_env, rd_trigger, cmd_id, user_v1, user_v2);
             tcg_temp_free_i32(rd_trigger);
@@ -11392,6 +11406,8 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
 
     s->fp_access_checked = false;
 
+    branch_type_t branch_type = QEMU_Non_Branch;
+
     switch (extract32(insn, 25, 4)) {
     case 0x0: case 0x1: case 0x2: case 0x3: /* UNALLOCATED */
         unallocated_encoding(s);
@@ -11400,7 +11416,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         disas_data_proc_imm(s, insn);
         break;
     case 0xa: case 0xb: /* Branch, exception generation and system insns */
-        disas_b_exc_sys(s, insn);
+        disas_b_exc_sys(s, insn, &branch_type);
         break;
     case 0x4:
     case 0x6:
@@ -11425,7 +11441,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->pc),
                                        tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4),
                                        tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
-                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
+                                       tcg_const_i32(branch_type), tcg_const_i32(0) ));
  #endif
 #ifdef CONFIG_QUANTUM
     gen_helper_quantum(cpu_env);
