@@ -1353,17 +1353,22 @@ static inline AArch64DecodeFn *lookup_disas_fn(const AArch64DecodeTable *table,
  * | op | 0 0 1 0 1 |                 imm26               |
  * +----+-----------+-------------------------------------+
  */
-static void disas_uncond_b_imm(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
+static void disas_uncond_b_imm(DisasContext *s, uint32_t insn)
 {
     uint64_t addr = s->pc + sextract32(insn, 0, 26) * 4 - 4;
 
-    *branch_type = QEMU_Unconditional_Branch;
+    branch_type_t branch_type = QEMU_Unconditional_Branch;
 
     if (insn & (1U << 31)) {
         /* BL Branch with link */
         tcg_gen_movi_i64(cpu_reg(s, 30), s->pc);
-        *branch_type = QEMU_Call_Branch;
+        branch_type = QEMU_Call_Branch;
     }
+
+    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(addr),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(branch_type), tcg_const_i32(0) ));
 
     /* B Branch / BL Branch with link */
     gen_goto_tb(s, 0, addr);
@@ -1386,6 +1391,11 @@ static void disas_comp_b_imm(DisasContext *s, uint32_t insn)
     op = extract32(insn, 24, 1); /* 0: CBZ; 1: CBNZ */
     rt = extract32(insn, 0, 5);
     addr = s->pc + sextract32(insn, 5, 19) * 4 - 4;
+
+    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(addr),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Conditional_Branch), tcg_const_i32(0) ));
 
     tcg_cmp = read_cpu_reg(s, rt, sf);
     label_match = gen_new_label();
@@ -1416,6 +1426,11 @@ static void disas_test_b_imm(DisasContext *s, uint32_t insn)
     addr = s->pc + sextract32(insn, 5, 14) * 4 - 4;
     rt = extract32(insn, 0, 5);
 
+    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(addr),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Conditional_Branch), tcg_const_i32(0) ));
+
     tcg_cmp = tcg_temp_new_i64();
     tcg_gen_andi_i64(tcg_cmp, cpu_reg(s, rt), (1ULL << bit_pos));
     label_match = gen_new_label();
@@ -1444,6 +1459,11 @@ static void disas_cond_b_imm(DisasContext *s, uint32_t insn)
     }
     addr = s->pc + sextract32(insn, 5, 19) * 4 - 4;
     cond = extract32(insn, 0, 4);
+
+    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(addr),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Conditional_Branch), tcg_const_i32(0) ));
 
     if (cond < 0x0e) {
         /* genuinely conditional branches */
@@ -1899,7 +1919,7 @@ static void disas_exc(DisasContext *s, uint32_t insn)
  * | 1 1 0 1 0 1 1 |  opc  |  op2  |  op3  |  Rn  |  op4  |
  * +---------------+-------+-------+-------+------+-------+
  */
-static void disas_uncond_b_reg(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
+static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
 {
     unsigned int opc, op2, op3, rn, op4;
 
@@ -1916,29 +1936,49 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn, branch_type_t* br
 
     switch (opc) {
     case 0: /* BR */
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       cpu_reg(s, rn),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Unconditional_Branch), tcg_const_i32(0) ));
         gen_a64_set_pc(s, cpu_reg(s, rn));
-        *branch_type = QEMU_Unconditional_Branch;
         break;
     case 1: /* BLR */
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       cpu_reg(s, rn),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Call_Branch), tcg_const_i32(0) ));
         gen_a64_set_pc(s, cpu_reg(s, rn));
         tcg_gen_movi_i64(cpu_reg(s, 30), s->pc); /* BLR also needs to load return address */
-        *branch_type = QEMU_Call_Branch;
         break;
     case 2: /* RET */
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       cpu_reg(s, rn),
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Return_Branch), tcg_const_i32(0) ));    
         gen_a64_set_pc(s, cpu_reg(s, rn));
-        *branch_type = QEMU_Return_Branch;
         break;
     case 4: /* ERET */
         if (s->current_el == 0) {
+            FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
             unallocated_encoding(s);
             return;
         }
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Return_Branch), tcg_const_i32(0) ));
         gen_helper_exception_return(cpu_env);
         /* Must exit loop to check un-masked IRQs */
         s->base.is_jmp = DISAS_EXIT;
-        *branch_type = QEMU_Return_Branch;
         return;
     case 5: /* DRPS */
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         if (rn != 0x1f) {
             unallocated_encoding(s);
         } else {
@@ -1946,6 +1986,10 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn, branch_type_t* br
         }
         return;
     default:
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         unallocated_encoding(s);
         return;
     }
@@ -1954,24 +1998,21 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn, branch_type_t* br
 }
 
 /* Branches, exception generating and system instructions */
-static void disas_b_exc_sys(DisasContext *s, uint32_t insn, branch_type_t* branch_type)
+static void disas_b_exc_sys(DisasContext *s, uint32_t insn)
 {
     switch (extract32(insn, 25, 7)) {
     case 0x0a: case 0x0b:
     case 0x4a: case 0x4b: /* Unconditional branch (immediate) */
-        disas_uncond_b_imm(s, insn, branch_type);
+        disas_uncond_b_imm(s, insn);
         break;
     case 0x1a: case 0x5a: /* Compare & branch (immediate) */
         disas_comp_b_imm(s, insn);
-        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x1b: case 0x5b: /* Test & branch (immediate) */
         disas_test_b_imm(s, insn);
-        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x2a: /* Conditional branch (immediate) */
         disas_cond_b_imm(s, insn);
-        *branch_type = QEMU_Conditional_Branch;
         break;
     case 0x6a: /* Exception generation / System */
         if (insn & (1 << 24)) {
@@ -1979,12 +2020,20 @@ static void disas_b_exc_sys(DisasContext *s, uint32_t insn, branch_type_t* branc
         } else {
             disas_exc(s, insn);
         }
-        *branch_type = QEMU_Non_Branch;
+        
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     case 0x6b: /* Unconditional branch (register) */
-        disas_uncond_b_reg(s, insn, branch_type);
+        disas_uncond_b_reg(s, insn);
         break;
     default:
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->base.pc_next),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         unallocated_encoding(s);
         break;
     }
@@ -11392,43 +11441,61 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
 
     s->insn = insn;
     s->pc += 4;
+    target_ulong pc_being_disas = s->base.pc_next;
 
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     if( flexus_in_timing() || unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC))) {
-        uint64_t pc = s->base.pc_first;
         uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
-        gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+        gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc_being_disas), tcg_const_i32(flags),
                                               tcg_const_i32(QFLEX_EXEC_IN));
     }
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
 
     s->fp_access_checked = false;
 
-    branch_type_t branch_type = QEMU_Non_Branch;
-
     switch (extract32(insn, 25, 4)) {
     case 0x0: case 0x1: case 0x2: case 0x3: /* UNALLOCATED */
         unallocated_encoding(s);
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64(cpu_env, tcg_const_tl(pc_being_disas),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     case 0x8: case 0x9: /* Data processing - immediate */
         disas_data_proc_imm(s, insn);
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64(cpu_env, tcg_const_tl(pc_being_disas),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     case 0xa: case 0xb: /* Branch, exception generation and system insns */
-        disas_b_exc_sys(s, insn, &branch_type);
+        disas_b_exc_sys(s, insn);
         break;
     case 0x4:
     case 0x6:
     case 0xc:
     case 0xe:      /* Loads and stores */
         disas_ldst(s, insn);
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64(cpu_env, tcg_const_tl(pc_being_disas),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     case 0x5:
     case 0xd:      /* Data processing - register */
         disas_data_proc_reg(s, insn,env);
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64(cpu_env, tcg_const_tl(pc_being_disas),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     case 0x7:
     case 0xf:      /* Data processing - SIMD and floating point */
         disas_data_proc_simd_fp(s, insn);
+        FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64(cpu_env, tcg_const_tl(pc_being_disas),
+                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4), /* This is broken!! */
+                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
+                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
         break;
     default:
         assert(FALSE); /* all 15 cases should be handled above */
@@ -11436,10 +11503,6 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     }
 #ifdef CONFIG_FLEXUS
     FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_periodic(cpu_env,0)); /* FIXME: currently always says in OS mode (isUser = 0) */
-    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->pc),
-                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4),
-                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
-                                       tcg_const_i32(branch_type), tcg_const_i32(0) ));
  #endif
 #ifdef CONFIG_QUANTUM
     gen_helper_quantum(cpu_env);
