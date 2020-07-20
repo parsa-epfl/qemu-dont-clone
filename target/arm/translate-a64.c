@@ -11374,6 +11374,18 @@ static void disas_data_proc_simd_fp(DisasContext *s, uint32_t insn)
 /* C3.1 A64 instruction index by encoding */
 static void disas_a64_insn(CPUARMState *env, DisasContext *s)
 {
+
+#ifdef CONFIG_FLEXUS
+    flexus_ins_pc = s->pc;
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_periodic(cpu_env,0)); /* FIXME: currently always says in OS mode (isUser = 0) */
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch_aa64( cpu_env,
+                                tcg_const_tl(flexus_ins_pc),
+                                tcg_const_i64(s->thumb ? flexus_ins_pc + 2 : flexus_ins_pc + 4),
+                                tcg_const_i32(s->thumb ? 2 : 4 ),
+                                tcg_const_i32(IS_USER(s)),
+                                tcg_const_i32(QEMU_Non_Branch),
+                                tcg_const_i32(0) ));
+ #endif
     uint32_t insn;
 
     insn = arm_ldl_code(env, s->pc, s->sctlr_b);
@@ -11383,9 +11395,10 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
 
 #if defined(CONFIG_FLEXUS) || defined(CONFIG_FA_QFLEX)
     if( flexus_in_timing() || unlikely(qflex_loglevel_mask(QFLEX_LOG_TB_EXEC))) {
-        uint64_t pc = s->base.pc_first;
         uint32_t flags = 4 | (bswap_code(s->sctlr_b) ? 2 : 0);
-        gen_helper_qflex_executed_instruction(cpu_env, tcg_const_i64(pc), tcg_const_i32(flags),
+        gen_helper_qflex_executed_instruction(cpu_env,
+                                              tcg_const_i64(flexus_ins_pc),
+                                              tcg_const_i32(flags),
                                               tcg_const_i32(QFLEX_EXEC_IN));
     }
 #endif /* CONFIG_FLEXUS */ /* CONFIG_FA_QFLEX */
@@ -11420,13 +11433,7 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
         assert(FALSE); /* all 15 cases should be handled above */
         break;
     }
-#ifdef CONFIG_FLEXUS
-    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_periodic(cpu_env,0)); /* FIXME: currently always says in OS mode (isUser = 0) */
-    FLEXUS_IF_IN_SIMULATION(gen_helper_flexus_insn_fetch_aa64( cpu_env, tcg_const_tl(s->pc),
-                                       tcg_const_i64(s->thumb ? s->pc + 2 : s->pc + 4),
-                                       tcg_const_i32( s->thumb ? 2 : 4 ), tcg_const_i32(IS_USER(s)),
-                                       tcg_const_i32(QEMU_Non_Branch), tcg_const_i32(0) ));
- #endif
+
 #ifdef CONFIG_QUANTUM
     gen_helper_quantum(cpu_env);
 #endif
