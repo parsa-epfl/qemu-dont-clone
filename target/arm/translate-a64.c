@@ -11435,7 +11435,11 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
     }
 
 #ifdef CONFIG_QUANTUM
-    gen_helper_quantum(cpu_env);
+    // MARK
+    // FIXME: I moved the entire quantum functionality into the tcg loop 
+    // - in gen_helper_quantum there's also options like <node, record, etc...>
+    // - what do those do, what do we do with them?
+    //gen_helper_quantum(cpu_env);
 #endif
 
 #if defined (CONFIG_FLEXUS) && defined (CONFIG_EXTSNAP)

@@ -613,6 +613,9 @@ typedef struct TimersState {
     int64_t qemu_icount_bias;
     /* Only written by TCG thread */
     int64_t qemu_icount;
+
+    /* Msutherl: State variable indicating icount subsection was received */
+    bool icount_subsec_set;
 } TimersState;
 
 static TimersState timers_state;
@@ -1099,6 +1102,26 @@ static bool icount_state_needed(void *opaque)
     return use_icount;
 }
 
+static int icount_timers_post_load(void *opaque, int version_id) {
+    TimersState *s = (TimersState*) opaque;
+    s->icount_subsec_set = true;
+    return 0;
+}
+
+static int timers_global_pre_load(void *opaque) {
+    TimersState *s = (TimersState*) opaque;
+    s->icount_subsec_set = false;
+    return 0;
+}
+
+static int timers_global_post_load(void *opaque,int version_id) {
+    TimersState *s = (TimersState*) opaque;
+    if (use_icount && !s->icount_subsec_set) {
+        timers_state.qemu_icount_bias = cpu_get_clock();
+    }
+    return 0;
+}
+
 /*
  * This is a subsection for icount migration.
  */
@@ -1107,6 +1130,7 @@ static const VMStateDescription icount_vmstate_timers = {
     .version_id = 1,
     .minimum_version_id = 1,
     .needed = icount_state_needed,
+    .post_load = icount_timers_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_INT64(qemu_icount_bias, TimersState),
         VMSTATE_INT64(qemu_icount, TimersState),
@@ -1118,6 +1142,8 @@ static const VMStateDescription vmstate_timers = {
     .name = "timer",
     .version_id = 2,
     .minimum_version_id = 1,
+    .pre_load = timers_global_pre_load,
+    .post_load = timers_global_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_INT64(cpu_ticks_offset, TimersState),
         VMSTATE_INT64(dummy, TimersState),
@@ -1281,13 +1307,19 @@ void configure_quantum(QemuOpts *opts, Error **errp)
         error_setg(errp, "quantum option is not valid");
         exit(1);
     }
-    if (qopt && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
-        processForOpts(&quantum_state.quantum_value, qopt, errp);
-    } else if (qopt && !qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
-        processForOpts(&quantum_state.quantum_value, qopt, errp);
-        printf("quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
-        //error_setg(errp, "quantum value is not guaranteed to work with chaning TBs. use '-d nochain'");
+
+    if (qopt) {
+        if (qemu_tcg_mttcg_enabled()) {
+            error_setg(errp, "Quantum is not supported with mttcg. Use -accel tcg,thread=single or -icount.\n");
+            exit(1);
+        } else {
+            processForOpts(&quantum_state.quantum_value, qopt, errp);
+            if (!qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN)) {
+                printf("quantum value is not guaranteed to work with chaining TBs. use '-d nochain'\n");
+            }
+        }
     }
+
     if (qopt_record) {
         processForOpts(&quantum_state.quantum_record_value, qopt_record, errp);
     }
@@ -1840,8 +1872,17 @@ static int64_t tcg_get_icount_limit(void)
         if ((deadline < 0) || (deadline > INT32_MAX)) {
             deadline = INT32_MAX;
         }
-
+#ifdef CONFIG_QUANTUM
+        int64_t quantum_val = query_quantum_core_value();
+        if (quantum_val > 0) { // assume quantum is enabled
+            int64_t icount_scaled = qemu_icount_round(deadline);
+            return (icount_scaled < quantum_val) ? icount_scaled : quantum_val;
+        } else {
+            return qemu_icount_round(deadline);
+        }
+#else
         return qemu_icount_round(deadline);
+#endif
     } else {
         return replay_get_instructions();
     }
@@ -2077,6 +2118,18 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
 #ifdef CONFIG_FLEXUS
     int counter = 0, init_counter = 0;
     bool initialize[64] = {false}, completed[64] = {false}, ff = unlikely(qflex_loglevel_mask(QFLEX_LOG_FF));
+
+    if (!ff) {
+        if (flexus_state.mode == TIMING) {
+            goto _label_start_timing;
+        }
+        else if (!qflex_trace_enabled && flexus_state.mode == TRACE) {
+            qflex_trace_enabled = true;
+            qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
+                    "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
+        }
+    }
+
 #endif
     while (1) {
         /* Account partial waits to QEMU_CLOCK_VIRTUAL.  */
@@ -2163,25 +2216,8 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
                     initialize[cpu->cpu_index] = true;
                     init_counter += 1;
                 }
-            } else { // no ff, immediately start
-                if (flexus_state.mode == TIMING) {
-                    if( !completed[cpu->cpu_index] && r != EXCP_HALTED ) {
-                        completed[cpu->cpu_index] = true;
-                        counter++;
-                    }
-                    if(counter == smp_cpus) {
-                        qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: Not in FFW mode, immediately starting timing.\n");
-                        break;
-                    }
-                }
-                else if (!qflex_trace_enabled && flexus_state.mode == TRACE) {
-                    qflex_trace_enabled = true;
-                    qflex_log_mask(QFLEX_LOG_GENERAL, "QFLEX: TRACE START\n"
-                                  "    -> Starting trace simulation. Enabling callbacks into Flexus.\n");
-                }
-            }
+            } 
 #endif
-
             cpu = CPU_NEXT(cpu);
 
             PTH_YIELD
