@@ -1872,7 +1872,7 @@ static int64_t tcg_get_icount_limit(void)
         if ((deadline < 0) || (deadline > INT32_MAX)) {
             deadline = INT32_MAX;
         }
-
+#ifdef CONFIG_QUANTUM
         int64_t quantum_val = query_quantum_core_value();
         if (quantum_val > 0) { // assume quantum is enabled
             int64_t icount_scaled = qemu_icount_round(deadline);
@@ -1880,6 +1880,9 @@ static int64_t tcg_get_icount_limit(void)
         } else {
             return qemu_icount_round(deadline);
         }
+#else
+        return qemu_icount_round(deadline);
+#endif
     } else {
         return replay_get_instructions();
     }
