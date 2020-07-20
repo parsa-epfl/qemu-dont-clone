@@ -929,7 +929,7 @@ static void do_gpr_ld_memidx(DisasContext *s,
 
     tcg_gen_qemu_ld_i64(dest, tcg_addr, memidx, memop);
 #ifdef CONFIG_FLEXUS
-    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_st_aa64(cpu_env,
+    FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_ld_aa64(cpu_env,
                   tcg_addr, tcg_const_i32( 1 << size /* size */ ),
                   tcg_const_i32(IS_USER(s)),
                                tcg_const_tl(flexus_ins_pc), tcg_const_i32(0)) );
