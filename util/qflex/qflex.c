@@ -45,6 +45,7 @@
 #include "qflex/qflex.h"
 #include "../libqflex/api.h"
 
+#define COPY_EXCP_HALTED 0x10003
 
 bool qflex_inst_done = false;
 bool qflex_prologue_done = false;
@@ -74,7 +75,7 @@ int qflex_prologue(CPUState *cpu) {
 
 int qflex_singlestep(CPUState *cpu) {
     int ret = 0;
-    while(!qflex_is_inst_done()) {
+    while(!qflex_is_inst_done() && (ret != COPY_EXCP_HALTED)) {
         ret = qflex_cpu_step(cpu, SINGLESTEP);
     }
     qflex_update_inst_done(false);
