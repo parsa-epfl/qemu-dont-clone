@@ -234,13 +234,8 @@ uint64_t cpu_get_program_counter(void *cs_) {
 bool cpu_is_idle(void* obj)
 {
     CPUState *cs = (CPUState*)obj;
-    ARMCPU *cpu = ARM_CPU(cs);
-
-    return !((cpu->power_state != PSCI_OFF)
-             && cs->interrupt_request &
-             (CPU_INTERRUPT_FIQ | CPU_INTERRUPT_HARD
-              | CPU_INTERRUPT_VFIQ | CPU_INTERRUPT_VIRQ
-              | CPU_INTERRUPT_EXITTB));
+    
+    return cs->halted;
 }
 
 void cpu_write_register(void *cpu, arm_register_t reg_type, int reg_index, uint64_t value ) {
