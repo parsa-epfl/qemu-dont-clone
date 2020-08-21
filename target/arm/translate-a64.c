@@ -2023,7 +2023,7 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
                                         cpu_reg(s, rn),
                                         tcg_const_i32( s->thumb ? 2 : 4 ),
                                         tcg_const_i32(IS_USER(s)),
-                                        tcg_const_i32(QEMU_Unconditional_Branch), tcg_const_i32(0) ));
+                                        tcg_const_i32(QEMU_IndirectReg_Branch), tcg_const_i32(0) ));
     insn_is_branch = true;
 #endif /* CONFIG_FLEXUS */
         gen_a64_set_pc(s, cpu_reg(s, rn));
@@ -2035,7 +2035,7 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
                                         cpu_reg(s, rn),
                                         tcg_const_i32( s->thumb ? 2 : 4 ),
                                         tcg_const_i32(IS_USER(s)),
-                                        tcg_const_i32(QEMU_Call_Branch), tcg_const_i32(0) ));
+                                        tcg_const_i32(QEMU_IndirectCall_Branch), tcg_const_i32(0) ));
     insn_is_branch = true;
 #endif /* CONFIG_FLEXUS */
         gen_a64_set_pc(s, cpu_reg(s, rn));
@@ -2054,6 +2054,15 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
         gen_a64_set_pc(s, cpu_reg(s, rn));
         break;
     case 4: /* ERET */
+#ifdef CONFIG_FLEXUS
+        FLEXUS_IF_IN_SIMULATION( gen_helper_flexus_insn_fetch_aa64( cpu_env,
+                                        tcg_const_tl(flexus_ins_pc),
+                                        cpu_reg(s, rn),
+                                        tcg_const_i32( s->thumb ? 2 : 4 ),
+                                        tcg_const_i32(IS_USER(s)),
+                                        tcg_const_i32(QEMU_Return_Branch), tcg_const_i32(0) ));
+    insn_is_branch = true;
+#endif /* CONFIG_FLEXUS */
         if (s->current_el == 0) {
             unallocated_encoding(s);
             return;
