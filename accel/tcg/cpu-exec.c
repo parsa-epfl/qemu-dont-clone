@@ -802,7 +802,6 @@ int cpu_exec(CPUState *cpu)
 
 
 #if defined(CONFIG_FLEXUS)
-bool qflex_broke_loop = false;
 int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
 {
     PTH_UPDATE_CONTEXT;
@@ -844,7 +843,6 @@ int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
 #ifndef CONFIG_SOFTMMU
         tcg_debug_assert(!have_mmap_lock());
 #endif
-        qflex_broke_loop = false;
         cpu->can_do_io = 1;
         tb_lock_reset();
         if (qemu_mutex_iothread_locked()) {
@@ -858,43 +856,40 @@ int qflex_cpu_exec(CPUState *cpu, QFlexExecType_t type)
         ret = cpu->interrupt_request;
     }
 
-    while (qflex_broke_loop || !cpu_handle_exception(cpu, &ret)) {
-        static TranslationBlock *last_tb = NULL;
-        static int tb_exit = 0;
-        if(qflex_broke_loop == false){
-            last_tb = NULL;
-            tb_exit = 0;
-        }
-        qflex_broke_loop = false;
+    while (!cpu_handle_exception(cpu, &ret)) {
+        TranslationBlock *last_tb = NULL;
+        int tb_exit = 0;
 
         while (!cpu_handle_interrupt(cpu, &last_tb)) {
 
             TranslationBlock *tb = tb_find(cpu, last_tb, tb_exit);
             cpu_loop_exec_tb(cpu, tb, &last_tb, &tb_exit);
-
+            /* Try to align the host and virtual clocks
+               if the guest is in advance */
             align_clocks(&sc, cpu);
+
+            /* Exit to the main loop/Flexus depending on mode */
             switch(type) {
                 case SINGLESTEP:
                     if(qflex_is_inst_done()){
-                        qflex_broke_loop = true;
+                        atomic_set(&cpu->exit_request, 1);
+                        cpu->exception_index = EXCP_INTERRUPT;
                     }
                     break;
                 case PROLOGUE:
                     if(qflex_is_inst_done()){
                         qflex_update_prologue_done(((CPUArchState *)(cpu->env_ptr))->pc);
                         if(qflex_is_prologue_done()){
-                            qflex_broke_loop = true;
+                            atomic_set(&cpu->exit_request, 1);
+                            cpu->exception_index = EXCP_INTERRUPT;
                         }
                     }
                     break;
                 default:
+                    g_assert_not_reached(); // for def case
                     break;
             }
-            if(qflex_broke_loop)
-                break;
         }
-        if(qflex_broke_loop)
-            break;
     }
 
     cc->cpu_exec_exit(cpu);
