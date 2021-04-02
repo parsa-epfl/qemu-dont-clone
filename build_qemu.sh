@@ -164,6 +164,7 @@ if [ "${INSTALL_DEPS}" = "TRUE" ]; then
         ./build_pth.sh
         popd > /dev/null
     fi
+fi
 
 JOBS=$(($(getconf _NPROCESSORS_ONLN) + 1))
 echo "=== Using ${JOBS} simultaneous jobs ==="
@@ -183,3 +184,4 @@ elif [ "${BUILD_TIMING}" = "TRUE" ]; then
     ./config.timing
     make clean && make -j${JOBS}
 fi
+
