@@ -42,8 +42,6 @@
 // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //  DO-NOT-REMOVE end-copyright-block
-#ifdef CONFIG_PTH
-
 #include "qemu/thread-pth-internal.h"
 
 /*
@@ -1033,5 +1031,3 @@ int pthpthread_abort(pth_t thread)
         return errno;
     return OK;
 }
-
-#endif //  CONFIG_PTH

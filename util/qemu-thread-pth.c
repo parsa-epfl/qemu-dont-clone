@@ -42,8 +42,6 @@
 // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //  DO-NOT-REMOVE end-copyright-block
-#ifdef CONFIG_PTH
-
 #include "qemu/osdep.h"
 #include "qemu/thread.h"
 #include "qemu/atomic.h"
@@ -613,6 +611,3 @@ pth_wrapper* pth_get_wrapper(void){
 
     assert(false && "pth: thread was none added to pth thread list! did you use function attributes? if yes, they are not supported.");
 }
-
-
-#endif //  CONFIG_PTH

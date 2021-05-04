@@ -28,6 +28,7 @@ static AioContext *ctx[NUM_CONTEXTS];
 
 #ifndef CONFIG_PTH // if using PTH, thread ID goes in wrapper version of TLS
 static __thread int id = -1;
+#define id PTH_TLS_GET(id)
 #endif
 
 static QemuEvent done_event;
@@ -63,10 +64,9 @@ static void ctx_run(int i, QEMUBHFunc *cb, void *opaque)
 
 static void set_id_cb(void *opaque)
 {
-    PTH_UPDATE_CONTEXT;
     int *i = opaque;
 
-    PTH(id) = *i;
+    id = *i;
 }
 
 static void create_aio_contexts(void)
@@ -122,7 +122,6 @@ static int count_other;
 
 static bool schedule_next(int n)
 {
-    PTH_UPDATE_CONTEXT;
     Coroutine *co;
 
     co = atomic_xchg(&to_schedule[n], NULL);
@@ -131,7 +130,7 @@ static bool schedule_next(int n)
         return false;
     }
 
-    if (n == PTH(id)) {
+    if (n == id) {
         atomic_inc(&count_here);
     } else {
         atomic_inc(&count_other);
@@ -143,15 +142,13 @@ static bool schedule_next(int n)
 
 static void finish_cb(void *opaque)
 {
-    PTH_UPDATE_CONTEXT;
-    schedule_next(PTH(id));
+    schedule_next(id);
 }
 
 static coroutine_fn void test_multi_co_schedule_entry(void *opaque)
 {
-    PTH_UPDATE_CONTEXT;
-    g_assert(to_schedule[PTH(id)] == NULL);
-    atomic_mb_set(&to_schedule[PTH(id)], qemu_coroutine_self());
+    g_assert(to_schedule[id] == NULL);
+    atomic_mb_set(&to_schedule[id], qemu_coroutine_self());
 
     while (!atomic_mb_read(&now_stopping)) {
         int n;
@@ -160,8 +157,8 @@ static coroutine_fn void test_multi_co_schedule_entry(void *opaque)
         schedule_next(n);
         qemu_coroutine_yield();
 
-        g_assert(to_schedule[PTH(id)] == NULL);
-        atomic_mb_set(&to_schedule[PTH(id)], qemu_coroutine_self());
+        g_assert(to_schedule[id] == NULL);
+        atomic_mb_set(&to_schedule[id], qemu_coroutine_self());
     }
 }
 
@@ -302,29 +299,27 @@ static int mutex_head = -1;
 
 static void mcs_mutex_lock(void)
 {
-    PTH_UPDATE_CONTEXT;
     int prev;
 
-    nodes[PTH(id)].next = -1;
-    nodes[PTH(id)].locked = 1;
-    prev = atomic_xchg(&mutex_head, PTH(id));
+    nodes[id].next = -1;
+    nodes[id].locked = 1;
+    prev = atomic_xchg(&mutex_head, id);
     if (prev != -1) {
-        atomic_set(&nodes[prev].next, PTH(id));
-        qemu_futex_wait(&nodes[PTH(id)].locked, 1);
+        atomic_set(&nodes[prev].next, id);
+        qemu_futex_wait(&nodes[id].locked, 1);
     }
 }
 
 static void mcs_mutex_unlock(void)
 {
-    PTH_UPDATE_CONTEXT;
     int next;
-    if (atomic_read(&nodes[PTH(id)].next) == -1) {
-        if (atomic_read(&mutex_head) == PTH(id) &&
-            atomic_cmpxchg(&mutex_head, PTH(id), -1) == PTH(id)) {
+    if (atomic_read(&nodes[id].next) == -1) {
+        if (atomic_read(&mutex_head) == id &&
+            atomic_cmpxchg(&mutex_head, id, -1) == id) {
             /* Last item in the list, exit.  */
             return;
         }
-        while (atomic_read(&nodes[PTH(id)].next) == -1) {
+        while (atomic_read(&nodes[id].next) == -1) {
             /* mcs_mutex_lock did the xchg, but has not updated
              * nodes[prev].next yet.
              */
@@ -332,7 +327,7 @@ static void mcs_mutex_unlock(void)
     }
 
     /* Wake up the next in line.  */
-    next = atomic_read(&nodes[PTH(id)].next);
+    next = atomic_read(&nodes[id].next);
     nodes[next].locked = 0;
     qemu_futex_wake(&nodes[next].locked, 1);
 }

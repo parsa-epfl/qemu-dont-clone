@@ -82,11 +82,13 @@ typedef struct QemuThread QemuThread;
 	#define PTH(NAME) w->NAME
 	#define PTH_X(NAME, ORIG) w->NAME
 	#define PTH_YIELD pth_yield(NULL);
+	#define PTH_TLS_GET(NAME) pth_get_wrapper()->NAME
 #else
 	#define PTH(NAME) NAME
 	#define PTH_UPDATE_CONTEXT
 	#define PTH_X(NAME, ORIG) ORIG
 	#define PTH_YIELD
+    #define PTH_TLS_GET(NAME) assert(false);
 #endif
 
 #define QEMU_THREAD_JOINABLE 0
