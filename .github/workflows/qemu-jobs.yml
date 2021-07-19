@@ -1,0 +1,178 @@
+name: Build and check tests for QFlex enabled and base QEMU
+
+on: 
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+    branches:
+      - master
+      - dev
+  workflow_dispatch:
+
+jobs:
+  build_and_check_job_definition: # native_build_job_definition:
+    runs-on: ubuntu-latest
+    name: Configure, build and check QEMU # native_build_job_definition
+    strategy:
+      matrix:
+        include:
+          - # NOTE: --enable-fdt=system --enable-slirp=system was removed
+            build-name: Build for Ubuntu 20.04 + check # build-system-ubuntu
+            targets: aarch64-softmmu
+            make-check-args: check
+          - build-name: Build for user-mode + check-tcg # build-user
+            targets: aarch64-linux-user
+            configure-args: --disable-tools --disable-system
+            make-check-args: check-tcg
+          - build-name: Build for system-mode + check-tcg # build-some-softmmu
+            targets: aarch64-softmmu
+            configure-args: --disable-tools --enable-debug
+            make-check-args: check-tcg
+#          - build-name: build-user-plugins
+#            targets: aarch64-linux-user
+#            configure-args: --disable-tools --disable-system --enable-plugins --enable-debug-tcg
+#            make-check-args: check-tcg
+          - build-name: Build for system-mode with plugins enabled + check-tcg # build-some-softmmu-plugins
+            targets: aarch64-softmmu
+            configure-args: --disable-tools --disable-user --enable-plugins --enable-debug-tcg
+            make-check-args: check-tcg
+          - build-name: Build using clang + check-tcg, check-qtest # clang-system
+            targets: aarch64-softmmu
+            configure-args: --cc=clang --cxx=clang++
+              --extra-cflags=-fsanitize=undefined --extra-cflags=-fno-sanitize-recover=undefined
+            make-check-args: check-qtest check-tcg
+#          - build-name: clang-user
+#            targets: aarch64-linux-user
+#            configure-args: --cc=clang --cxx=clang++ --disable-system
+#              --extra-cflags=-fsanitize=undefined --extra-cflags=-fno-sanitize-recover=undefined
+#            make-check-args: check-unit check-tcg
+          - # NOTE: removed --disable-pie because it results in compilation errors on ubuntu
+            build-name: Build with all features disabled + check-qtest # build-disabled
+            targets: aarch64-softmmu
+            make-check-args: check-qtest SPEED=slow
+            configure-args: 
+              --disable-attr
+              --disable-auth-pam
+              --disable-avx2
+              --disable-bochs
+              --disable-brlapi
+              --disable-bzip2
+              --disable-cap-ng
+              --disable-capstone
+              --disable-cloop
+              --disable-coroutine-pool
+              --disable-curl
+              --disable-curses
+              --disable-dmg
+              --disable-docs
+              --disable-gcrypt
+              --disable-glusterfs
+              --disable-gnutls
+              --disable-gtk
+              --disable-guest-agent
+              --disable-iconv
+              --disable-keyring
+              --disable-kvm
+              --disable-libiscsi
+              --disable-libpmem
+              --disable-libssh
+              --disable-libudev
+              --disable-libusb
+              --disable-libxml2
+              --disable-linux-aio
+              --disable-live-block-migration
+              --disable-lzo
+              --disable-malloc-trim
+              --disable-mpath
+              --disable-nettle
+              --disable-numa
+              --disable-opengl
+              --disable-parallels
+              --disable-qcow1
+              --disable-qed
+              --disable-qom-cast-debug
+              --disable-rbd
+              --disable-rdma
+              --disable-replication
+              --disable-sdl
+              --disable-seccomp
+              --disable-sheepdog
+              --disable-slirp
+              --disable-smartcard
+              --disable-snappy
+              --disable-sparse
+              --disable-spice
+              --disable-strip
+              --disable-tpm
+              --disable-usb-redir
+              --disable-vdi
+              --disable-vhost-crypto
+              --disable-vhost-net
+              --disable-vhost-scsi
+              --disable-vhost-kernel
+              --disable-vhost-user
+              --disable-vhost-vdpa
+              --disable-vhost-vsock
+              --disable-virglrenderer
+              --disable-vnc
+              --disable-vte
+              --disable-vvfat
+              --disable-xen
+              --disable-zstd
+    timeout-minutes: 90
+    env: 
+      TARGETS: ${{ matrix.targets }}
+      CONFIGURE_ARGS: ${{ matrix.configure-args }}
+      MAKE_CHECK_ARGS: ${{ matrix.make-check-args }}
+      LD_JOBS: ${{ matrix.ld_jobs }}
+    steps:
+      - name: Checkout directory
+        uses: actions/checkout@v2
+## Alternatively to executing the `install-deps.sh` script on every job, one 
+## could run the tests in a docker image with all the dependencies preinstalled.
+#      - name: Fetch Docker image from QEMU
+#        uses: docker://registry.gitlab.com/qemu-project/qemu/qemu/ubuntu2004
+      - name: Install depedencies
+        run: bash scripts/qflex/install-deps.sh
+      - # NOTE: For some reason, slirp submodule is not fetched correctly in GitHub Actions
+        name: Build and install slirp (conditional)
+        if: contains(matrix.configure-args, 'enable-slirp')
+        run: |
+          git submodule update --init --recursive slirp 
+          git submodule update --remote slirp
+          cd slirp 
+          meson build 
+          sudo ninja -C build install
+      - name: Configure
+        run: if test -n "$TARGETS"; 
+             then
+               ./configure --enable-werror --disable-docs --disable-containers $CONFIGURE_ARGS --target-list="$TARGETS" ;
+             else
+               ./configure --enable-werror --disable-docs --disable-containers $CONFIGURE_ARGS ;
+             fi || { cd build && cat config.log meson-logs/meson-log.txt && exit 1; }
+      - name: Run meson configure LD_JOBS (conditional)
+        if: ${{ matrix.ld_jobs }}
+        run: if test -n "$LD_JOBS";
+             then
+               meson configure . -Dbackend_max_links="$LD_JOBS" ;
+             fi || exit 1;
+      - name: Make 
+        run: make -j$(expr $(nproc) + 1)
+      - name: Run check-build
+        run: make -j$(expr $(nproc) + 1) check-build ;
+      - name: Run extra checks tests (conditional)
+        if: ${{ env.MAKE_CHECK_ARGS }}
+        run: make -j$(expr $(nproc) + 1) $MAKE_CHECK_ARGS ;
+        # NOTE: We tar the artifact before saving to keep file permissions
+      - name: Tar artifact (build folder) (conditional)
+        if: ${{ matrix.upload-build == 'true'}}
+        run: tar -cf build.tar build
+      - name: Save and upload artifact (conditional)
+        uses: actions/upload-artifact@v2
+        if: ${{ matrix.upload-build == 'true'}}
+        with:
+          retention-days: 2
+          name: ${{ matrix.build-name }}
+          path: build.tar
