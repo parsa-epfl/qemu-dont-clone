@@ -48,11 +48,6 @@ jobs:
 #            configure-args: --cc=clang --cxx=clang++ --disable-system
 #              --extra-cflags=-fsanitize=undefined --extra-cflags=-fno-sanitize-recover=undefined
 #            make-check-args: check-unit check-tcg
-          - build-name: Build with TCG interpreter, lauches boot and cdrom tests # build-tci
-            targets: aarch64-softmmu
-            configure-args: --enable-tcg-interpreter
-            make-check-args: tests/qtest/boot-serial-test tests/qtest/cdrom-test
-            launch-test-args: tests/qtest/boot-serial-test tests/qtest/cdrom-test
           - # NOTE: removed --disable-pie because it results in compilation errors on ubuntu
             build-name: Build with all features disabled + check-qtest # build-disabled
             targets: aarch64-softmmu
@@ -132,7 +127,6 @@ jobs:
       CONFIGURE_ARGS: ${{ matrix.configure-args }}
       MAKE_CHECK_ARGS: ${{ matrix.make-check-args }}
       LD_JOBS: ${{ matrix.ld_jobs }}
-      LAUNCH_TEST_ARGS: ${{ matrix.launch-test-args }}
     steps:
       - name: Checkout directory
         uses: actions/checkout@v2
@@ -172,15 +166,6 @@ jobs:
         if: ${{ env.MAKE_CHECK_ARGS }}
         run: make -j$(expr $(nproc) + 1) $MAKE_CHECK_ARGS ;
         # NOTE: We tar the artifact before saving to keep file permissions
-      - name: Run individual tests (conditional)
-        if: ${{ matrix.launch-test-args }}
-        run: for tg in $TARGETS ; do
-               export QTEST_QEMU_BINARY="./qemu-system-${tg}" ;
-               for test in $LAUNCH_TEST_ARGS ; do
-                  ./${test} || exit 1 ;
-               done
-             done
-        working-directory: build
       - name: Tar artifact (build folder) (conditional)
         if: ${{ matrix.upload-build == 'true'}}
         run: tar -cf build.tar build
