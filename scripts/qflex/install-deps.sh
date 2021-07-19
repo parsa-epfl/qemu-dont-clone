@@ -36,6 +36,8 @@ sudo apt-get update && \
         python3-venv \
         python3-pip \
         libpthread-stubs0-dev \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
         libiscsi-dev
 
 # Install meson as root
